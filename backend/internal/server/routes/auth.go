@@ -17,6 +17,7 @@ func RegisterAuthRoutes(
 	v1 *gin.RouterGroup,
 	h *handler.Handlers,
 	jwtAuth servermiddleware.JWTAuthMiddleware,
+	optionalJWTAuth servermiddleware.OptionalJWTAuthMiddleware,
 	auditLog servermiddleware.AuditLogMiddleware,
 	redisClient *redis.Client,
 	settingService *service.SettingService,
@@ -24,6 +25,14 @@ func RegisterAuthRoutes(
 ) {
 	// 创建速率限制器
 	rateLimiter := middleware.NewRateLimiter(redisClient)
+
+	// OAuth Server：官网给第三方应用（如本地 skoob）授权登录。
+	// authorize 用可选 JWT（匿名访问 → 重定向登录页；已登录 → 签发 code）；token 公开。
+	oauthGroup := v1.Group("/oauth")
+	{
+		oauthGroup.GET("/authorize", gin.HandlerFunc(optionalJWTAuth), h.Auth.OAuthAuthorize)
+		oauthGroup.POST("/token", h.Auth.OAuthToken)
+	}
 
 	// 公开接口
 	auth := v1.Group("/auth")

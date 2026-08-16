@@ -80,6 +80,7 @@ type Config struct {
 	DingTalk                DingTalkConnectConfig         `mapstructure:"dingtalk_connect"`
 	GitHubOAuth             EmailOAuthProviderConfig      `mapstructure:"github_oauth"`
 	GoogleOAuth             EmailOAuthProviderConfig      `mapstructure:"google_oauth"`
+	OAuthServer             OAuthServerConfig             `mapstructure:"oauth_server"`
 	Default                 DefaultConfig                 `mapstructure:"default"`
 	RateLimit               RateLimitConfig               `mapstructure:"rate_limit"`
 	Pricing                 PricingConfig                 `mapstructure:"pricing"`
@@ -395,6 +396,14 @@ type EmailOAuthProviderConfig struct {
 	Scopes              string `mapstructure:"scopes"`
 	RedirectURL         string `mapstructure:"redirect_url"`
 	FrontendRedirectURL string `mapstructure:"frontend_redirect_url"`
+}
+
+// OAuthServerConfig 官网作为 OAuth Server 给第三方应用(如本地 skoob)授权的客户端配置。
+// 单客户端(first-party):环境变量 OAUTH_SERVER_CLIENT_ID / OAUTH_SERVER_CLIENT_SECRET / OAUTH_SERVER_REDIRECT_URI。
+type OAuthServerConfig struct {
+	ClientID     string `mapstructure:"client_id"`
+	ClientSecret string `mapstructure:"client_secret"`
+	RedirectURI  string `mapstructure:"redirect_uri"`
 }
 
 const (
@@ -1709,6 +1718,17 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	}
 	if err := viper.BindEnv("server.enable_server_timing", "ENABLE_SERVER_TIMING"); err != nil {
 		return nil, fmt.Errorf("bind ENABLE_SERVER_TIMING: %w", err)
+	}
+	// OAuth Server(官网给第三方应用授权)环境变量显式绑定——AutomaticEnv 对未 SetDefault 的
+	// 新字段不可靠,显式 BindEnv 保证 OAUTH_SERVER_* 能覆盖进 cfg。
+	if err := viper.BindEnv("oauth_server.client_id", "OAUTH_SERVER_CLIENT_ID"); err != nil {
+		return nil, fmt.Errorf("bind OAUTH_SERVER_CLIENT_ID: %w", err)
+	}
+	if err := viper.BindEnv("oauth_server.client_secret", "OAUTH_SERVER_CLIENT_SECRET"); err != nil {
+		return nil, fmt.Errorf("bind OAUTH_SERVER_CLIENT_SECRET: %w", err)
+	}
+	if err := viper.BindEnv("oauth_server.redirect_uri", "OAUTH_SERVER_REDIRECT_URI"); err != nil {
+		return nil, fmt.Errorf("bind OAUTH_SERVER_REDIRECT_URI: %w", err)
 	}
 
 	// 默认值
