@@ -31,6 +31,7 @@ func RegisterAuthRoutes(
 	oauthGroup := v1.Group("/oauth")
 	{
 		oauthGroup.GET("/authorize", gin.HandlerFunc(optionalJWTAuth), h.Auth.OAuthAuthorize)
+		oauthGroup.POST("/authorize", gin.HandlerFunc(optionalJWTAuth), h.Auth.OAuthAuthorizeJSON)
 		oauthGroup.POST("/token", h.Auth.OAuthToken)
 	}
 

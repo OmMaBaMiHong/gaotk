@@ -125,6 +125,62 @@ func (h *AuthHandler) OAuthAuthorize(c *gin.Context) {
 	c.Redirect(http.StatusFound, redirectURI+sep+"code="+url.QueryEscape(code)+"&state="+url.QueryEscape(state))
 }
 
+// oauthAuthorizeJSONRequest 前端授权页通过 XHR 调用 authorize 的请求体。
+// 页面携带 Authorization: Bearer <JWT>,后端返回 JSON 的 redirectUrl。
+type oauthAuthorizeJSONRequest struct {
+	ClientID    string `json:"client_id"`
+	RedirectURI string `json:"redirect_uri"`
+	State       string `json:"state"`
+}
+
+// OAuthAuthorizeJSON 授权页 JSON 端点：已登录用户点击「授权并登录」后调用。
+// POST /api/v1/oauth/authorize
+// 返回 { code: 0, data: { redirectUrl: "https://..." } }。
+func (h *AuthHandler) OAuthAuthorizeJSON(c *gin.Context) {
+	var body oauthAuthorizeJSONRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Error(c, http.StatusBadRequest, "invalid request body")
+		return
+	}
+	clientID := strings.TrimSpace(body.ClientID)
+	redirectURI := strings.TrimSpace(body.RedirectURI)
+	state := body.State
+
+	client := h.oauthServerClient()
+	if client.ClientID == "" || clientID != client.ClientID {
+		response.Error(c, http.StatusBadRequest, "unknown client_id")
+		return
+	}
+	if client.RedirectURI == "" || redirectURI != client.RedirectURI {
+		response.Error(c, http.StatusBadRequest, "redirect_uri not allowed")
+		return
+	}
+
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Error(c, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	code, err := h.signOAuthServerCode(oauthServerAuthCode{
+		UserID:    subject.UserID,
+		ClientID:  clientID,
+		ExpiresAt: time.Now().Add(oauthServerCodeTTL).Unix(),
+		Nonce:     oauthServerRandomNonce(),
+	})
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, "failed to sign authorization code")
+		return
+	}
+
+	sep := "?"
+	if strings.Contains(redirectURI, "?") {
+		sep = "&"
+	}
+	redirectURL := redirectURI + sep + "code=" + url.QueryEscape(code) + "&state=" + url.QueryEscape(state)
+	response.Success(c, gin.H{"redirectUrl": redirectURL})
+}
+
 // oauthTokenRequest OAuth token 交换请求体。
 type oauthTokenRequest struct {
 	GrantType    string `json:"grant_type"`
