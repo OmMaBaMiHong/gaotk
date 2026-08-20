@@ -1062,8 +1062,33 @@ function applyScenarioError(err: unknown, paymentMethod: string): boolean {
   return true
 }
 
-async function resumeWechatPaymentFromQuery() {
-  const resume = parseWechatResumeRoute(route.query, checkout.value.plans, validAmount.value)
+/**
+ * 购买深链预选：焚决 #/pricing「立即购买」深链
+ * `/purchase?order_type=subscription&plan=<month|quarter|year>&plan_id=<id>`。
+ * plan_id 命中套餐 → 自动切到订阅 Tab 并选中该套餐（价格/有效期就位），
+ * 处理后从 URL 清掉深链参数，避免刷新/分享时重复触发。
+ * 微信支付恢复流程（带 resume_token）优先，恢复场景不做预选。
+ */
+async function preselectPlanFromDeepLink() {
+  const rawPlanId = route.query.plan_id
+  const planId = Number.parseInt(Array.isArray(rawPlanId) ? String(rawPlanId[0]) : String(rawPlanId ?? ''), 10)
+  if (!(Number.isFinite(planId) && planId > 0)) {
+    return
+  }
+  const target = (checkout.value.plans ?? []).find(plan => plan.id === planId)
+  if (target) {
+    activeTab.value = 'subscription'
+    selectedPlan.value = target
+    errorMessage.value = ''
+  }
+  const rest = { ...route.query }
+  delete rest.order_type
+  delete rest.plan
+  delete rest.plan_id
+  await router.replace({ path: route.path, query: rest })
+}
+
+async function resumeWechatPaymentFromQuery() {  const resume = parseWechatResumeRoute(route.query, checkout.value.plans, validAmount.value)
   if (!resume) {
     return
   }
@@ -1135,6 +1160,7 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
+    await preselectPlanFromDeepLink()
     if (checkout.value.balance_disabled) {
       activeTab.value = 'subscription'
     }
