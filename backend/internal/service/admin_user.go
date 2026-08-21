@@ -505,7 +505,7 @@ func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int6
 	return affected, nil
 }
 
-func (s *adminServiceImpl) UpdateUserBalance(ctx context.Context, userID int64, balance float64, operation string, notes string) (*User, error) {
+func (s *adminServiceImpl) UpdateUserBalance(ctx context.Context, userID int64, balance float64, operation string, notes string, adjustmentType string) (*User, error) {
 	// 余额调整必须走原子接口：先读后整行写回会把并发的计费扣款覆盖掉。
 	var (
 		change BalanceChange
@@ -556,9 +556,13 @@ func (s *adminServiceImpl) UpdateUserBalance(ctx context.Context, userID int64, 
 			return user, nil
 		}
 
+		adjustmentRecordType := adjustmentType
+		if adjustmentRecordType == "" {
+			adjustmentRecordType = AdjustmentTypeAdminBalance
+		}
 		adjustmentRecord := &RedeemCode{
 			Code:   code,
-			Type:   AdjustmentTypeAdminBalance,
+			Type:   adjustmentRecordType,
 			Value:  balanceDiff,
 			Status: StatusUsed,
 			UsedBy: &user.ID,

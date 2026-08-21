@@ -93,6 +93,9 @@ type UpdateBalanceRequest struct {
 	Balance   float64 `json:"balance" binding:"required,gt=0"`
 	Operation string  `json:"operation" binding:"required,oneof=set add subtract"`
 	Notes     string  `json:"notes"`
+	// AdjustmentType 流水分类(可空,默认 admin_balance)。
+	// template_upload = 模板上传奖励——支持按类型查询/过滤/统计。
+	AdjustmentType string `json:"adjustment_type" binding:"omitempty,oneof=admin_balance template_upload"`
 }
 
 type BindUserAuthIdentityRequest struct {
@@ -404,7 +407,7 @@ func (h *UserHandler) UpdateBalance(c *gin.Context) {
 		Body:   req,
 	}
 	executeAdminIdempotentJSON(c, "admin.users.balance.update", idempotencyPayload, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
-		user, execErr := h.adminService.UpdateUserBalance(ctx, userID, req.Balance, req.Operation, req.Notes)
+		user, execErr := h.adminService.UpdateUserBalance(ctx, userID, req.Balance, req.Operation, req.Notes, req.AdjustmentType)
 		if execErr != nil {
 			return nil, execErr
 		}

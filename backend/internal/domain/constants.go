@@ -54,6 +54,7 @@ const (
 const (
 	AdjustmentTypeAdminBalance     = "admin_balance"     // 管理员调整余额
 	AdjustmentTypeAdminConcurrency = "admin_concurrency" // 管理员调整并发数
+	AdjustmentTypeTemplateUpload   = "template_upload"   // 模板上传奖励(焚决知识库贡献)
 )
 
 // Group subscription type constants

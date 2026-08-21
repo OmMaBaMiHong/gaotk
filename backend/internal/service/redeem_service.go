@@ -419,7 +419,7 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 
 	// 验证兑换码类型的前置条件。邀请码属于注册流程，不能通过普通兑换接口使用。
 	switch redeemCode.Type {
-	case RedeemTypeBalance, RedeemTypeConcurrency:
+	case RedeemTypeBalance, AdjustmentTypeTemplateUpload, RedeemTypeConcurrency:
 	case RedeemTypeSubscription:
 		if redeemCode.GroupID == nil {
 			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid subscription redeem code: missing group_id")
@@ -455,7 +455,7 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 
 	// 执行兑换逻辑（兑换码已被锁定，此时可安全操作）
 	switch redeemCode.Type {
-	case RedeemTypeBalance:
+	case RedeemTypeBalance, AdjustmentTypeTemplateUpload:
 		amount := redeemCode.Value
 		if amount < 0 {
 			if s.redeemUserRepo == nil {
@@ -517,7 +517,7 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 	s.invalidateRedeemCaches(ctx, userID, redeemCode)
 
 	// 余额类正数兑换码触发邀请返利（best-effort，失败不影响兑换结果）
-	if redeemCode.Type == RedeemTypeBalance && redeemCode.Value > 0 {
+	if (redeemCode.Type == RedeemTypeBalance || redeemCode.Type == AdjustmentTypeTemplateUpload) && redeemCode.Value > 0 {
 		s.tryAccrueAffiliateRebateForRedeem(ctx, userID, redeemCode.Value)
 	}
 
@@ -533,7 +533,7 @@ func (s *RedeemService) Redeem(ctx context.Context, userID int64, code string) (
 // invalidateRedeemCaches 失效兑换相关的缓存
 func (s *RedeemService) invalidateRedeemCaches(ctx context.Context, userID int64, redeemCode *RedeemCode) {
 	switch redeemCode.Type {
-	case RedeemTypeBalance:
+	case RedeemTypeBalance, AdjustmentTypeTemplateUpload:
 		if s.authCacheInvalidator != nil {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
 		}
