@@ -101,7 +101,10 @@ func (h *AuthHandler) OAuthAuthorize(c *gin.Context) {
 
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
-		// 未登录：跳官网登录页，登录后回到当前 authorize URL。
+		// 无 token 或无效 token：清除可能残留的无效凭证 cookie，让浏览器干净地重新登录。
+		c.SetCookie("auth_token", "", -1, "/", "", false, true)
+		c.SetCookie("access_token", "", -1, "/", "", false, true)
+		// 跳登录页，登录后回到当前 authorize URL。
 		loginURL := "/login?redirect=" + url.QueryEscape(c.Request.URL.String())
 		c.Redirect(http.StatusFound, loginURL)
 		return
