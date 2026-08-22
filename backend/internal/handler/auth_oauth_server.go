@@ -94,7 +94,7 @@ func (h *AuthHandler) OAuthAuthorize(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "unknown client_id")
 		return
 	}
-	if client.RedirectURI == "" || redirectURI != client.RedirectURI {
+	if !isAllowedRedirectURI(client.RedirectURI, redirectURI) {
 		response.Error(c, http.StatusBadRequest, "redirect_uri not allowed")
 		return
 	}
@@ -151,7 +151,7 @@ func (h *AuthHandler) OAuthAuthorizeJSON(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "unknown client_id")
 		return
 	}
-	if client.RedirectURI == "" || redirectURI != client.RedirectURI {
+	if !isAllowedRedirectURI(client.RedirectURI, redirectURI) {
 		response.Error(c, http.StatusBadRequest, "redirect_uri not allowed")
 		return
 	}
@@ -224,4 +224,24 @@ func (h *AuthHandler) OAuthToken(c *gin.Context) {
 		return
 	}
 	respondWithTokenPair(c, h.authService, user)
+}
+
+// isAllowedRedirectURI 判断 redirect_uri 是否被允许:
+// 1. 与配置的完全一致 → 允许(线上部署)
+// 2. localhost/127.0.0.1/[::1] 开头 → 允许(开源用户自部署,动态回调)
+// 3. 其他 → 拒绝(安全)
+func isAllowedRedirectURI(configured, requested string) bool {
+	if configured == "" {
+		return false
+	}
+	if configured == requested {
+		return true
+	}
+	// 开源自部署:允许本地回调(任何端口)
+	if strings.HasPrefix(requested, "http://127.0.0.1:") ||
+		strings.HasPrefix(requested, "http://localhost:") ||
+		strings.HasPrefix(requested, "http://[::1]:") {
+		return true
+	}
+	return false
 }
