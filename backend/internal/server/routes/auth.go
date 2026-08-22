@@ -30,9 +30,7 @@ func RegisterAuthRoutes(
 	// authorize 用可选 JWT（匿名访问 → 重定向登录页；已登录 → 签发 code）；token 公开。
 	oauthGroup := v1.Group("/oauth")
 	{
-		// OAuth authorize 不走 optionalJWTAuth(无效 token 会 401 而不是跳登录页)。
-		// handler 内部处理:无 token/无效 token → 清 cookie → 302 登录页。
-		oauthGroup.GET("/authorize", h.Auth.OAuthAuthorize)
+		oauthGroup.GET("/authorize", gin.HandlerFunc(optionalJWTAuth), h.Auth.OAuthAuthorize)
 		oauthGroup.POST("/authorize", gin.HandlerFunc(optionalJWTAuth), h.Auth.OAuthAuthorizeJSON)
 		oauthGroup.POST("/token", h.Auth.OAuthToken)
 	}

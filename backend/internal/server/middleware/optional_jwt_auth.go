@@ -25,6 +25,16 @@ func NewOptionalJWTAuthMiddleware(
 			c.Next()
 			return
 		}
+		// 严格校验,但拦截 401:无效 token 清除凭证后匿名放行(handler 决定跳登录)。
+		// 这样 OAuth authorize 等浏览器页面不会因旧 token 而白屏 404。
 		strict(c)
+		if c.IsAborted() {
+			c.Abort()
+			// 清除可能残留的无效 token cookie
+			c.SetCookie("auth_token", "", -1, "/", "", false, true)
+			c.SetCookie("access_token", "", -1, "/", "", false, true)
+			// 不返回 401,继续放行(handler 会因为无 subject 而跳登录)
+			c.Next()
+		}
 	})
 }
