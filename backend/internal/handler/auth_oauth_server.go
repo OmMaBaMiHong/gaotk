@@ -17,6 +17,7 @@ import (
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 
 	"github.com/gin-gonic/gin"
+	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 )
 
 // oauthServerCodeTTL 授权码有效期（一次性 code，无状态签名）。
@@ -84,6 +85,38 @@ func oauthServerRandomNonce() string {
 // OAuthAuthorize 官网作为 OAuth Server 的授权端点（无 consent，first-party）。
 // GET /api/v1/oauth/authorize?client_id=skoob&redirect_uri=...&state=...
 // 未登录 → 重定向官网登录页；已登录 → 签发一次性签名 code 重定向回 redirect_uri。
+// OAuthAuthorizeWithAuth 先做认证(有效→设 subject;无效→清 cookie 匿名),再走 OAuthAuthorize。
+func (h *AuthHandler) OAuthAuthorizeWithAuth(c *gin.Context) {
+	h.oauthTryAuth(c)
+	h.OAuthAuthorize(c)
+}
+
+// oauthTryAuth 尝试从 Authorization header 验证 token(有效设 subject,无效清 cookie)。
+func (h *AuthHandler) oauthTryAuth(c *gin.Context) {
+	authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
+	parts := strings.SplitN(authHeader, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+		return
+	}
+	tokenString := strings.TrimSpace(parts[1])
+	if tokenString == "" {
+		return
+	}
+	claims, err := h.authService.ValidateToken(tokenString)
+	if err != nil {
+		c.SetCookie("auth_token", "", -1, "/", "", false, true)
+		c.SetCookie("access_token", "", -1, "/", "", false, true)
+		return
+	}
+	user, err := h.userService.GetByID(c.Request.Context(), claims.UserID)
+	if err != nil || !user.IsActive() || claims.TokenVersion != user.TokenVersion {
+		c.SetCookie("auth_token", "", -1, "/", "", false, true)
+		c.SetCookie("access_token", "", -1, "/", "", false, true)
+		return
+	}
+	c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: user.ID, Concurrency: user.Concurrency})
+}
+
 func (h *AuthHandler) OAuthAuthorize(c *gin.Context) {
 	clientID := strings.TrimSpace(c.Query("client_id"))
 	redirectURI := strings.TrimSpace(c.Query("redirect_uri"))

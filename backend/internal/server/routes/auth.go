@@ -30,7 +30,7 @@ func RegisterAuthRoutes(
 	// authorize 用可选 JWT（匿名访问 → 重定向登录页；已登录 → 签发 code）；token 公开。
 	oauthGroup := v1.Group("/oauth")
 	{
-		oauthGroup.GET("/authorize", gin.HandlerFunc(optionalJWTAuth), h.Auth.OAuthAuthorize)
+		oauthGroup.GET("/authorize", h.Auth.OAuthAuthorizeWithAuth)
 		oauthGroup.POST("/authorize", gin.HandlerFunc(optionalJWTAuth), h.Auth.OAuthAuthorizeJSON)
 		oauthGroup.POST("/token", h.Auth.OAuthToken)
 	}
