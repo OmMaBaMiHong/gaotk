@@ -222,6 +222,14 @@
 </template>
 
 <script setup lang="ts">
+// OAuth 授权页跳转辅助:SPA 路由不识别 /oauth/ 路径,必须整页跳转让 nginx 拦截。
+function navigateAfterLogin(redirectTo: string) {
+  if (redirectTo.startsWith('/oauth/') || redirectTo.includes('/oauth/authorize')) {
+    window.location.href = redirectTo
+    return
+  }
+  return router.push(redirectTo)
+}
 import { computed, ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -602,7 +610,7 @@ async function handleLogin(): Promise<void> {
 
     // Redirect to dashboard or intended route
     const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
-    await router.push(redirectTo)
+    await navigateAfterLogin(redirectTo)
   } catch (error: unknown) {
     errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', t('auth.loginFailed'))
 
@@ -643,7 +651,7 @@ async function handlePasskeyLogin(): Promise<void> {
     clearAllAffiliateReferralCodes()
     appStore.showSuccess(t('auth.loginSuccess'))
     const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
-    await router.push(redirectTo)
+    await navigateAfterLogin(redirectTo)
   } catch (error: unknown) {
     const fallback = error instanceof DOMException && error.name === 'NotAllowedError'
       ? t('auth.passkeyCancelled')
@@ -712,7 +720,7 @@ async function handle2FAVerify(code: string): Promise<void> {
 
     // Redirect to dashboard or intended route
     const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
-    await router.push(redirectTo)
+    await navigateAfterLogin(redirectTo)
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { message?: string } } }
     const message = err.response?.data?.message || err.message || t('profile.totp.loginFailed')
