@@ -678,6 +678,27 @@ export async function exchangePendingOAuthCompletion(
   return completePendingOAuthBindLogin(decision)
 }
 
+/**
+ * OAuth Server：第三方应用（如 Skoob）的授权确认。
+ *
+ * 授权页拿到用户点「同意」后调它，后端签发一次性 code 并拼好回跳地址。
+ * 后端同址还有一个 GET 版本，那个是给**浏览器整页跳转**用的；页面里用
+ * 这个 POST 版本，因为它能带上 Authorization 头（整页跳转带不了）。
+ */
+export interface OAuthAuthorizeRequest {
+  client_id: string
+  redirect_uri: string
+  state: string
+}
+
+export interface OAuthAuthorizeResponse {
+  redirectUrl: string
+}
+
+export async function oauthAuthorize(request: OAuthAuthorizeRequest) {
+  return apiClient.post<OAuthAuthorizeResponse>('/oauth/authorize', request)
+}
+
 export const authAPI = {
   login,
   login2FA,
@@ -713,7 +734,8 @@ export const authAPI = {
   completeLinuxDoOAuthRegistration,
   completeOIDCOAuthRegistration,
   completeWeChatOAuthRegistration,
-  createPendingDingTalkOAuthAccount
+  createPendingDingTalkOAuthAccount,
+  oauthAuthorize
 }
 
 export default authAPI

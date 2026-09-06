@@ -399,6 +399,26 @@ export default {
       backToPayment: 'Back to payment',
       callbackMissingResumeToken: 'The WeChat payment callback is missing the resume token.'
     },
+    consent: {
+      pageTitle: 'Authorize',
+      grantTo: 'Authorize {app}',
+      title: 'Requesting access to your account',
+      intro: '{app} needs your permission to sign in with your {site} account and sync membership status and content entitlements.',
+      accountOf: '{site} account',
+      signedInAccount: 'Signed-in account',
+      scopeProfile: 'Read your account info: email, display name, role',
+      scopeSubscription: 'Read your subscription status to unlock member features',
+      scopeContent: 'Download official templates and Skills you have unlocked',
+      checking: 'Checking your account…',
+      loginRequired: 'Sign in to your {site} account first to authorize',
+      goLogin: 'Sign in / Sign up →',
+      deny: 'Deny',
+      allow: 'Authorize and sign in',
+      authorizing: 'Authorizing…',
+      failed: 'Authorization failed. Please try again.',
+      missingParam: 'The authorization link is missing a required parameter ({param}). Please start again from the app.',
+      note: 'By authorizing, you allow {app} to sign in with your {site} account. Your password is never read or stored by {app}.'
+    },
     oauth: {
       callbackTitle: 'OAuth Callback',
       callbackHint: 'Copy the code and state back to the admin authorization flow when needed.',

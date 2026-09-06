@@ -40,6 +40,26 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    /*
+     * 第三方应用授权确认页（OAuth Server 的 consent 页）。
+     *
+     * 从前是 nginx alias 出去的一张静态 HTML —— 换服务器/换环境/搭集群
+     * 都要手工再铺一遍，而且它和后端的授权契约分处两地。挪进项目随版本发布。
+     *
+     * requiresAuth: false —— 页面自己判断登录状态：未登录时展示「去登录」
+     * 并把 redirect 指回本页（连同 query）。若标成 requiresAuth，守卫会先
+     * 把人踢去 /login，回来时 client_id/state 已经丢了。
+     */
+    path: '/oauth/authorize',
+    name: 'OAuthConsent',
+    component: () => import('@/views/auth/OAuthConsentView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Authorize',
+      titleKey: 'auth.consent.pageTitle'
+    }
+  },
+  {
     path: '/login',
     name: 'Login',
     component: () => import('@/views/auth/LoginView.vue'),
@@ -750,7 +770,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/oauth/authorize', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',

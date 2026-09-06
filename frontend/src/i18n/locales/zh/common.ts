@@ -397,6 +397,26 @@ export default {
       backToPayment: '返回支付页',
       callbackMissingResumeToken: '微信支付回调缺少恢复令牌。'
     },
+    consent: {
+      pageTitle: '授权登录',
+      grantTo: '授权给 {app}',
+      title: '请求授权访问你的账号',
+      intro: '{app} 需要你的授权才能使用 {site} 账号登录，并同步会员状态与内容权限。',
+      accountOf: '{site} 账号',
+      signedInAccount: '已登录账号',
+      scopeProfile: '读取你的账号信息：邮箱、昵称、角色',
+      scopeSubscription: '读取会员订阅状态，用于解锁会员功能',
+      scopeContent: '下载你已解锁的官方模板与 Skill',
+      checking: '正在确认账号状态…',
+      loginRequired: '需要先登录 {site} 账号才能授权',
+      goLogin: '去登录 / 注册 →',
+      deny: '拒绝',
+      allow: '授权并登录',
+      authorizing: '正在授权…',
+      failed: '授权失败，请重试。',
+      missingParam: '授权链接缺少必要参数（{param}），请回到应用重新发起授权。',
+      note: '授权即表示你同意 {app} 通过 {site} 账号登录。你的密码不会被 {app} 读取或保存。'
+    },
     oauth: {
       callbackTitle: 'OAuth 回调',
       callbackHint: '按需将授权码和状态值复制回后台授权流程。',
