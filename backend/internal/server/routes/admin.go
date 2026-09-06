@@ -55,6 +55,9 @@ func RegisterAdminRoutes(
 		// Gemini OAuth
 		registerGeminiOAuthRoutes(admin, h)
 
+		// Kimi OAuth
+		registerKimiOAuthRoutes(admin, h)
+
 		// Antigravity OAuth
 		registerAntigravityOAuthRoutes(admin, h)
 
@@ -461,6 +464,18 @@ func registerGeminiOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		gemini.POST("/oauth/auth-url", h.Admin.GeminiOAuth.GenerateAuthURL)
 		gemini.POST("/oauth/exchange-code", h.Admin.GeminiOAuth.ExchangeCode)
 		gemini.GET("/oauth/capabilities", h.Admin.GeminiOAuth.GetCapabilities)
+	}
+}
+
+func registerKimiOAuthRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	kimi := admin.Group("/kimi")
+	{
+		kimi.GET("/oauth/capabilities", h.Admin.KimiOAuth.GetCapabilities)
+		kimi.POST("/oauth/start", h.Admin.KimiOAuth.StartDeviceFlow)
+		kimi.POST("/oauth/poll", h.Admin.KimiOAuth.PollDeviceFlow)
+		kimi.POST("/oauth/refresh", h.Admin.KimiOAuth.RefreshToken)
+		kimi.POST("/accounts/:id/refresh", h.Admin.KimiOAuth.RefreshAccountToken)
+		kimi.POST("/create-from-oauth", h.Admin.KimiOAuth.CreateAccountFromOAuth)
 	}
 }
 

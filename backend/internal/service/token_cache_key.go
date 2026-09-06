@@ -13,3 +13,9 @@ func OpenAITokenCacheKey(account *Account) string {
 func ClaudeTokenCacheKey(account *Account) string {
 	return "claude:account:" + strconv.FormatInt(account.ID, 10)
 }
+
+// KimiTokenCacheKey 生成 Kimi OAuth 账号的缓存键
+// 格式: "kimi:account:{account_id}"
+func KimiTokenCacheKey(account *Account) string {
+	return "kimi:account:" + strconv.FormatInt(account.ID, 10)
+}

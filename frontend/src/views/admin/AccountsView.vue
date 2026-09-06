@@ -159,6 +159,17 @@
                 </Teleport>
               </div>
             </template>
+            <template #afterCreate>
+              <button
+                @click="showKimiOAuth = true"
+                class="btn btn-secondary"
+                :title="t('admin.accounts.kimiOAuth.connect')"
+                data-tour="account-kimi-oauth"
+              >
+                <Icon name="bolt" size="sm" class="text-amber-500" />
+                <span class="hidden lg:inline">{{ t('admin.accounts.kimiOAuth.connect') }}</span>
+              </button>
+            </template>
           </AccountTableActions>
         </div>
         <div
@@ -451,6 +462,7 @@
       <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
     <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
+    <KimiOAuthModal :show="showKimiOAuth" @close="showKimiOAuth = false" @created="reload" />
     <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
@@ -505,6 +517,7 @@ import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { CreateAccountModal, EditAccountModal, BulkEditAccountModal, SyncFromCrsModal, TempUnschedStatusModal } from '@/components/account'
 import AccountTableActions from '@/components/admin/account/AccountTableActions.vue'
+import KimiOAuthModal from '@/components/admin/account/KimiOAuthModal.vue'
 import AccountTableFilters from '@/components/admin/account/AccountTableFilters.vue'
 import AccountBulkActionsBar from '@/components/admin/account/AccountBulkActionsBar.vue'
 import AccountActionMenu from '@/components/admin/account/AccountActionMenu.vue'
@@ -582,6 +595,7 @@ const selTypes = computed<AccountType[]>(() => {
   return [...types]
 })
 const showCreate = ref(false)
+const showKimiOAuth = ref(false)
 const showEdit = ref(false)
 const showSync = ref(false)
 const showImportData = ref(false)
