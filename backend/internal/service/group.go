@@ -467,3 +467,9 @@ func (g *Group) GetSearchPricePer1k() *float64 {
 	}
 	return g.SearchPricePer1k
 }
+
+// IsFreeStandardGroup identifies an explicitly zero-priced group. Independent
+// media pricing still requires balance; membership groups still require a subscription.
+func (g *Group) IsFreeStandardGroup() bool {
+	return g != nil && g.SubscriptionType == SubscriptionTypeStandard && g.RateMultiplier == 0 && !g.ImageRateIndependent && !g.VideoRateIndependent
+}

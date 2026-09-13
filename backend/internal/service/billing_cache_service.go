@@ -748,7 +748,7 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 		if err := s.checkSubscriptionEligibility(ctx, user.ID, group, subscription); err != nil {
 			return err
 		}
-	} else {
+	} else if !group.IsFreeStandardGroup() {
 		if err := s.checkBalanceEligibility(ctx, user.ID); err != nil {
 			return err
 		}

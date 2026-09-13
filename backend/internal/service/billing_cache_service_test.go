@@ -130,3 +130,20 @@ func TestBillingCacheServiceEnqueueAfterStopReturnsFalse(t *testing.T) {
 	})
 	require.False(t, enqueued)
 }
+
+type zeroBalanceFreeCache struct{ billingCacheWorkerStub }
+
+func (*zeroBalanceFreeCache) GetUserBalance(context.Context, int64) (float64, error) { return 0, nil }
+func TestFreeStandardGroupBillingEligibility(t *testing.T) {
+	s := &BillingCacheService{cfg: &config.Config{RunMode: config.RunModeStandard}, cache: &zeroBalanceFreeCache{}}
+	u := &User{ID: 99, Role: RoleUser, Status: StatusActive}
+	for _, rate := range []float64{0, 1} {
+		g := &Group{ID: 16, Status: StatusActive, SubscriptionType: SubscriptionTypeStandard, RateMultiplier: rate}
+		err := s.CheckBillingEligibility(context.Background(), u, nil, g, nil, "")
+		if rate == 0 {
+			require.NoError(t, err)
+		} else {
+			require.Error(t, err)
+		}
+	}
+}
