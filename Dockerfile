@@ -25,8 +25,8 @@ ARG NPM_CONFIG_REGISTRY
 
 WORKDIR /app/frontend
 
-# Install pnpm (pinned to v9 to match CI and keep builds reproducible)
-RUN corepack enable && corepack prepare pnpm@9 --activate
+# Install pnpm (pinned to v11.15.1: lockfile/overrides 均由 pnpm11 生成，pnpm9 会把 pnpm-workspace.yaml 当工作区清单报错)
+RUN corepack enable && corepack prepare pnpm@11.15.1 --activate
 
 # Install dependencies first (better caching)
 COPY frontend/package.json frontend/pnpm-lock.yaml ./
