@@ -55,6 +55,9 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		GroupID            int64    `json:"group_id"`
 		GroupPlatform      string   `json:"group_platform"`
 		GroupName          string   `json:"group_name"`
+		DailyLimitUSD      *float64 `json:"daily_limit_usd"`
+		WeeklyLimitUSD     *float64 `json:"weekly_limit_usd"`
+		MonthlyLimitUSD    *float64 `json:"monthly_limit_usd"`
 		RateMultiplier     float64  `json:"rate_multiplier"`
 		PeakRateEnabled    bool     `json:"peak_rate_enabled"`
 		PeakStart          string   `json:"peak_start"`
@@ -79,6 +82,7 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		result = append(result, planWithPlatform{
 			ID: int64(p.ID), GroupID: p.GroupID,
 			GroupPlatform: gi.Platform, GroupName: gi.Name,
+			DailyLimitUSD: gi.DailyLimitUSD, WeeklyLimitUSD: gi.WeeklyLimitUSD, MonthlyLimitUSD: gi.MonthlyLimitUSD,
 			RateMultiplier: gi.RateMultiplier, PeakRateEnabled: gi.PeakRateEnabled,
 			PeakStart: gi.PeakStart, PeakEnd: gi.PeakEnd, PeakRateMultiplier: gi.PeakRateMultiplier,
 			Name: p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,

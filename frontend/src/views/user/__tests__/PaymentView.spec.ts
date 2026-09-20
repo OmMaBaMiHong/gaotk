@@ -412,6 +412,14 @@ describe('PaymentView recharge rate preview', () => {
 })
 
 describe('PaymentView subscription confirmation amounts', () => {
+  it('shows the CNY quota on the subscription confirmation', async () => {
+    const wrapper = await mountSubscriptionConfirm({
+      plan: { currency: 'CNY', monthly_limit_usd: 40 },
+    })
+    expect(wrapper.text()).toContain('¥40')
+    expect(wrapper.text()).not.toContain('$40')
+  })
+
   it('shows converted CNY pay amount using the subscription rate, not the balance multiplier', async () => {
     const wrapper = await mountSubscriptionConfirm({
       checkout: {
