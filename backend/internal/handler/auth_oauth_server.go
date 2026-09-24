@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 
@@ -29,10 +28,6 @@ type oauthServerAuthCode struct {
 	ClientID  string `json:"client_id"`
 	ExpiresAt int64  `json:"expires_at"`
 	Nonce     string `json:"nonce"`
-}
-
-func (h *AuthHandler) oauthServerClient() *config.OAuthServerConfig {
-	return &h.cfg.OAuthServer
 }
 
 func (h *AuthHandler) signOAuthServerCode(payload oauthServerAuthCode) (string, error) {
@@ -122,12 +117,12 @@ func (h *AuthHandler) OAuthAuthorize(c *gin.Context) {
 	redirectURI := strings.TrimSpace(c.Query("redirect_uri"))
 	state := c.Query("state")
 
-	client := h.oauthServerClient()
-	if client.ClientID == "" || clientID != client.ClientID {
-		response.Error(c, http.StatusBadRequest, "unknown client_id")
+	app, err := h.oauthClientAppService.GetEnabledByClientID(c.Request.Context(), clientID)
+	if err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
-	if !isAllowedRedirectURI(client.RedirectURI, redirectURI) {
+	if !app.IsAllowedRedirectURI(redirectURI) {
 		response.Error(c, http.StatusBadRequest, "redirect_uri not allowed")
 		return
 	}
@@ -182,12 +177,12 @@ func (h *AuthHandler) OAuthAuthorizeJSON(c *gin.Context) {
 	redirectURI := strings.TrimSpace(body.RedirectURI)
 	state := body.State
 
-	client := h.oauthServerClient()
-	if client.ClientID == "" || clientID != client.ClientID {
-		response.Error(c, http.StatusBadRequest, "unknown client_id")
+	app, err := h.oauthClientAppService.GetEnabledByClientID(c.Request.Context(), clientID)
+	if err != nil {
+		response.ErrorFrom(c, err)
 		return
 	}
-	if !isAllowedRedirectURI(client.RedirectURI, redirectURI) {
+	if !app.IsAllowedRedirectURI(redirectURI) {
 		response.Error(c, http.StatusBadRequest, "redirect_uri not allowed")
 		return
 	}
@@ -214,7 +209,7 @@ func (h *AuthHandler) OAuthAuthorizeJSON(c *gin.Context) {
 		sep = "&"
 	}
 	redirectURL := redirectURI + sep + "code=" + url.QueryEscape(code) + "&state=" + url.QueryEscape(state)
-	response.Success(c, gin.H{"redirectUrl": redirectURL})
+	response.Success(c, gin.H{"redirectUrl": redirectURL, "appName": app.Name})
 }
 
 // oauthTokenRequest OAuth token 交换请求体。
@@ -238,8 +233,12 @@ func (h *AuthHandler) OAuthToken(c *gin.Context) {
 		return
 	}
 
-	client := h.oauthServerClient()
-	if client.ClientID == "" || body.ClientID != client.ClientID || client.ClientSecret == "" || client.ClientSecret != body.ClientSecret {
+	app, err := h.oauthClientAppService.GetByClientID(c.Request.Context(), body.ClientID)
+	if err != nil {
+		response.Error(c, http.StatusUnauthorized, "invalid client credentials")
+		return
+	}
+	if !app.Enabled || app.ClientSecret != body.ClientSecret {
 		response.Error(c, http.StatusUnauthorized, "invalid client credentials")
 		return
 	}
@@ -262,22 +261,4 @@ func (h *AuthHandler) OAuthToken(c *gin.Context) {
 	respondWithTokenPair(c, h.authService, user)
 }
 
-// isAllowedRedirectURI 判断 redirect_uri 是否被允许:
-// 1. 与配置的完全一致 → 允许(线上部署)
-// 2. localhost/127.0.0.1/[::1] 开头 → 允许(开源用户自部署,动态回调)
-// 3. 其他 → 拒绝(安全)
-func isAllowedRedirectURI(configured, requested string) bool {
-	if configured == "" {
-		return false
-	}
-	if configured == requested {
-		return true
-	}
-	// 开源自部署:允许本地回调(任何端口)
-	if strings.HasPrefix(requested, "http://127.0.0.1:") ||
-		strings.HasPrefix(requested, "http://localhost:") ||
-		strings.HasPrefix(requested, "http://[::1]:") {
-		return true
-	}
-	return false
-}
+

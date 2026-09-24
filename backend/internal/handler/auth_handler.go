@@ -26,14 +26,15 @@ type AuthHandler struct {
 	promoService         *service.PromoService
 	redeemService        *service.RedeemService
 	totpService          *service.TotpService
-	userAttributeService *service.UserAttributeService
+	userAttributeService  *service.UserAttributeService
+	oauthClientAppService *service.OAuthClientAppService
 
 	dingTalkClientInstance *DingTalkClient
 	dingTalkClientMu       sync.Mutex
 }
 
 // NewAuthHandler creates a new AuthHandler
-func NewAuthHandler(cfg *config.Config, authService *service.AuthService, userService *service.UserService, settingService *service.SettingService, promoService *service.PromoService, redeemService *service.RedeemService, totpService *service.TotpService, userAttributeService *service.UserAttributeService) *AuthHandler {
+func NewAuthHandler(cfg *config.Config, authService *service.AuthService, userService *service.UserService, settingService *service.SettingService, promoService *service.PromoService, redeemService *service.RedeemService, totpService *service.TotpService, userAttributeService *service.UserAttributeService, oauthClientAppService *service.OAuthClientAppService) *AuthHandler {
 	return &AuthHandler{
 		cfg:                  cfg,
 		authService:          authService,
@@ -42,7 +43,8 @@ func NewAuthHandler(cfg *config.Config, authService *service.AuthService, userSe
 		promoService:         promoService,
 		redeemService:        redeemService,
 		totpService:          totpService,
-		userAttributeService: userAttributeService,
+		userAttributeService:  userAttributeService,
+		oauthClientAppService: oauthClientAppService,
 	}
 }
 
