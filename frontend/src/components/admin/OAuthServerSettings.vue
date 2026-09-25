@@ -33,13 +33,13 @@ interface Settings { client_id: string; secret_configured: boolean; redirect_uri
 const { locale } = useI18n()
 const copy = computed(() => locale.value.startsWith('zh') ? {
   title: '应用授权 · OAuth 回调', description: '管理 Skoob 等应用登录后允许返回的地址，保存后立即生效。',
-  loading: '正在加载授权配置…', secret: '客户端密钥', configured: '已配置（部署环境管理）', missing: '尚未配置',
+  loading: '正在加载授权配置…', secret: '客户端密钥', configured: '已配置', missing: '尚未配置',
   addresses: '允许的回调地址', help: '每行一个完整 HTTPS 地址，按完整地址精确匹配，不支持通配符。本地 localhost / 127.0.0.1 / ::1 的 HTTP 端口回调继续支持；清空列表会禁用全部回调。',
   database: '当前使用后台保存的配置。', environment: '当前使用部署环境默认值；首次保存后由后台管理。',
   saving: '保存中…', save: '保存授权回调', saved: '授权回调已保存并生效。', retry: '重试', failed: '授权配置请求失败',
 } : {
   title: 'Application authorization · OAuth callbacks', description: 'Manage allowed login callbacks for applications such as Skoob. Changes take effect immediately.',
-  loading: 'Loading authorization settings…', secret: 'Client secret', configured: 'Configured in deployment environment', missing: 'Not configured',
+  loading: 'Loading authorization settings…', secret: 'Client secret', configured: 'Configured', missing: 'Not configured',
   addresses: 'Allowed callback URLs', help: 'One complete HTTPS URL per line. Exact matches only; no wildcards. HTTP callbacks to localhost / 127.0.0.1 / ::1 ports remain supported. An empty list disables all callbacks.',
   database: 'Using saved administration settings.', environment: 'Using deployment defaults; saving transfers management to this page.',
   saving: 'Saving…', save: 'Save OAuth callbacks', saved: 'OAuth callbacks saved and active.', retry: 'Retry', failed: 'Could not load or save authorization settings',

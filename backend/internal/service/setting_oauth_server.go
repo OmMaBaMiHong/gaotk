@@ -9,6 +9,10 @@ import (
 	"strings"
 )
 
+func (s *SettingService) SetOAuthClientAppRepository(repo OAuthClientAppRepository) {
+	s.oauthClientAppRepo = repo
+}
+
 const SettingKeyOAuthServerRedirectURIs = "oauth_server_redirect_uris"
 
 // OAuthServerSettings never exposes the client secret to the browser.
@@ -46,6 +50,19 @@ func OAuthServerRedirectAllowed(allowed []string, requested string) bool {
 
 func (s *SettingService) GetOAuthServerSettings(ctx context.Context) (*OAuthServerSettings, error) {
 	result := &OAuthServerSettings{ClientID: s.cfg.OAuthServer.ClientID, SecretConfigured: s.cfg.OAuthServer.ClientSecret != "", RedirectURIs: []string{}, Source: "environment"}
+	// The original settings page edits the same default client as the app registry.
+	if s.oauthClientAppRepo != nil {
+		app, err := s.oauthClientAppRepo.GetByClientID(ctx, result.ClientID)
+		if err == nil {
+			result.RedirectURIs = append([]string{}, app.RedirectURIs...)
+			result.SecretConfigured = app.ClientSecret != ""
+			result.Source = "database"
+			return result, nil
+		}
+		if !errors.Is(err, ErrOAuthClientNotFound) {
+			return nil, err
+		}
+	}
 	raw, err := s.settingRepo.GetValue(ctx, SettingKeyOAuthServerRedirectURIs)
 	if errors.Is(err, ErrSettingNotFound) {
 		if uri := strings.TrimSpace(s.cfg.OAuthServer.RedirectURI); uri != "" {
@@ -83,6 +100,19 @@ func (s *SettingService) SetOAuthServerRedirectURIs(ctx context.Context, uris []
 		if !seen[uri] {
 			normalized = append(normalized, uri)
 			seen[uri] = true
+		}
+	}
+	if s.oauthClientAppRepo != nil {
+		app, err := s.oauthClientAppRepo.GetByClientID(ctx, s.cfg.OAuthServer.ClientID)
+		if err == nil {
+			app.RedirectURIs = normalized
+			if err := s.oauthClientAppRepo.Update(ctx, app); err != nil {
+				return nil, err
+			}
+			return s.GetOAuthServerSettings(ctx)
+		}
+		if !errors.Is(err, ErrOAuthClientNotFound) {
+			return nil, err
 		}
 	}
 	raw, err := json.Marshal(normalized)

@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/oauthclient"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -1285,6 +1286,90 @@ func init() {
 	identityadoptiondecisionDescDecidedAt := identityadoptiondecisionFields[4].Descriptor()
 	// identityadoptiondecision.DefaultDecidedAt holds the default value on creation for the decided_at field.
 	identityadoptiondecision.DefaultDecidedAt = identityadoptiondecisionDescDecidedAt.Default.(func() time.Time)
+	oauthclientFields := schema.OAuthClient{}.Fields()
+	_ = oauthclientFields
+	// oauthclientDescName is the schema descriptor for name field.
+	oauthclientDescName := oauthclientFields[0].Descriptor()
+	// oauthclient.NameValidator is a validator for the "name" field. It is called by the builders before save.
+	oauthclient.NameValidator = func() func(string) error {
+		validators := oauthclientDescName.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(name string) error {
+			for _, fn := range fns {
+				if err := fn(name); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// oauthclientDescClientID is the schema descriptor for client_id field.
+	oauthclientDescClientID := oauthclientFields[1].Descriptor()
+	// oauthclient.ClientIDValidator is a validator for the "client_id" field. It is called by the builders before save.
+	oauthclient.ClientIDValidator = func() func(string) error {
+		validators := oauthclientDescClientID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(client_id string) error {
+			for _, fn := range fns {
+				if err := fn(client_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// oauthclientDescClientSecret is the schema descriptor for client_secret field.
+	oauthclientDescClientSecret := oauthclientFields[2].Descriptor()
+	// oauthclient.ClientSecretValidator is a validator for the "client_secret" field. It is called by the builders before save.
+	oauthclient.ClientSecretValidator = func() func(string) error {
+		validators := oauthclientDescClientSecret.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(client_secret string) error {
+			for _, fn := range fns {
+				if err := fn(client_secret); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// oauthclientDescRedirectUris is the schema descriptor for redirect_uris field.
+	oauthclientDescRedirectUris := oauthclientFields[3].Descriptor()
+	// oauthclient.DefaultRedirectUris holds the default value on creation for the redirect_uris field.
+	oauthclient.DefaultRedirectUris = oauthclientDescRedirectUris.Default.(string)
+	// oauthclientDescAllowLocalhost is the schema descriptor for allow_localhost field.
+	oauthclientDescAllowLocalhost := oauthclientFields[4].Descriptor()
+	// oauthclient.DefaultAllowLocalhost holds the default value on creation for the allow_localhost field.
+	oauthclient.DefaultAllowLocalhost = oauthclientDescAllowLocalhost.Default.(bool)
+	// oauthclientDescEnabled is the schema descriptor for enabled field.
+	oauthclientDescEnabled := oauthclientFields[5].Descriptor()
+	// oauthclient.DefaultEnabled holds the default value on creation for the enabled field.
+	oauthclient.DefaultEnabled = oauthclientDescEnabled.Default.(bool)
+	// oauthclientDescRemark is the schema descriptor for remark field.
+	oauthclientDescRemark := oauthclientFields[6].Descriptor()
+	// oauthclient.DefaultRemark holds the default value on creation for the remark field.
+	oauthclient.DefaultRemark = oauthclientDescRemark.Default.(string)
+	// oauthclient.RemarkValidator is a validator for the "remark" field. It is called by the builders before save.
+	oauthclient.RemarkValidator = oauthclientDescRemark.Validators[0].(func(string) error)
+	// oauthclientDescCreatedAt is the schema descriptor for created_at field.
+	oauthclientDescCreatedAt := oauthclientFields[7].Descriptor()
+	// oauthclient.DefaultCreatedAt holds the default value on creation for the created_at field.
+	oauthclient.DefaultCreatedAt = oauthclientDescCreatedAt.Default.(func() time.Time)
+	// oauthclientDescUpdatedAt is the schema descriptor for updated_at field.
+	oauthclientDescUpdatedAt := oauthclientFields[8].Descriptor()
+	// oauthclient.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	oauthclient.DefaultUpdatedAt = oauthclientDescUpdatedAt.Default.(func() time.Time)
+	// oauthclient.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	oauthclient.UpdateDefaultUpdatedAt = oauthclientDescUpdatedAt.UpdateDefault.(func() time.Time)
 	paymentauditlogFields := schema.PaymentAuditLog{}.Fields()
 	_ = paymentauditlogFields
 	// paymentauditlogDescOrderID is the schema descriptor for order_id field.

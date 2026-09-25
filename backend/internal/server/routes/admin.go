@@ -48,6 +48,7 @@ func RegisterAdminRoutes(
 
 		// 公告管理
 		registerAnnouncementRoutes(admin, h)
+		registerOAuthClientRoutes(admin, h)
 
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
@@ -435,6 +436,16 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		accounts.POST("/exchange-setup-token-code", h.Admin.OAuth.ExchangeSetupTokenCode)
 		accounts.POST("/cookie-auth", h.Admin.OAuth.CookieAuth)
 		accounts.POST("/setup-token-cookie-auth", h.Admin.OAuth.SetupTokenCookieAuth)
+	}
+}
+
+func registerOAuthClientRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	oauthClients := admin.Group("/oauth-clients")
+	{
+		oauthClients.GET("", h.Admin.OAuthClientApp.List)
+		oauthClients.POST("", h.Admin.OAuthClientApp.Create)
+		oauthClients.PUT("/:id", h.Admin.OAuthClientApp.Update)
+		oauthClients.DELETE("/:id", h.Admin.OAuthClientApp.Delete)
 	}
 }
 

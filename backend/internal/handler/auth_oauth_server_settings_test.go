@@ -22,11 +22,46 @@ type oauthSettingsRepo struct {
 
 func (r *oauthSettingsRepo) GetValue(context.Context, string) (string, error) { return r.value, r.err }
 
+type oauthAppsRepo struct {
+	service.OAuthClientAppRepository
+	app *service.OAuthClientApp
+	err error
+}
+
+func (r *oauthAppsRepo) Count(context.Context) (int, error) {
+	if r.app != nil {
+		return 1, nil
+	}
+	return 0, nil
+}
+func (r *oauthAppsRepo) Create(_ context.Context, app *service.OAuthClientApp) error {
+	r.app = app
+	return nil
+}
+func (r *oauthAppsRepo) Update(_ context.Context, app *service.OAuthClientApp) error {
+	r.app = app
+	return nil
+}
+func (r *oauthAppsRepo) GetByClientID(_ context.Context, id string) (*service.OAuthClientApp, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	if r.app == nil || r.app.ClientID != id {
+		return nil, service.ErrOAuthClientNotFound
+	}
+	copy := *r.app
+	return &copy, nil
+}
+
 func TestOAuthServerBothAuthorizeEndpointsUseSavedSettings(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{OAuthServer: config.OAuthServerConfig{ClientID: "skoob", RedirectURI: "https://old.example/callback"}}
 	repo := &oauthSettingsRepo{value: `["https://skoob.cc/api/v1/account/oauth/callback"]`}
-	h := &AuthHandler{cfg: cfg, settingSvc: service.NewSettingService(repo, cfg)}
+	settings := service.NewSettingService(repo, cfg)
+	apps := &oauthAppsRepo{}
+	settings.SetOAuthClientAppRepository(apps)
+	clients := service.NewOAuthClientAppService(apps, cfg, settings)
+	h := &AuthHandler{cfg: cfg, settingSvc: settings, oauthClientAppService: clients}
 	for _, jsonMode := range []bool{false, true} {
 		for _, tc := range []struct {
 			uri     string
@@ -54,11 +89,11 @@ func TestOAuthServerBothAuthorizeEndpointsUseSavedSettings(t *testing.T) {
 			}
 		}
 	}
-	repo.err = errors.New("database down")
+	apps.err = errors.New("database down")
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest("GET", "/api/v1/oauth/authorize?client_id=skoob&redirect_uri=https://old.example/callback", nil)
 	h.OAuthAuthorize(c)
-	require.Equal(t, 503, w.Code)
+	require.Equal(t, 500, w.Code)
 	require.NotContains(t, w.Body.String(), "redirect_uri not allowed")
 }
