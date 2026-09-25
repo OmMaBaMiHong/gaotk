@@ -40,7 +40,19 @@ export interface RevenuePage {
   items: RentalRevenue[]
   total: number
 }
+export interface TokenBankShowcase {
+  enabled: boolean
+  leaderboard: { rank: number; name: string; amount: number }[]
+  recent: { name: string; platform: string; amount: number; created_at: string }[]
+  updated_at: string
+}
 export const tokenBankAPI = {
+  showcase: async (signal?: AbortSignal) =>
+    (await apiClient.get<TokenBankShowcase>('/token-bank/showcase', { signal })).data,
+  showcaseSettings: async () =>
+    (await apiClient.get<{ enabled: boolean }>('/admin/token-bank/showcase')).data,
+  updateShowcaseSettings: async (enabled: boolean) =>
+    (await apiClient.put<{ enabled: boolean }>('/admin/token-bank/showcase', { enabled })).data,
   overview: async (admin: boolean, params: Record<string, unknown>) =>
     (
       await apiClient.get<RentalOverview>(

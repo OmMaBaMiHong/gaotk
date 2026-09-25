@@ -74,6 +74,10 @@ func TestTokenBankIntegration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 1, page.Total)
 		require.Equal(t, 1.0, page.Items[0].OwnerAmount)
+		showcase, err := bank.Showcase(ctx)
+		require.NoError(t, err)
+		require.NotEmpty(t, showcase.Recent)
+		require.Equal(t, 1.0, showcase.Recent[0].Amount, "showcase publishes the owner credit, not the 1.25 consumer bill")
 		// Even if a dedup marker is lost, the independent ledger blocks a second
 		// credit and rolls back the consumer deduction already made in this tx.
 		_, err = integrationDB.Exec(`DELETE FROM usage_billing_dedup WHERE request_id=$1`, cmd.RequestID)

@@ -56,4 +56,5 @@ type RentalRevenuePage struct {
 type TokenBankRepository interface {
 	Overview(context.Context, int64, string, string, int, int) (*RentalOverview, error)
 	Revenue(context.Context, int64, int64, string, int, int) (*RentalRevenuePage, error)
+	Showcase(context.Context) (*TokenBankShowcase, error)
 }

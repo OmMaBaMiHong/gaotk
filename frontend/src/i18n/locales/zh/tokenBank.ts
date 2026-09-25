@@ -1,4 +1,17 @@
 export default {
+  showcaseLeaderboard: '收益榜',
+  showcaseLeaderboardHint: '按累计已入账储蓄收益排名，展示前 10 位用户。昵称已脱敏，收益自动进入站内余额。',
+  showcaseEmpty: '暂无已入账收益',
+  showcaseBroadcast: '{name} 通过 {platform} 获得 {amount} 储蓄收益',
+  showcaseRank: '排名',
+  showcaseUser: '用户',
+  showcaseUpdated: '更新于 {time}',
+  showcasePause: '暂停收益广播',
+  showcaseResume: '继续收益广播',
+  showcaseSettingTitle: 'Token 银行收益展示',
+  showcaseSettingHint: '在 Token 银行顶部展示脱敏的真实收益广播和累计收益榜。默认关闭；关闭时隐藏整个展示区。',
+  showcaseSettingEnabled: '显示收益广播与收益榜',
+  showcaseSettingImmediate: '此开关单独保存，切换后立即生效。',
   accountImportHint: '上传导出的 JSON 文件以批量导入账号。导入的账号归当前用户所有。',
   accountImportWarning: '账号将按平台自动加入管理员配置的接收分组；不会导入代理。',
 

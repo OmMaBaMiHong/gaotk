@@ -1,4 +1,17 @@
 export default {
+  showcaseLeaderboard: 'Earnings board',
+  showcaseLeaderboardHint: 'Top 10 users by all-time credited savings earnings. Names are masked; earnings are credited to site balances.',
+  showcaseEmpty: 'No credited earnings yet',
+  showcaseBroadcast: '{name} earned {amount} from {platform} savings',
+  showcaseRank: 'Rank',
+  showcaseUser: 'User',
+  showcaseUpdated: 'Updated {time}',
+  showcasePause: 'Pause earnings broadcast',
+  showcaseResume: 'Resume earnings broadcast',
+  showcaseSettingTitle: 'Token Bank earnings showcase',
+  showcaseSettingHint: 'Show real earnings with masked names and an all-time leaderboard at the top of Token Bank. Off by default; disabled hides the entire showcase.',
+  showcaseSettingEnabled: 'Show earnings broadcast and leaderboard',
+  showcaseSettingImmediate: 'This switch saves independently and takes effect immediately.',
   accountImportHint: 'Upload exported JSON files to import accounts in bulk. Imported accounts belong to your current user.',
   accountImportWarning: 'Accounts automatically join the receiving groups configured by administrators for each platform. Proxies are not imported.',
 

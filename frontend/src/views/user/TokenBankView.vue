@@ -1,6 +1,7 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
+      <TokenBankShowcase />
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div><h1 class="text-xl font-semibold">{{ t('tokenBank.title') }}</h1><p class="mt-2 text-sm text-gray-500">{{ t('tokenBank.description') }}</p></div>
         <div class="flex flex-wrap gap-2">
@@ -165,6 +166,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import TokenBankShowcase from '@/components/token-bank/TokenBankShowcase.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'

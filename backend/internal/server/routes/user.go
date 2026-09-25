@@ -29,6 +29,7 @@ func RegisterUserRoutes(
 		user := authenticated.Group("/user")
 		registerOwnedAccountRoutes(user, h)
 		if h.TokenBank != nil {
+			authenticated.GET("/token-bank/showcase", h.TokenBank.Showcase)
 			bank := user.Group("/token-bank")
 			bank.GET("/accounts", h.TokenBank.Overview)
 			bank.GET("/revenue", h.TokenBank.Revenue)
