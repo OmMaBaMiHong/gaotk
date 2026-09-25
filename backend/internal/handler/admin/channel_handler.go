@@ -667,3 +667,13 @@ func (h *ChannelHandler) SyncPricingModels(c *gin.Context) {
 	models := h.pricingService.ListModelNamesByProvider(provider)
 	response.Success(c, gin.H{"models": models})
 }
+
+// SavingsCapabilities exposes only the owner-selectable platform/auth methods.
+func (h *ChannelHandler) SavingsCapabilities(c *gin.Context) {
+	platforms, err := h.channelService.GetSavingsCapabilities(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"platforms": platforms})
+}

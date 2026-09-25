@@ -49,7 +49,7 @@
       </div>
 
       <!-- Add Method Selection (Claude only) -->
-      <fieldset v-if="isAnthropic" class="border-0 p-0">
+      <fieldset v-if="isAdmin && isAnthropic" class="border-0 p-0">
         <legend class="input-label">{{ t('admin.accounts.oauth.authMethod') }}</legend>
         <div class="mt-2 flex gap-4">
           <label class="flex cursor-pointer items-center">
@@ -190,10 +190,12 @@
 </template>
 
 <script setup lang="ts">
-const { api: adminAPI } = useAccountWorkspace()
+const { api: adminAPI, isAdmin } = useAccountWorkspace()
+const { accountAllowed } = useAccountCapabilities()
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { useAccountCapabilities } from '@/composables/useAccountCapabilities'
 import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
 import {
   useAccountOAuth,
@@ -334,7 +336,7 @@ watch(
         isAnthropic.value &&
         (props.account.type === 'oauth' || props.account.type === 'setup-token')
       ) {
-        addMethod.value = props.account.type as AddMethod
+        addMethod.value = isAdmin ? props.account.type as AddMethod : 'oauth'
       }
       if (isGemini.value) {
         const creds = (props.account.credentials || {}) as Record<string, unknown>
@@ -369,6 +371,7 @@ const handleClose = () => {
 
 const handleGenerateUrl = async () => {
   if (!props.account) return
+  if (!accountAllowed(props.account.platform, props.account.type) || (!isAdmin && addMethod.value !== 'oauth')) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
 
   if (isOpenAILike.value) {
     await openaiOAuth.generateAuthUrl(props.account.proxy_id)
@@ -388,6 +391,7 @@ const handleGenerateUrl = async () => {
 
 const handleExchangeCode = async () => {
   if (!props.account) return
+  if (!accountAllowed(props.account.platform, props.account.type) || (!isAdmin && addMethod.value !== 'oauth')) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
 
   const authCode = oauthFlowRef.value?.authCode || ''
   if (!authCode.trim()) return
@@ -571,6 +575,7 @@ const handleExchangeCode = async () => {
 
 const handleCookieAuth = async (sessionKey: string) => {
   if (!props.account || isOpenAILike.value) return
+  if (!accountAllowed(props.account.platform, props.account.type) || (!isAdmin && addMethod.value !== 'oauth')) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
 
   claudeOAuth.loading.value = true
   claudeOAuth.error.value = ''
@@ -615,6 +620,7 @@ const applyGrokReauthTokenInfo = async (tokenInfo: {
   [key: string]: unknown
 }) => {
   if (!props.account) return
+  if (!accountAllowed(props.account.platform, props.account.type) || (!isAdmin && addMethod.value !== 'oauth')) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
   const credentials = grokOAuth.buildCredentials(tokenInfo as any)
   const extra = grokOAuth.buildExtraInfo(tokenInfo as any)
   const updatedAccount = await adminAPI.accounts.applyOAuthCredentials(props.account.id, {
@@ -630,6 +636,7 @@ const applyGrokReauthTokenInfo = async (tokenInfo: {
 /** Re-auth the existing account with one refresh token. */
 const handleValidateRefreshToken = async (refreshTokenInput: string) => {
   if (!props.account) return
+  if (!accountAllowed(props.account.platform, props.account.type) || (!isAdmin && addMethod.value !== 'oauth')) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
   if (isGrok.value) {
     await handleGrokValidateRefreshToken(refreshTokenInput)
     return

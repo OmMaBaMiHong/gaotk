@@ -10,12 +10,13 @@ import (
 )
 
 type TokenBankHandler struct {
+	config   *service.SettingService
 	bank     service.TokenBankRepository
 	showcase *service.TokenBankShowcaseService
 }
 
-func NewTokenBankHandler(bank service.TokenBankRepository, settings service.SettingRepository) *TokenBankHandler {
-	return &TokenBankHandler{bank: bank, showcase: service.NewTokenBankShowcaseService(bank, settings)}
+func NewTokenBankHandler(bank service.TokenBankRepository, settings service.SettingRepository, config *service.SettingService) *TokenBankHandler {
+	return &TokenBankHandler{config: config, bank: bank, showcase: service.NewTokenBankShowcaseService(bank, settings)}
 }
 
 func rentalUser(c *gin.Context) (int64, bool) {
@@ -116,5 +117,36 @@ func (h *TokenBankHandler) SetAdminShowcase(c *gin.Context) {
 		return
 	}
 	err := h.showcase.SetEnabled(c.Request.Context(), *input.Enabled)
+	rentalReply(c, gin.H{"enabled": *input.Enabled}, err)
+}
+
+// UserGuard closes the entire owner workspace, including direct API calls.
+func (h *TokenBankHandler) UserGuard(c *gin.Context) {
+	enabled, err := h.config.TokenBankEnabled(c.Request.Context())
+	if err != nil || !enabled {
+		c.AbortWithStatusJSON(503, gin.H{"code": 503, "reason": "TOKEN_BANK_DISABLED", "message": "Token 银行暂未开放"})
+		return
+	}
+	c.Next()
+}
+func (h *TokenBankHandler) AdminConfig(c *gin.Context) {
+	if !tokenBankAdmin(c) {
+		return
+	}
+	enabled, err := h.config.TokenBankEnabled(c.Request.Context())
+	rentalReply(c, gin.H{"enabled": enabled}, err)
+}
+func (h *TokenBankHandler) SetAdminConfig(c *gin.Context) {
+	if !tokenBankAdmin(c) {
+		return
+	}
+	var input struct {
+		Enabled *bool `json:"enabled" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		response.BadRequest(c, "enabled must be a boolean")
+		return
+	}
+	err := h.config.SetTokenBankEnabled(c.Request.Context(), *input.Enabled)
 	rentalReply(c, gin.H{"enabled": *input.Enabled}, err)
 }

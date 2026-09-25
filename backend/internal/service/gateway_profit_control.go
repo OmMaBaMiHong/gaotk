@@ -74,9 +74,21 @@ func (s *GatewayService) resolveProfitControlGroup(ctx context.Context, groupID 
 }
 
 // GatewayProfitControlVetoLatest performs the terminal post-slot check against
-// the latest scheduler snapshot. Snapshot read failures are deliberately
-// fail-open to preserve availability, but are observable.
-func (s *GatewayService) GatewayProfitControlVetoLatest(ctx context.Context, selected *Account) (*Account, bool, string) {
+// fresh owner policy for savings accounts. Other accounts retain the existing
+// scheduler snapshot check and its availability behavior.
+func (s *GatewayService) GatewayProfitControlVetoLatest(ctx context.Context, selected *Account, groupID *int64) (*Account, bool, string) {
+	if selected != nil && (selected.OwnerUserID != nil || selected.Rental != nil) {
+		if s.accountRepo == nil {
+			return selected, true, "savings_plan_not_allowed"
+		}
+		latest, err := s.accountRepo.GetByID(ctx, selected.ID)
+		if err != nil || !latest.IsTokenSavingsSchedulableForGroup(groupID) || !latest.IsSchedulable() {
+			return selected, true, "savings_plan_not_allowed"
+		}
+		vetoed, reason := openAIProfitControlVetoReason(ctx, latest)
+		return latest, vetoed, reason
+	}
+
 	return profitControlVetoLatest(ctx, selected, s.schedulerSnapshot)
 }
 

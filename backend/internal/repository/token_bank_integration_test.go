@@ -25,12 +25,13 @@ func TestTokenBankIntegration(t *testing.T) {
 	secondGroup := mustCreateGroup(t, client, &service.Group{Name: "savings-second-" + uuid.NewString(), Platform: service.PlatformDeepseek})
 	channelRepo := &channelRepository{db: integrationDB}
 	config := func(bps int, enabled bool) map[string]any {
-		return map[string]any{"token_savings": map[string]any{"enabled": enabled, "owner_share_bps": bps, "admin_user_id": admin.ID, "receiving_group_ids": []int64{group.ID}}}
+		return map[string]any{"token_savings": map[string]any{"enabled": enabled, "owner_share_bps": bps, "admin_user_id": admin.ID, "receiving_group_ids": []int64{group.ID}, "receiving_rules": []service.SavingsReceivingRule{{GroupID: group.ID, AccountTypes: []string{service.AccountTypeAPIKey}}}}}
 	}
 	channel := &service.Channel{Name: "savings-" + uuid.NewString(), Status: service.StatusActive, GroupIDs: []int64{group.ID}, FeaturesConfig: config(8000, true)}
 	require.NoError(t, channelRepo.Create(ctx, channel))
 	secondConfig := config(3000, true)
 	secondConfig["token_savings"].(map[string]any)["receiving_group_ids"] = []int64{secondGroup.ID}
+	secondConfig["token_savings"].(map[string]any)["receiving_rules"] = []service.SavingsReceivingRule{{GroupID: secondGroup.ID, AccountTypes: []string{service.AccountTypeAPIKey}}}
 	secondChannel := &service.Channel{Name: "savings-second-" + uuid.NewString(), Status: service.StatusActive, GroupIDs: []int64{secondGroup.ID}, FeaturesConfig: secondConfig}
 	require.NoError(t, channelRepo.Create(ctx, secondChannel))
 	a := &service.Account{Name: "rented", Platform: service.PlatformDeepseek, Type: service.AccountTypeAPIKey, Credentials: map[string]any{"api_key": "test-only-not-real"}, OwnerUserID: &owner.ID, Status: service.StatusActive, Schedulable: true, Concurrency: 1}
@@ -245,6 +246,8 @@ func TestTokenBankIntegration(t *testing.T) {
 		inherited, err := accounts.GetByID(ctx, shadow.ID)
 		require.NoError(t, err)
 		require.NotNil(t, inherited.Rental)
+		require.Equal(t, service.AccountTypeAPIKey, inherited.Rental.OwnerAccountType)
+		require.True(t, inherited.IsTokenSavingsSchedulableForGroup(&secondGroup.ID))
 		require.Equal(t, a.ID, inherited.Rental.OwnerAccountID)
 		require.Equal(t, owner.ID, inherited.Rental.OwnerUserID)
 		require.Len(t, inherited.Rental.Channels, 2)
@@ -293,4 +296,54 @@ func TestTokenBankIntegration(t *testing.T) {
 		require.Empty(t, other.Accounts)
 		t.Logf("Verified original account %d: earnings %.8f across channels; independent ledger preserved", a.ID, overview.TotalRevenue)
 	})
+}
+
+func TestTokenSavingsSnapshotCapturesOwnerTypeAndActualGroup(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewAccountRepository(client, integrationDB, nil)
+	owner := mustCreateUser(t, client, &service.User{})
+	admin := mustCreateUser(t, client, &service.User{Role: service.RoleAdmin})
+	group := mustCreateGroup(t, client, &service.Group{Name: "savings-claude-" + uuid.NewString(), Platform: service.PlatformAnthropic})
+	other := mustCreateGroup(t, client, &service.Group{Name: "savings-other-" + uuid.NewString(), Platform: service.PlatformAnthropic})
+	cfg := service.TokenSavingsConfig{Enabled: true, AdminUserID: admin.ID, OwnerShareBPS: 8000, ReceivingGroupIDs: []int64{group.ID, other.ID}, ReceivingRules: []service.SavingsReceivingRule{{GroupID: group.ID, AllowedPlans: []string{"pro"}}, {GroupID: other.ID, AllowedPlans: []string{"max"}}}}
+	channel := &service.Channel{Name: "savings-types-" + uuid.NewString(), Status: service.StatusActive, GroupIDs: []int64{group.ID, other.ID}, FeaturesConfig: map[string]any{"token_savings": cfg}}
+	channels := &channelRepository{db: integrationDB}
+	require.NoError(t, channels.Create(ctx, channel))
+	account := &service.Account{Name: "paid-claude", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth, OwnerUserID: &owner.ID, Credentials: map[string]any{"plan_type": "pro", "savings_verified_plan_type": "pro"}, Status: service.StatusActive, Schedulable: true, Concurrency: 1}
+	bindings := []service.AccountGroup{{GroupID: group.ID}, {GroupID: other.ID}}
+	require.NoError(t, repo.(service.AccountDuplicateRepository).CreateWithAccountGroups(ctx, account, bindings))
+	shadow := &service.Account{Name: "paid-shadow", Platform: account.Platform, Type: account.Type, ParentAccountID: &account.ID, QuotaDimension: "spark", Credentials: map[string]any{}, Status: service.StatusActive, Schedulable: true, Concurrency: 1}
+	require.NoError(t, repo.(service.AccountDuplicateRepository).CreateWithAccountGroups(ctx, shadow, bindings))
+	loaded, err := repo.GetByID(ctx, shadow.ID)
+	require.NoError(t, err)
+	require.Equal(t, service.AccountTypeOAuth, loaded.Rental.OwnerAccountType)
+	require.Equal(t, "pro", loaded.Rental.OwnerVerifiedPlan)
+	require.True(t, loaded.IsTokenSavingsSchedulableForGroup(&group.ID))
+	require.False(t, loaded.IsTokenSavingsSchedulableForGroup(&other.ID))
+	// Reconfigure the same channel: API keys can be reopened without trusting a plan marker.
+	cfg.ReceivingRules[0].AccountTypes = []string{service.AccountTypeAPIKey}
+	cfg.ReceivingRules[0].AllowedPlans = nil
+	channel.FeaturesConfig["token_savings"] = cfg
+	require.NoError(t, channels.Update(ctx, channel))
+	loaded, err = repo.GetByID(ctx, shadow.ID)
+	require.NoError(t, err)
+	require.False(t, loaded.IsTokenSavingsSchedulableForGroup(&group.ID))
+	account.Type = service.AccountTypeAPIKey
+	account.Credentials = map[string]any{"api_key": "test-only"}
+	require.NoError(t, repo.Update(ctx, account))
+	shadow.Type = service.AccountTypeAPIKey
+	require.NoError(t, repo.Update(ctx, shadow))
+	loaded, err = repo.GetByID(ctx, shadow.ID)
+	require.NoError(t, err)
+	require.Equal(t, service.AccountTypeAPIKey, loaded.Rental.OwnerAccountType)
+	require.Empty(t, loaded.Rental.OwnerVerifiedPlan)
+	require.True(t, loaded.IsTokenSavingsSchedulableForGroup(&group.ID))
+	require.False(t, loaded.IsTokenSavingsSchedulableForGroup(&other.ID))
+	cfg.ReceivingRules[0].AccountTypes = []string{}
+	channel.FeaturesConfig["token_savings"] = cfg
+	require.NoError(t, channels.Update(ctx, channel))
+	loaded, err = repo.GetByID(ctx, shadow.ID)
+	require.NoError(t, err)
+	require.False(t, loaded.IsTokenSavingsSchedulableForGroup(&group.ID))
 }

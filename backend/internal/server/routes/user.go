@@ -27,10 +27,14 @@ func RegisterUserRoutes(
 	{
 		// 用户接口
 		user := authenticated.Group("/user")
-		registerOwnedAccountRoutes(user, h)
 		if h.TokenBank != nil {
-			authenticated.GET("/token-bank/showcase", h.TokenBank.Showcase)
-			bank := user.Group("/token-bank")
+			bankUser := user.Group("", h.TokenBank.UserGuard)
+			registerOwnedAccountRoutes(bankUser, h)
+			authenticated.GET("/token-bank/showcase", h.TokenBank.UserGuard, h.TokenBank.Showcase)
+			if h.Admin != nil && h.Admin.Channel != nil {
+				authenticated.GET("/token-bank/capabilities", h.TokenBank.UserGuard, h.Admin.Channel.SavingsCapabilities)
+			}
+			bank := bankUser.Group("/token-bank")
 			bank.GET("/accounts", h.TokenBank.Overview)
 			bank.GET("/revenue", h.TokenBank.Revenue)
 		}

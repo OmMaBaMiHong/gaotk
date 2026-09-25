@@ -463,5 +463,11 @@ func BuildClaudeAccountCredentials(tokenInfo *TokenInfo) map[string]any {
 	if tokenInfo.Scope != "" {
 		creds["scope"] = tokenInfo.Scope
 	}
+	if tokenInfo.savingsVerifiedPlan != nil {
+		creds["plan_type"] = *tokenInfo.savingsVerifiedPlan
+		creds["subscription_type"] = *tokenInfo.savingsVerifiedPlan
+		creds["savings_verified_plan_type"] = *tokenInfo.savingsVerifiedPlan
+		creds["savings_verified_at"] = tokenInfo.savingsVerifiedAt
+	}
 	return creds
 }

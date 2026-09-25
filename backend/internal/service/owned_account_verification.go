@@ -43,6 +43,10 @@ func (s *OpenAIOAuthService) VerifySavingsAccount(ctx context.Context, platform,
 		return verified, nil
 	}
 	delete(verified, "plan_type")
+	// Alternative runtime identities must never override the token just verified.
+	for _, key := range []string{"auth_mode", "agent_identity", "runtime_id", "agent_runtime_id", "agent_private_key", "auth_tokens"} {
+		delete(verified, key)
+	}
 	if accountType != AccountTypeOAuth {
 		return verified, nil
 	}
@@ -72,7 +76,7 @@ func (s *OpenAIOAuthService) VerifySavingsAccount(ctx context.Context, platform,
 		return nil, savingsPlanUnverified()
 	}
 	plan := NormalizeSavingsPlan(info.PlanType)
-	if !IsTokenSavingsPlan(plan) {
+	if !IsTokenSavingsPlanForPlatform(PlatformOpenAI, plan) {
 		return nil, savingsPlanUnverified()
 	}
 	for key, value := range s.BuildAccountCredentials(info) {
@@ -135,4 +139,33 @@ func (s *OpenAIOAuthService) verifySavingsUsage(ctx context.Context, account *Ac
 		return nil, savingsPlanUnverified()
 	}
 	return &OpenAITokenInfo{AccessToken: account.GetCredential("access_token"), ChatGPTAccountID: usage.AccountID, ChatGPTUserID: usage.UserID, Email: usage.Email, PlanType: usage.PlanType}, nil
+}
+
+// SavingsAccountVerifiers dispatches into the existing provider OAuth services.
+type SavingsAccountVerifiers struct {
+	OpenAI *OpenAIOAuthService
+	Claude *OAuthService
+}
+
+func (v SavingsAccountVerifiers) VerifySavingsAccount(ctx context.Context, platform, accountType string, credentials map[string]any) (map[string]any, error) {
+	if err := validateSavingsAccountType(platform, accountType); err != nil {
+		return nil, err
+	}
+	if accountType == AccountTypeAPIKey {
+		clean := make(map[string]any, len(credentials))
+		for k, value := range credentials {
+			clean[k] = value
+		}
+		for _, k := range []string{"savings_verified_plan_type", "savings_verified_at", "plan_type", "subscription_type"} {
+			delete(clean, k)
+		}
+		return clean, nil
+	}
+	switch platform {
+	case PlatformOpenAI:
+		return v.OpenAI.VerifySavingsAccount(ctx, platform, accountType, credentials)
+	case PlatformAnthropic:
+		return v.Claude.VerifySavingsAccount(ctx, platform, accountType, credentials)
+	}
+	return nil, savingsPlanUnverified()
 }

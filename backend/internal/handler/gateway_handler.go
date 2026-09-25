@@ -440,7 +440,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			// 终检与准入后绑定使用选号结果携带的门（见 responses 同名注释）。
 			admissionCtx := service.ContextWithSelectionProfitGate(c.Request.Context(), selection)
-			latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account)
+			latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account, selection.SchedulingGroupID)
 			if vetoed {
 				if accountReleaseFunc != nil {
 					accountReleaseFunc()
@@ -781,7 +781,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			// 终检与准入后绑定使用选号结果携带的门（见 responses 同名注释）。
 			admissionCtx := service.ContextWithSelectionProfitGate(c.Request.Context(), selection)
-			latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account)
+			latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account, selection.SchedulingGroupID)
 			if vetoed {
 				if accountReleaseFunc != nil {
 					accountReleaseFunc()

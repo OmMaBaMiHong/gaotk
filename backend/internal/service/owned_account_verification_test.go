@@ -15,7 +15,7 @@ import (
 )
 
 func TestSavingsVerificationUsesUpstreamUsageNotClientPlan(t *testing.T) {
-	for _, plan := range []string{"free", "plus", "pro", "prolite", "chatgpt_pro"} {
+	for _, plan := range []string{"plus", "pro", "prolite", "chatgpt_pro"} {
 		t.Run(plan, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, "Bearer real-access", r.Header.Get("Authorization"))
@@ -32,12 +32,15 @@ func TestSavingsVerificationUsesUpstreamUsageNotClientPlan(t *testing.T) {
 					return nil
 				}), nil
 			}}
-			input := map[string]any{"access_token": "real-access", "chatgpt_account_id": "actual-account", "plan_type": "pro", "savings_verified_plan_type": "pro", "base_url": "https://attacker.invalid", "id_token": "unverified.jwt.payload"}
+			input := map[string]any{"access_token": "real-access", "chatgpt_account_id": "actual-account", "plan_type": "pro", "savings_verified_plan_type": "pro", "base_url": "https://attacker.invalid", "id_token": "unverified.jwt.payload", "agent_identity": "forged", "auth_mode": "agent", "auth_tokens": map[string]any{"access_token": "unverified"}}
 			got, err := s.VerifySavingsAccount(context.Background(), PlatformOpenAI, AccountTypeOAuth, input)
 			require.NoError(t, err)
 			require.Equal(t, NormalizeSavingsPlan(plan), got["plan_type"])
 			require.Equal(t, NormalizeSavingsPlan(plan), got["savings_verified_plan_type"])
 			require.NotZero(t, got["savings_verified_at"])
+			require.NotContains(t, got, "agent_identity")
+			require.NotContains(t, got, "auth_tokens")
+			require.NotContains(t, got, "auth_mode")
 			require.Equal(t, "pro", input["plan_type"], "verification must not mutate caller input on failure or success")
 		})
 	}
@@ -84,6 +87,8 @@ func TestSavingsVerificationFailsClosedOnUnknownOrMismatchedUpstream(t *testing.
 		name, body string
 		status     int
 	}{
+		{"free", `{"plan_type":"free","account_id":"account"}`, 200},
+		{"wrong platform plan", `{"plan_type":"max","account_id":"account"}`, 200},
 		{"unknown", `{"plan_type":"future-pro","account_id":"account"}`, 200},
 		{"missing", `{"account_id":"account"}`, 200},
 		{"other account", `{"plan_type":"pro","account_id":"other"}`, 200},

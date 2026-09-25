@@ -233,7 +233,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		// ctx 上（composite/fallback 还可能解析出与入口分组不同的门），直接用
 		// requestCtx 会退化为空操作。
 		admissionCtx := service.ContextWithSelectionProfitGate(requestCtx, selection)
-		latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account)
+		latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account, selection.SchedulingGroupID)
 		if vetoed {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()

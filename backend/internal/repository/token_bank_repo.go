@@ -83,11 +83,12 @@ func (r *accountRepository) loadRentalSnapshots(ctx context.Context, accounts []
 	if len(ids) == 0 {
 		return out, nil
 	}
-	rows, err := r.sql.QueryContext(ctx, `SELECT a.id,o.id,o.owner_user_id,o.platform,o.status,(o.schedulable AND o.deleted_at IS NULL),
-	COALESCE(ag.group_id,0),COALESCE(c.id,0),COALESCE(c.status,''),COALESCE(c.features_config,'{}'::jsonb),
+	rows, err := r.sql.QueryContext(ctx, `SELECT a.id,o.id,o.owner_user_id,o.platform,o.type,o.status,(o.schedulable AND o.deleted_at IS NULL),
+	COALESCE(ag.group_id,0),COALESCE(g.platform,''),COALESCE(g.status,''),COALESCE(c.id,0),COALESCE(c.status,''),COALESCE(c.features_config,'{}'::jsonb),
 	COALESCE(o.credentials->>'savings_verified_plan_type',''),COALESCE(o.credentials->>'plan_type','')
 	FROM accounts a JOIN accounts o ON o.id=COALESCE(a.parent_account_id,a.id)
 	LEFT JOIN account_groups ag ON ag.account_id=a.id
+	LEFT JOIN groups g ON g.id=ag.group_id AND g.deleted_at IS NULL
 	LEFT JOIN channel_groups cg ON cg.group_id=ag.group_id
 	LEFT JOIN channels c ON c.id=cg.channel_id
 	WHERE a.id=ANY($1) AND o.owner_user_id IS NOT NULL`, pq.Array(ids))
@@ -97,10 +98,10 @@ func (r *accountRepository) loadRentalSnapshots(ctx context.Context, accounts []
 	defer rows.Close()
 	for rows.Next() {
 		var id, groupID, channelID int64
-		var channelStatus string
+		var channelStatus, groupPlatform, groupStatus string
 		var configJSON []byte
 		s := &service.RentalSnapshot{}
-		if err := rows.Scan(&id, &s.OwnerAccountID, &s.OwnerUserID, &s.Platform, &s.Status, &s.Schedulable, &groupID, &channelID, &channelStatus, &configJSON, &s.OwnerVerifiedPlan, &s.OwnerCurrentPlan); err != nil {
+		if err := rows.Scan(&id, &s.OwnerAccountID, &s.OwnerUserID, &s.Platform, &s.OwnerAccountType, &s.Status, &s.Schedulable, &groupID, &groupPlatform, &groupStatus, &channelID, &channelStatus, &configJSON, &s.OwnerVerifiedPlan, &s.OwnerCurrentPlan); err != nil {
 			return nil, err
 		}
 		base := out[id]
@@ -126,7 +127,14 @@ func (r *accountRepository) loadRentalSnapshots(ctx context.Context, accounts []
 		selected := *s
 		selected.Channels = nil
 		selected.ChannelID, selected.GroupID = channelID, groupID
-		selected.AdminUserID, selected.OwnerShareBPS, selected.Enabled = config.AdminUserID, config.OwnerShareBPS, config.Enabled && channel.IsActive()
+		receiving := false
+		for _, id := range config.ReceivingGroupIDs {
+			if id == groupID {
+				receiving = true
+			}
+		}
+		selected.AdminUserID, selected.OwnerShareBPS, selected.Enabled = config.AdminUserID, config.OwnerShareBPS, config.Enabled && channel.IsActive() && receiving && groupStatus == service.StatusActive && groupPlatform == s.Platform
+		selected.AllowedAccountTypes = config.ReceivingRule(groupID).TypesForPlatform(s.Platform)
 		if rule := config.ReceivingRule(groupID); rule != nil {
 			selected.AllowedPlans = rule.AllowedPlans
 		}

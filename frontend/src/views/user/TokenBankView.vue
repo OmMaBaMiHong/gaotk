@@ -1,15 +1,17 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <TokenBankShowcase />
+      <TokenBankShowcase v-if="!disabled" />
       <div class="flex flex-wrap items-start justify-between gap-4">
         <div><h1 class="text-xl font-semibold">{{ t('tokenBank.title') }}</h1><p class="mt-2 text-sm text-gray-500">{{ t('tokenBank.description') }}</p></div>
         <div class="flex flex-wrap gap-2">
-          <button class="btn btn-secondary" @click="showImport = true">{{ t('admin.accounts.dataImportTitle') }}</button>
-          <button class="btn btn-primary" @click="showCreate = true">{{ t('tokenBank.add') }}</button>
+          <button v-if="!disabled && platforms.length" class="btn btn-primary" @click="showCreate = true">{{ t('tokenBank.add') }}</button>
         </div>
       </div>
       <p v-if="error" role="alert" class="rounded-xl bg-red-50 p-4 text-sm text-red-700">{{ error }} <button class="underline" @click="load">{{ t('tokenBank.retry') }}</button></p>
+      <p v-if="disabled" role="status" class="card p-5">{{ t('tokenBank.disabled') }}</p>
+      <p v-else-if="!loading && !platforms.length" role="status" class="card p-5">{{ t('tokenBank.closed') }}</p>
+      <template v-if="!disabled">
       <div class="grid gap-4 sm:grid-cols-3">
         <div class="card p-5"><p class="text-sm text-gray-500">{{ t('tokenBank.today') }}</p><p class="mt-2 text-2xl font-semibold text-primary-600">{{ money(overview?.today_revenue || 0) }}</p></div>
         <div class="card p-5"><p class="text-sm text-gray-500">{{ t('tokenBank.total') }}</p><p class="mt-2 text-2xl font-semibold">{{ money(overview?.total_revenue || 0) }}</p></div>
@@ -35,9 +37,9 @@
           <template #cell-actions="{ row }">
             <div class="flex flex-wrap gap-3 text-sm">
               <button class="text-primary-600" @click="openAccount(row.id, 'stats')">{{ t('tokenBank.details') }}</button>
-              <button @click="openAccount(row.id, 'edit')">{{ t('common.edit') }}</button>
-              <button v-if="(row.type === 'oauth' || row.type === 'setup-token') && ['anthropic', 'openai', 'gemini', 'antigravity', 'grok'].includes(row.platform)" @click="openAccount(row.id, 'reauth')">{{ t('tokenBank.reauthorize') }}</button>
-              <button v-if="row.type === 'oauth' || row.type === 'setup-token'" :disabled="busy" @click="refreshCredentials(row.id)">{{ t('admin.accounts.refreshToken') }}</button>
+              <button v-if="accountAllowed(row.platform, row.type)" @click="openAccount(row.id, 'edit')">{{ t('common.edit') }}</button>
+              <button v-if="row.type === 'oauth' && accountAllowed(row.platform, 'oauth')" @click="openAccount(row.id, 'reauth')">{{ t('tokenBank.reauthorize') }}</button>
+              <button v-if="row.type === 'oauth' && accountAllowed(row.platform, 'oauth')" :disabled="busy" @click="refreshCredentials(row.id)">{{ t('admin.accounts.refreshToken') }}</button>
               <button :disabled="busy" @click="toggle(row)">{{ t(row.schedulable ? 'tokenBank.pause' : 'tokenBank.resume') }}</button>
               <button class="text-red-600" @click="deletingAccount = row">{{ t('common.delete') }}</button>
             </div>
@@ -152,9 +154,9 @@
           </button>
         </div>
       </section>
+      </template>
     </div>
     <CreateAccountModal :show="showCreate" :proxies="[]" :groups="[]" @close="showCreate = false" @created="load" />
-    <ImportDataModal :show="showImport" @close="showImport = false" @imported="load" />
     <EditAccountModal :show="activeModal === 'edit'" :account="activeAccount" :proxies="[]" :groups="[]" @close="activeModal = ''" @updated="load" />
     <ReAuthAccountModal :show="activeModal === 'reauth'" :account="activeAccount" @close="activeModal = ''" @reauthorized="load" />
     <AccountStatsModal :show="activeModal === 'stats'" :account="activeAccount" @close="activeModal = ''" />
@@ -172,7 +174,6 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import CreateAccountModal from '@/components/account/CreateAccountModal.vue'
 import EditAccountModal from '@/components/account/EditAccountModal.vue'
-import ImportDataModal from '@/components/admin/account/ImportDataModal.vue'
 import ReAuthAccountModal from '@/components/admin/account/ReAuthAccountModal.vue'
 import AccountStatsModal from '@/components/admin/account/AccountStatsModal.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
@@ -182,14 +183,17 @@ import UsageTable from '@/components/admin/usage/UsageTable.vue'
 import { provideAccountWorkspace } from '@/composables/useAccountWorkspace'
 import { createAccountsAPI } from '@/api/admin/accounts'
 import { apiClient } from '@/api/client'
-import { tokenBankAPI, type RentalOverview, type RevenuePage } from '@/api/tokenBank'
+import { tokenBankAPI, type RentalOverview, type RevenuePage, type TokenBankCapabilities } from '@/api/tokenBank'
 import type { Account, AccountListItem, AdminUsageLog, WindowStats } from '@/types'
 import { formatDateTime } from '@/utils/format'
 
-provideAccountWorkspace('user')
+const capabilities = ref<TokenBankCapabilities>({ platforms: [] })
+provideAccountWorkspace('user', capabilities)
+const accountAllowed = (platform: string, type: string) => capabilities.value.platforms.some(item => item.platform === platform && item.account_types.includes(type))
+const disabled = ref(false)
 const accountAPI = createAccountsAPI('user')
 const { t, locale } = useI18n()
-const platforms = ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']
+const platforms = computed(() => capabilities.value.platforms.filter(item => item.account_types.length).map(item => item.platform))
 const money = (n: number) => new Intl.NumberFormat(locale.value, { style: 'currency', currency: 'USD', maximumFractionDigits: 8 }).format(n)
 const accounts = ref<AccountListItem[]>([])
 const totalAccounts = ref(0)
@@ -198,7 +202,7 @@ const overview = ref<RentalOverview>()
 const ledger = ref<RevenuePage>({ items: [], total: 0 })
 const loading = ref(false), busy = ref(false), error = ref('')
 const platform = ref(''), search = ref(''), accountPage = ref(1), revenuePage = ref(1), selectedAccount = ref(0)
-const showCreate = ref(false), showImport = ref(false)
+const showCreate = ref(false)
 const activeAccount = ref<Account | null>(null), activeModal = ref('')
 const deletingAccount = ref<AccountListItem | null>(null)
 const usageLogs = ref<AdminUsageLog[]>([]), usageTotal = ref(0), usagePage = ref(1), usageLoading = ref(false)
@@ -216,7 +220,16 @@ const usageColumns = computed(() => [
   { key: 'cost', label: t('tokenBank.billed') },
   { key: 'latency', label: t('usage.duration') }
 ])
-const errorMessage = (e: unknown) => (e as { message?: string })?.message || t('tokenBank.failed')
+const errorMessage = (e: unknown) => {
+  if ((e as { response?: { status?: number }; status?: number })?.response?.status === 503 || (e as { status?: number })?.status === 503) {
+    disabled.value = true
+    capabilities.value = { platforms: [] }
+    showCreate.value = false
+    activeModal.value = ''
+    return t('tokenBank.disabled')
+  }
+  return (e as { message?: string })?.message || t('tokenBank.failed')
+}
 async function loadRevenue() {
   ledger.value = await tokenBankAPI.revenue(false, { account_id: selectedAccount.value || undefined, page: revenuePage.value })
 }
@@ -224,6 +237,8 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
+    capabilities.value = await tokenBankAPI.capabilities()
+    disabled.value = false
     const [result, savings] = await Promise.all([
       accountAPI.list(accountPage.value, 20, { platform: platform.value, search: search.value }),
       tokenBankAPI.overview(false, {})
@@ -256,6 +271,7 @@ function changeUsagePage(delta: number) { usagePage.value += delta; void loadUsa
 async function openAccount(id: number, modal: string) {
   try {
     activeAccount.value = await accountAPI.getById(id)
+    if (modal !== 'stats' && !accountAllowed(activeAccount.value.platform, activeAccount.value.type)) { error.value = t('tokenBank.unsupportedAccount'); return }
     activeModal.value = modal
     if (modal === 'stats') {
       usagePage.value = 1

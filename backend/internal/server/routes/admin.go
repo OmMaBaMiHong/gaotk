@@ -133,6 +133,8 @@ func RegisterAdminRoutes(
 		registerAffiliateRoutes(admin, h)
 		if h.TokenBank != nil {
 			bank := admin.Group("/token-bank")
+			bank.GET("/config", h.TokenBank.AdminConfig)
+			bank.PUT("/config", h.TokenBank.SetAdminConfig)
 			bank.GET("/showcase", h.TokenBank.AdminShowcase)
 			bank.PUT("/showcase", h.TokenBank.SetAdminShowcase)
 			bank.GET("/accounts", h.TokenBank.AdminOverview)

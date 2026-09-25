@@ -46,7 +46,13 @@ export interface TokenBankShowcase {
   recent: { name: string; platform: string; amount: number; created_at: string }[]
   updated_at: string
 }
+export interface TokenBankCapabilities {
+  platforms: { platform: string; account_types: string[] }[]
+}
 export const tokenBankAPI = {
+  capabilities: async () => (await apiClient.get<TokenBankCapabilities>('/token-bank/capabilities')).data,
+  config: async () => (await apiClient.get<{ enabled: boolean }>('/admin/token-bank/config')).data,
+  updateConfig: async (enabled: boolean) => (await apiClient.put<{ enabled: boolean }>('/admin/token-bank/config', { enabled })).data,
   showcase: async (signal?: AbortSignal) =>
     (await apiClient.get<TokenBankShowcase>('/token-bank/showcase', { signal })).data,
   showcaseSettings: async () =>

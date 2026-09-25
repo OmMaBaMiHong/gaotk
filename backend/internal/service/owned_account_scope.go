@@ -7,7 +7,7 @@ import (
 
 type ownedAccountScopeKey struct{}
 type SavingsReceivingGroups interface {
-	GetSavingsReceivingGroups(context.Context, string, string) ([]int64, error)
+	GetSavingsReceivingGroups(context.Context, string, string, string) ([]int64, error)
 }
 type ownedAccountScope struct {
 	userID   int64
@@ -65,8 +65,11 @@ func prepareOwnedAccountCreate(ctx context.Context, input *CreateAccountInput) e
 	if input.Type == AccountTypeUpstream {
 		return infraerrors.BadRequest("OWNED_ACCOUNT_UPSTREAM_NOT_SUPPORTED", "Custom upstream connections must be configured by an administrator")
 	}
+	if err := validateSavingsAccountType(input.Platform, input.Type); err != nil {
+		return err
+	}
 	credentials := OwnedAccountCredentials(input.Credentials)
-	if input.Platform == PlatformOpenAI {
+	if input.Type == AccountTypeOAuth {
 		if scope.verifier == nil {
 			return savingsPlanUnverified()
 		}
@@ -77,7 +80,7 @@ func prepareOwnedAccountCreate(ctx context.Context, input *CreateAccountInput) e
 		}
 	}
 	plan, _ := credentials["savings_verified_plan_type"].(string)
-	groups, err := scope.groups.GetSavingsReceivingGroups(ctx, input.Platform, plan)
+	groups, err := scope.groups.GetSavingsReceivingGroups(ctx, input.Platform, input.Type, plan)
 	if err != nil {
 		return err
 	}
@@ -93,6 +96,9 @@ func prepareOwnedAccountCreate(ctx context.Context, input *CreateAccountInput) e
 	input.LoadFactor = nil
 	input.ProbeEnabled = nil
 	input.Extra = OwnedAccountExtra(input.Extra)
+	if input.Platform == PlatformAnthropic && input.Type == AccountTypeOAuth {
+		input.Extra = savingsClaudeExtra(input.Extra, credentials)
+	}
 	input.Credentials = credentials
 	input.SkipDefaultGroupBind = true
 	input.SkipMixedChannelCheck = false
@@ -120,7 +126,7 @@ func prepareOwnedAccountUpdate(ctx context.Context, account *Account, input *Upd
 	// Upstream refresh already verified (or explicitly invalidated) the plan.
 	// Keep rotated credentials even when the old group no longer admits it;
 	// the runtime gate blocks that group using the new/empty verification.
-	if account.Platform == PlatformOpenAI && isTokenSavingsRefresh(ctx) {
+	if (account.Platform == PlatformOpenAI || account.Platform == PlatformAnthropic) && isTokenSavingsRefresh(ctx) {
 		return nil
 	}
 	if input.Credentials != nil {
@@ -132,7 +138,7 @@ func prepareOwnedAccountUpdate(ctx context.Context, account *Account, input *Upd
 		supplied := OwnedAccountCredentials(input.Credentials)
 		// Re-authorization must not retain the old identity's refresh token
 		// when only a new access token is supplied, or vice versa.
-		if account.Platform == PlatformOpenAI {
+		if account.Platform == PlatformOpenAI || account.Platform == PlatformAnthropic {
 			for _, key := range []string{"access_token", "refresh_token", "api_key"} {
 				value, exists := supplied[key]
 				text, _ := value.(string)
@@ -150,7 +156,7 @@ func prepareOwnedAccountUpdate(ctx context.Context, account *Account, input *Upd
 		}
 		input.Credentials = credentials
 	}
-	if account.Platform == PlatformOpenAI && (input.Credentials != nil || (input.Type != "" && input.Type != account.Type)) {
+	if ((account.Platform == PlatformOpenAI || account.Platform == PlatformAnthropic) && input.Credentials != nil) || (input.Type != "" && input.Type != account.Type) {
 		scope, _ := ctx.Value(ownedAccountScopeKey{}).(ownedAccountScope)
 		if scope.verifier == nil || scope.groups == nil {
 			return savingsPlanUnverified()
@@ -163,12 +169,15 @@ func prepareOwnedAccountUpdate(ctx context.Context, account *Account, input *Upd
 		if input.Type != "" {
 			accountType = input.Type
 		}
+		if err := validateSavingsAccountType(account.Platform, accountType); err != nil {
+			return err
+		}
 		verified, err := scope.verifier.VerifySavingsAccount(ctx, account.Platform, accountType, credentials)
 		if err != nil {
 			return err
 		}
 		plan, _ := verified["savings_verified_plan_type"].(string)
-		groups, err := scope.groups.GetSavingsReceivingGroups(ctx, account.Platform, plan)
+		groups, err := scope.groups.GetSavingsReceivingGroups(ctx, account.Platform, accountType, plan)
 		if err != nil {
 			return err
 		}
@@ -177,6 +186,9 @@ func prepareOwnedAccountUpdate(ctx context.Context, account *Account, input *Upd
 		}
 		input.Credentials = verified
 		input.GroupIDs = &groups
+		if account.Platform == PlatformAnthropic && accountType == AccountTypeOAuth {
+			input.Extra = savingsClaudeExtra(account.Extra, verified)
+		}
 	}
 	return nil
 }
@@ -208,4 +220,29 @@ func AccountListOwnerID(ctx context.Context) int64 {
 	}
 	ownerID, _ := ctx.Value(accountListOwnerFilterKey{}).(int64)
 	return ownerID
+}
+
+func validateSavingsAccountType(platform, accountType string) error {
+	if accountType == AccountTypeAPIKey {
+		return nil
+	}
+	if accountType == AccountTypeOAuth && (platform == PlatformOpenAI || platform == PlatformAnthropic) {
+		return nil
+	}
+	return infraerrors.BadRequest("SAVINGS_ACCOUNT_TYPE_UNSUPPORTED", "当前储蓄接收规则不支持该账号授权类型")
+}
+
+// The Claude gateway uses Extra identity; only the provider-verified identity
+// may populate it, while existing administrator options remain intact on edit.
+func savingsClaudeExtra(existing, credentials map[string]any) map[string]any {
+	extra := make(map[string]any, len(existing)+3)
+	for k, v := range existing {
+		extra[k] = v
+	}
+	for _, key := range []string{"account_uuid", "org_uuid", "email_address"} {
+		extra[key] = credentials[key]
+	}
+	delete(extra, "email")
+	delete(extra, "name")
+	return extra
 }

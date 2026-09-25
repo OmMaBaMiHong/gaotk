@@ -27,7 +27,7 @@ func (r *tokenBankHandlerRepo) Overview(_ context.Context, ownerID int64, _, _ s
 func TestTokenBankUserHandlersScopeAndPublicPolicy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &tokenBankHandlerRepo{}
-	h := NewTokenBankHandler(repo, nil)
+	h := NewTokenBankHandler(repo, nil, nil)
 	request := func(path string, userID int64, fn gin.HandlerFunc) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
@@ -64,7 +64,7 @@ func (s *tokenBankHandlerSettings) Set(_ context.Context, _, value string) error
 func TestTokenBankShowcaseHandlersRequireUserAndAdmin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	settings := &tokenBankHandlerSettings{}
-	h := NewTokenBankHandler(&tokenBankHandlerRepo{}, settings)
+	h := NewTokenBankHandler(&tokenBankHandlerRepo{}, settings, service.NewSettingService(settings, nil))
 	request := func(method, body, role string, id int64, fn gin.HandlerFunc) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
@@ -96,4 +96,36 @@ func TestTokenBankShowcaseHandlersRequireUserAndAdmin(t *testing.T) {
 	w = request("PUT", `{"enabled":false}`, service.RoleAdmin, 1, h.SetAdminShowcase)
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, "false", settings.value)
+}
+
+func TestTokenBankConfigSwitchGuardsImmediatelyAndRequiresAdmin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	settings := &tokenBankHandlerSettings{}
+	h := NewTokenBankHandler(nil, settings, service.NewSettingService(settings, nil))
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1})
+		c.Set(string(middleware.ContextKeyUserRole), c.GetHeader("X-Test-Role"))
+	})
+	r.GET("/config", h.AdminConfig)
+	r.PUT("/config", h.SetAdminConfig)
+	r.GET("/owned", h.UserGuard, func(c *gin.Context) { c.Status(204) })
+	request := func(method, path, body, role string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(method, path, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Test-Role", role)
+		r.ServeHTTP(w, req)
+		return w
+	}
+	require.Equal(t, 503, request("GET", "/owned", "", service.RoleAdmin).Code)
+	require.Equal(t, 403, request("PUT", "/config", `{"enabled":true}`, service.RoleUser).Code)
+	for _, body := range []string{`{}`, `{"enabled":"true"}`, `{"enabled":null}`} {
+		require.Equal(t, 400, request("PUT", "/config", body, service.RoleAdmin).Code)
+	}
+	require.Contains(t, request("GET", "/config", "", service.RoleAdmin).Body.String(), `"enabled":false`)
+	require.Equal(t, 200, request("PUT", "/config", `{"enabled":true}`, service.RoleAdmin).Code)
+	require.Equal(t, 204, request("GET", "/owned", "", service.RoleUser).Code)
+	require.Equal(t, 200, request("PUT", "/config", `{"enabled":false}`, service.RoleAdmin).Code)
+	require.Equal(t, 503, request("GET", "/owned", "", service.RoleUser).Code)
 }

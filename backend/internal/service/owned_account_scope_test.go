@@ -12,7 +12,7 @@ type ownedGroupsStub struct {
 	err    error
 }
 
-func (s ownedGroupsStub) GetSavingsReceivingGroups(context.Context, string, string) ([]int64, error) {
+func (s ownedGroupsStub) GetSavingsReceivingGroups(context.Context, string, string, string) ([]int64, error) {
 	return s.groups, s.err
 }
 
@@ -21,7 +21,7 @@ func TestOwnedAccountCreateUsesServerOwnerAndSelectedReceivingGroup(t *testing.T
 	proxy := int64(10)
 	multiplier := 0.01
 	load := 999
-	input := &CreateAccountInput{OwnerUserID: &attacker, Platform: PlatformDeepseek, GroupIDs: []int64{999}, ProxyID: &proxy, Priority: 1, Concurrency: 1000, RateMultiplier: &multiplier, LoadFactor: &load, SkipMixedChannelCheck: true, Extra: map[string]any{"quota_used": 0}, Credentials: map[string]any{"access_token": "mine", "base_url": "https://attacker.invalid", "model_mapping": map[string]any{"a": "b"}}}
+	input := &CreateAccountInput{OwnerUserID: &attacker, Platform: PlatformDeepseek, Type: AccountTypeAPIKey, GroupIDs: []int64{999}, ProxyID: &proxy, Priority: 1, Concurrency: 1000, RateMultiplier: &multiplier, LoadFactor: &load, SkipMixedChannelCheck: true, Extra: map[string]any{"quota_used": 0}, Credentials: map[string]any{"access_token": "mine", "base_url": "https://attacker.invalid", "model_mapping": map[string]any{"a": "b"}}}
 	ctx := WithOwnedAccountScope(context.Background(), 42, ownedGroupsStub{groups: []int64{7}})
 	require.NoError(t, prepareOwnedAccountCreate(ctx, input))
 	require.Equal(t, int64(42), *input.OwnerUserID)
@@ -96,10 +96,10 @@ func (f ownedVerifierFunc) VerifySavingsAccount(ctx context.Context, platform, a
 	return f(ctx, platform, accountType, creds)
 }
 
-type ownedPlanGroupsFunc func(context.Context, string, string) ([]int64, error)
+type ownedPlanGroupsFunc func(context.Context, string, string, string) ([]int64, error)
 
-func (f ownedPlanGroupsFunc) GetSavingsReceivingGroups(ctx context.Context, platform, plan string) ([]int64, error) {
-	return f(ctx, platform, plan)
+func (f ownedPlanGroupsFunc) GetSavingsReceivingGroups(ctx context.Context, platform, accountType, plan string) ([]int64, error) {
+	return f(ctx, platform, accountType, plan)
 }
 
 func TestOwnedOpenAICreateUsesOnlyVerifiedPlanForGroupSelection(t *testing.T) {
@@ -111,7 +111,7 @@ func TestOwnedOpenAICreateUsesOnlyVerifiedPlanForGroupSelection(t *testing.T) {
 		creds["savings_verified_at"] = int64(123)
 		return creds, nil
 	})
-	groups := ownedPlanGroupsFunc(func(_ context.Context, platform, plan string) ([]int64, error) {
+	groups := ownedPlanGroupsFunc(func(_ context.Context, platform, accountType, plan string) ([]int64, error) {
 		require.Equal(t, PlatformOpenAI, platform)
 		require.Equal(t, "plus", plan)
 		return []int64{8}, nil
@@ -136,7 +136,7 @@ func TestOwnedOpenAIReauthorizationReassignsGroupAndReplacesIdentity(t *testing.
 		creds["savings_verified_plan_type"] = "plus"
 		return creds, nil
 	})
-	groups := ownedPlanGroupsFunc(func(_ context.Context, _, plan string) ([]int64, error) {
+	groups := ownedPlanGroupsFunc(func(_ context.Context, _, accountType, plan string) ([]int64, error) {
 		require.Equal(t, "plus", plan)
 		return []int64{8}, nil
 	})

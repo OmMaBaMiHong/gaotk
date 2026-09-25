@@ -1407,7 +1407,7 @@ async function openEditDialog(channel: Channel) {
   const savings = channel.features_config?.token_savings as Partial<typeof tokenSavings> | undefined
   Object.assign(tokenSavings, { enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [], receiving_rules: [] }, savings, {
     receiving_group_ids: [...(savings?.receiving_group_ids || [])],
-    receiving_rules: (savings?.receiving_rules || []).map(rule => ({ ...rule, allowed_plans: [...(rule.allowed_plans || [])] }))
+    receiving_rules: (savings?.receiving_rules || []).map(rule => ({ ...rule, account_types: rule.account_types ? [...rule.account_types] : undefined, allowed_plans: [...(rule.allowed_plans || [])] }))
   })
   form.name = channel.name
   form.description = channel.description || ''

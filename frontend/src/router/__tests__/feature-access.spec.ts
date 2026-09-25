@@ -23,6 +23,7 @@ const appStore = vi.hoisted(() => ({
   backendModeEnabled: false,
   publicSettingsLoaded: false,
   cachedPublicSettings: null as null | {
+    token_bank_enabled?: boolean
     payment_enabled?: boolean
     risk_control_enabled?: boolean
     subscription_enabled?: boolean
@@ -207,6 +208,27 @@ describe('subscription route guard (opt-out flag)', () => {
     const { navigation, next } = runGuard({ requiresSubscription: true }, '/subscriptions')
     await navigation
 
+    expect(next).toHaveBeenCalledWith('/admin/dashboard')
+  })
+})
+
+
+describe('Token Bank opt-in route guard', () => {
+  it.each([undefined, false, true])('requires explicit enablement (%s)', async (enabled) => {
+    authStore.isAdmin = false
+    appStore.publicSettingsLoaded = true
+    appStore.cachedPublicSettings = { token_bank_enabled: enabled }
+    const { navigation, next } = runGuard({ requiresTokenBank: true }, '/token-bank')
+    await navigation
+    if (enabled) expect(next).toHaveBeenCalledWith()
+    else expect(next).toHaveBeenCalledWith('/dashboard')
+  })
+  it('restricts admins in the user route as well', async () => {
+    authStore.isAdmin = true
+    appStore.publicSettingsLoaded = true
+    appStore.cachedPublicSettings = { token_bank_enabled: false }
+    const { navigation, next } = runGuard({ requiresTokenBank: true }, '/token-bank')
+    await navigation
     expect(next).toHaveBeenCalledWith('/admin/dashboard')
   })
 })

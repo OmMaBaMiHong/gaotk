@@ -3105,10 +3105,12 @@
 
 <script setup lang="ts">
 const { api: adminAPI, isAdmin } = useAccountWorkspace()
+const { accountAllowed } = useAccountCapabilities()
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 
+import { useAccountCapabilities } from '@/composables/useAccountCapabilities'
 import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import type {
@@ -5126,6 +5128,7 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
 }
 
 const handleSubmit = async () => {
+  if (props.account && !accountAllowed(props.account.platform, props.account.type)) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
   if (!props.account) return
   const accountID = props.account.id
 

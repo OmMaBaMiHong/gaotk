@@ -133,15 +133,17 @@ type ExchangeCodeInput struct {
 
 // TokenInfo represents the token information stored in credentials
 type TokenInfo struct {
-	AccessToken  string `json:"access_token"`
-	TokenType    string `json:"token_type"`
-	ExpiresIn    int64  `json:"expires_in"`
-	ExpiresAt    int64  `json:"expires_at"`
-	RefreshToken string `json:"refresh_token,omitempty"`
-	Scope        string `json:"scope,omitempty"`
-	OrgUUID      string `json:"org_uuid,omitempty"`
-	AccountUUID  string `json:"account_uuid,omitempty"`
-	EmailAddress string `json:"email_address,omitempty"`
+	savingsVerifiedPlan *string
+	savingsVerifiedAt   int64
+	AccessToken         string `json:"access_token"`
+	TokenType           string `json:"token_type"`
+	ExpiresIn           int64  `json:"expires_in"`
+	ExpiresAt           int64  `json:"expires_at"`
+	RefreshToken        string `json:"refresh_token,omitempty"`
+	Scope               string `json:"scope,omitempty"`
+	OrgUUID             string `json:"org_uuid,omitempty"`
+	AccountUUID         string `json:"account_uuid,omitempty"`
+	EmailAddress        string `json:"email_address,omitempty"`
 }
 
 // ExchangeCode exchanges authorization code for tokens
@@ -321,7 +323,11 @@ func (s *OAuthService) RefreshAccountToken(ctx context.Context, account *Account
 		}
 	}
 
-	return s.RefreshToken(ctx, refreshToken, proxyURL)
+	info, err := s.RefreshToken(ctx, refreshToken, proxyURL)
+	if err == nil && info != nil && account.OwnerUserID != nil {
+		s.reverifyClaudeSavingsRefresh(ctx, account, info)
+	}
+	return info, err
 }
 
 // Stop stops the session store cleanup goroutine

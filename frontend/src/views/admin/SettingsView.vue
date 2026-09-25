@@ -7162,6 +7162,7 @@
 
 	        <!-- Tab: Features (功能开关) -->
         <div v-show="activeTab === 'features'" class="space-y-6">
+        <TokenBankSetting />
         <TokenBankShowcaseSetting />
 
         <div class="card">
@@ -9009,6 +9010,7 @@ import PaymentProviderDialog from "@/components/payment/PaymentProviderDialog.vu
 import GroupBadge from "@/components/common/GroupBadge.vue";
 import GroupOptionItem from "@/components/common/GroupOptionItem.vue";
 import Toggle from "@/components/common/Toggle.vue";
+import TokenBankSetting from "@/components/token-bank/TokenBankSetting.vue";
 import TokenBankShowcaseSetting from "@/components/token-bank/TokenBankShowcaseSetting.vue";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";

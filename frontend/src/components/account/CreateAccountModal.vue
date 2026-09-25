@@ -72,6 +72,7 @@
         <label class="input-label">{{ t('admin.accounts.platform') }}</label>
         <div class="mt-2 flex flex-wrap rounded-lg bg-gray-100 p-1 dark:bg-dark-700" data-tour="account-form-platform">
           <button
+            v-if="platformAllowed('anthropic')"
             type="button"
             @click="form.platform = 'anthropic'"
             :class="[
@@ -85,6 +86,7 @@
             Anthropic
           </button>
           <button
+            v-if="platformAllowed('openai')"
             type="button"
             @click="form.platform = 'openai'"
             :class="[
@@ -110,6 +112,7 @@
             OpenAI
           </button>
           <button
+            v-if="platformAllowed('gemini')"
             type="button"
             @click="form.platform = 'gemini'"
             :class="[
@@ -135,6 +138,7 @@
             Gemini
           </button>
           <button
+            v-if="platformAllowed('antigravity')"
             type="button"
             @click="form.platform = 'antigravity'"
             :class="[
@@ -148,6 +152,7 @@
             Antigravity
           </button>
           <button
+            v-if="platformAllowed('grok')"
             type="button"
             @click="form.platform = 'grok'"
             :class="[
@@ -162,8 +167,9 @@
           </button>
         </div>
         <!-- Multi-protocol API-key providers: Kimi / Zhipu GLM / DeepSeek / OpenCode -->
-        <div class="mt-2 flex flex-wrap rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
+        <div v-if="['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'].some(platformAllowed)" class="mt-2 flex flex-wrap rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
           <button
+            v-if="platformAllowed('kimi')"
             type="button"
             @click="selectCNPlatform('kimi')"
             :class="[
@@ -177,6 +183,7 @@
             Kimi
           </button>
           <button
+            v-if="platformAllowed('zhipu')"
             type="button"
             @click="selectCNPlatform('zhipu')"
             :class="[
@@ -190,6 +197,7 @@
             Zhipu GLM
           </button>
           <button
+            v-if="platformAllowed('deepseek')"
             type="button"
             @click="selectCNPlatform('deepseek')"
             :class="[
@@ -203,6 +211,7 @@
             DeepSeek
           </button>
           <button
+            v-if="platformAllowed('minimax')"
             type="button"
             @click="selectCNPlatform('minimax')"
             :class="[
@@ -216,6 +225,7 @@
             MiniMax
           </button>
           <button
+            v-if="platformAllowed('opencode_go')"
             type="button"
             @click="selectOpenCodeGoPlatform()"
             :class="[
@@ -236,6 +246,7 @@
         <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4" data-tour="account-form-type">
           <button
+            v-if="accountAllowed(form.platform, 'oauth')"
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
@@ -260,12 +271,13 @@
                 t('admin.accounts.claudeCode')
               }}</span>
               <span class="text-xs text-gray-500 dark:text-gray-400">{{
-                t('admin.accounts.oauthSetupToken')
+                t(isAdmin ? 'admin.accounts.oauthSetupToken' : 'tokenBank.officialSubscription')
               }}</span>
             </div>
           </button>
 
           <button
+            v-if="accountAllowed(form.platform, 'apikey')"
             type="button"
             @click="accountCategory = 'apikey'"
             :class="[
@@ -296,6 +308,7 @@
           </button>
 
           <button
+            v-if="accountAllowed(form.platform, 'bedrock')"
             type="button"
             @click="accountCategory = 'bedrock'"
             :class="[
@@ -326,6 +339,7 @@
           </button>
 
           <button
+            v-if="accountAllowed(form.platform, 'service_account')"
             type="button"
             @click="accountCategory = 'service_account'"
             :class="[
@@ -366,6 +380,7 @@
         <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-2 gap-3" data-tour="account-form-type">
           <button
+            v-if="accountAllowed(form.platform, 'oauth')"
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
@@ -392,6 +407,7 @@
           </button>
 
           <button
+            v-if="accountAllowed(form.platform, 'apikey')"
             type="button"
             @click="accountCategory = 'apikey'"
             :class="[
@@ -425,6 +441,7 @@
         <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2" data-tour="account-form-type">
           <button
+            v-if="accountAllowed(form.platform, 'oauth')"
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
@@ -451,6 +468,7 @@
           </button>
 
           <button
+            v-if="accountAllowed(form.platform, 'apikey')"
             type="button"
             data-testid="grok-account-type-api-key"
             @click="accountCategory = 'apikey'"
@@ -673,6 +691,7 @@
         </div>
         <div class="mt-2 grid grid-cols-3 gap-3" data-tour="account-form-type">
           <button
+            v-if="accountAllowed(form.platform, 'oauth')"
             type="button"
             @click="accountCategory = 'oauth-based'"
             :class="[
@@ -703,6 +722,7 @@
           </button>
 
           <button
+            v-if="accountAllowed(form.platform, 'apikey')"
             type="button"
             @click="accountCategory = 'apikey'"
             :class="[
@@ -745,6 +765,7 @@
           </button>
 
           <button
+            v-if="accountAllowed(form.platform, 'service_account')"
             type="button"
             @click="accountCategory = 'service_account'"
             :class="[
@@ -1044,6 +1065,7 @@
         <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
         <div class="mt-2 grid grid-cols-2 gap-3">
           <button
+            v-if="accountAllowed(form.platform, 'oauth')"
             type="button"
             @click="antigravityAccountType = 'oauth'"
             :class="[
@@ -1069,7 +1091,7 @@
             </div>
           </button>
 
-          <button v-if="isAdmin"
+          <button v-if="accountAllowed(form.platform, 'apikey')"
             type="button"
             @click="antigravityAccountType = 'upstream'"
             :class="[
@@ -1110,7 +1132,7 @@
       </div>
 
       <!-- Upstream config (only for Antigravity upstream type) -->
-      <div v-if="isAdmin && (form.platform === 'antigravity' && antigravityAccountType === 'upstream')" class="space-y-4">
+      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'upstream'" class="space-y-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.upstream.baseUrl') }}</label>
           <input
@@ -1331,7 +1353,7 @@
       </div>
 
       <!-- Add Method (only for Anthropic OAuth-based type) -->
-      <div v-if="form.platform === 'anthropic' && isOAuthFlow">
+      <div v-if="isAdmin && form.platform === 'anthropic' && isOAuthFlow">
         <label class="input-label">{{ t('admin.accounts.addMethod') }}</label>
         <div class="mt-2 flex gap-4">
           <label class="flex cursor-pointer items-center">
@@ -3887,6 +3909,7 @@
 
 <script setup lang="ts">
 const { api: adminAPI, isAdmin } = useAccountWorkspace()
+const { availablePlatforms, platformAllowed, accountAllowed } = useAccountCapabilities()
 import { ref, reactive, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
@@ -3900,6 +3923,7 @@ import {
   fetchAntigravityDefaultMappings,
   isValidWildcardPattern
 } from '@/composables/useModelWhitelist'
+import { useAccountCapabilities } from '@/composables/useAccountCapabilities'
 import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import {
@@ -4927,6 +4951,14 @@ watch(
   }
 )
 
+watch([() => props.show, () => form.platform, availablePlatforms], () => {
+  if (isAdmin || !props.show) return
+  if (!platformAllowed(form.platform) && availablePlatforms.value[0]) form.platform = availablePlatforms.value[0].platform as AccountPlatform
+  accountCategory.value = accountAllowed(form.platform, 'oauth') ? 'oauth-based' : 'apikey'
+  antigravityAccountType.value = accountCategory.value === 'apikey' ? 'upstream' : 'oauth'
+  addMethod.value = 'oauth'
+}, { immediate: true })
+
 // Gemini AI Studio OAuth availability (requires operator-configured OAuth client)
 watch(
   [accountCategory, () => form.platform],
@@ -5239,6 +5271,7 @@ const ensureAntigravityMixedChannelConfirmed = async (onConfirm: () => Promise<v
 }
 
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
+  if (!accountAllowed(payload.platform, payload.type)) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
   submitting.value = true
   try {
     const account = await adminAPI.accounts.create(withAntigravityConfirmFlag(payload))
@@ -5620,6 +5653,7 @@ const handleVertexServiceAccountDrop = async (event: DragEvent) => {
 }
 
 const handleSubmit = async () => {
+  if (!accountAllowed(form.platform, form.type)) { appStore.showError(t('tokenBank.unsupportedAccount')); return }
   // For OAuth-based type, handle OAuth flow (goes to step 2)
   if (isOAuthFlow.value) {
     if (!isGrokSSOInputMethod.value && !form.name.trim()) {

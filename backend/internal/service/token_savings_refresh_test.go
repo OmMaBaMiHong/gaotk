@@ -31,9 +31,13 @@ func TestSavingsRefreshRechecksUpstreamAndInvalidatesMissingPlan(t *testing.T) {
 			account.Credentials["savings_verified_at"] = int64(10)
 			credentials, err := NewOpenAITokenRefresher(svc, nil).Refresh(context.Background(), account)
 			require.NoError(t, err)
-			require.Equal(t, plan, credentials["plan_type"])
-			require.Equal(t, plan, credentials["savings_verified_plan_type"])
-			if plan == "" {
+			expected := plan
+			if plan == "free" {
+				expected = ""
+			}
+			require.Equal(t, expected, credentials["plan_type"])
+			require.Equal(t, expected, credentials["savings_verified_plan_type"])
+			if expected == "" {
 				require.Equal(t, int64(0), credentials["savings_verified_at"])
 			}
 			require.Equal(t, "existing-access-token", credentials["access_token"])

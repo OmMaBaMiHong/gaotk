@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -40,55 +41,55 @@ func registerOwnedAccountRoutes(user *gin.RouterGroup, h *handler.Handlers) {
 		accounts.GET("/:id/usage-logs", h.Admin.Usage.List)
 	}
 	if h.Admin.OAuth != nil {
-		accounts.POST("/generate-auth-url", h.Admin.OAuth.GenerateAuthURL)
-		accounts.POST("/generate-setup-token-url", h.Admin.OAuth.GenerateSetupTokenURL)
-		accounts.POST("/exchange-code", h.Admin.OAuth.ExchangeCode)
-		accounts.POST("/exchange-setup-token-code", h.Admin.OAuth.ExchangeSetupTokenCode)
-		accounts.POST("/cookie-auth", h.Admin.OAuth.CookieAuth)
-		accounts.POST("/setup-token-cookie-auth", h.Admin.OAuth.SetupTokenCookieAuth)
+		accounts.POST("/generate-auth-url", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAnthropic, service.AccountTypeOAuth), h.Admin.OAuth.GenerateAuthURL)
+		accounts.POST("/generate-setup-token-url", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAnthropic, service.AccountTypeSetupToken), h.Admin.OAuth.GenerateSetupTokenURL)
+		accounts.POST("/exchange-code", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAnthropic, service.AccountTypeOAuth), h.Admin.OAuth.ExchangeCode)
+		accounts.POST("/exchange-setup-token-code", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAnthropic, service.AccountTypeSetupToken), h.Admin.OAuth.ExchangeSetupTokenCode)
+		accounts.POST("/cookie-auth", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAnthropic, service.AccountTypeOAuth), h.Admin.OAuth.CookieAuth)
+		accounts.POST("/setup-token-cookie-auth", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAnthropic, service.AccountTypeSetupToken), h.Admin.OAuth.SetupTokenCookieAuth)
 	}
 	if h.Admin.OpenAIOAuth != nil {
 		openai := owned.Group("/openai")
-		openai.POST("/generate-auth-url", h.Admin.OpenAIOAuth.GenerateAuthURL)
-		openai.POST("/exchange-code", h.Admin.OpenAIOAuth.ExchangeCode)
-		openai.POST("/refresh-token", h.Admin.OpenAIOAuth.RefreshToken)
+		openai.POST("/generate-auth-url", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformOpenAI, service.AccountTypeOAuth), h.Admin.OpenAIOAuth.GenerateAuthURL)
+		openai.POST("/exchange-code", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformOpenAI, service.AccountTypeOAuth), h.Admin.OpenAIOAuth.ExchangeCode)
+		openai.POST("/refresh-token", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformOpenAI, service.AccountTypeOAuth), h.Admin.OpenAIOAuth.RefreshToken)
 		openai.POST("/accounts/:id/refresh", h.Admin.OpenAIOAuth.RefreshAccountToken)
-		openai.POST("/create-from-oauth", h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
-		openai.POST("/create-from-codex-pat", h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
+		openai.POST("/create-from-oauth", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformOpenAI, service.AccountTypeOAuth), h.Admin.OpenAIOAuth.CreateAccountFromOAuth)
+		openai.POST("/create-from-codex-pat", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformOpenAI, service.AccountTypeOAuth), h.Admin.OpenAIOAuth.CreateAccountFromCodexPAT)
 		openai.GET("/accounts/:id/quota", h.Admin.OpenAIOAuth.QueryQuota)
 		openai.POST("/accounts/:id/quota/refresh", h.Admin.OpenAIOAuth.RefreshQuota)
 	}
 	if h.Admin.GeminiOAuth != nil {
 		gemini := owned.Group("/gemini")
-		gemini.POST("/oauth/auth-url", h.Admin.GeminiOAuth.GenerateAuthURL)
-		gemini.POST("/oauth/exchange-code", h.Admin.GeminiOAuth.ExchangeCode)
+		gemini.POST("/oauth/auth-url", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGemini, service.AccountTypeOAuth), h.Admin.GeminiOAuth.GenerateAuthURL)
+		gemini.POST("/oauth/exchange-code", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGemini, service.AccountTypeOAuth), h.Admin.GeminiOAuth.ExchangeCode)
 		gemini.GET("/oauth/capabilities", h.Admin.GeminiOAuth.GetCapabilities)
 	}
 	if h.Admin.KimiOAuth != nil {
 		kimi := owned.Group("/kimi")
 		kimi.GET("/oauth/capabilities", h.Admin.KimiOAuth.GetCapabilities)
-		kimi.POST("/oauth/start", h.Admin.KimiOAuth.StartDeviceFlow)
-		kimi.POST("/oauth/poll", h.Admin.KimiOAuth.PollDeviceFlow)
-		kimi.POST("/oauth/refresh", h.Admin.KimiOAuth.RefreshToken)
+		kimi.POST("/oauth/start", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformKimi, service.AccountTypeOAuth), h.Admin.KimiOAuth.StartDeviceFlow)
+		kimi.POST("/oauth/poll", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformKimi, service.AccountTypeOAuth), h.Admin.KimiOAuth.PollDeviceFlow)
+		kimi.POST("/oauth/refresh", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformKimi, service.AccountTypeOAuth), h.Admin.KimiOAuth.RefreshToken)
 		kimi.POST("/accounts/:id/refresh", h.Admin.KimiOAuth.RefreshAccountToken)
-		kimi.POST("/create-from-oauth", h.Admin.KimiOAuth.CreateAccountFromOAuth)
+		kimi.POST("/create-from-oauth", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformKimi, service.AccountTypeOAuth), h.Admin.KimiOAuth.CreateAccountFromOAuth)
 	}
 	if h.Admin.AntigravityOAuth != nil {
 		ag := owned.Group("/antigravity")
-		ag.POST("/oauth/auth-url", h.Admin.AntigravityOAuth.GenerateAuthURL)
-		ag.POST("/oauth/exchange-code", h.Admin.AntigravityOAuth.ExchangeCode)
-		ag.POST("/oauth/refresh-token", h.Admin.AntigravityOAuth.RefreshToken)
+		ag.POST("/oauth/auth-url", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAntigravity, service.AccountTypeOAuth), h.Admin.AntigravityOAuth.GenerateAuthURL)
+		ag.POST("/oauth/exchange-code", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAntigravity, service.AccountTypeOAuth), h.Admin.AntigravityOAuth.ExchangeCode)
+		ag.POST("/oauth/refresh-token", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformAntigravity, service.AccountTypeOAuth), h.Admin.AntigravityOAuth.RefreshToken)
 	}
 	if h.Admin.GrokOAuth != nil {
 		grok := owned.Group("/grok")
 		grok.GET("/oauth/capabilities", h.Admin.GrokOAuth.GetCapabilities)
-		grok.POST("/oauth/auth-url", h.Admin.GrokOAuth.GenerateAuthURL)
-		grok.POST("/oauth/exchange-code", h.Admin.GrokOAuth.ExchangeCode)
-		grok.POST("/oauth/refresh-token", h.Admin.GrokOAuth.RefreshToken)
-		grok.POST("/oauth/sso-token", h.Admin.GrokOAuth.ValidateSSOToken)
-		grok.POST("/oauth/password", h.Admin.GrokOAuth.AuthorizePassword)
-		grok.POST("/oauth/create-from-oauth", h.Admin.GrokOAuth.CreateAccountFromOAuth)
-		grok.POST("/sso-to-oauth", h.Admin.GrokOAuth.CreateAccountsFromSSO)
+		grok.POST("/oauth/auth-url", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGrok, service.AccountTypeOAuth), h.Admin.GrokOAuth.GenerateAuthURL)
+		grok.POST("/oauth/exchange-code", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGrok, service.AccountTypeOAuth), h.Admin.GrokOAuth.ExchangeCode)
+		grok.POST("/oauth/refresh-token", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGrok, service.AccountTypeOAuth), h.Admin.GrokOAuth.RefreshToken)
+		grok.POST("/oauth/sso-token", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGrok, service.AccountTypeOAuth), h.Admin.GrokOAuth.ValidateSSOToken)
+		grok.POST("/oauth/password", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGrok, service.AccountTypeOAuth), h.Admin.GrokOAuth.AuthorizePassword)
+		grok.POST("/oauth/create-from-oauth", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGrok, service.AccountTypeOAuth), h.Admin.GrokOAuth.CreateAccountFromOAuth)
+		grok.POST("/sso-to-oauth", h.Admin.Channel.OwnedAuthorizationGuard(service.PlatformGrok, service.AccountTypeOAuth), h.Admin.GrokOAuth.CreateAccountsFromSSO)
 		grok.POST("/accounts/:id/refresh", h.Admin.GrokOAuth.RefreshAccountToken)
 		grok.GET("/accounts/:id/quota", h.Admin.GrokOAuth.QueryQuota)
 	}

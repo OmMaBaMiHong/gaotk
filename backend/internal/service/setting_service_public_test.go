@@ -309,3 +309,15 @@ func TestSettingService_GetPublicSettings_PaymentBalanceDisabledStrictTrue(t *te
 		})
 	}
 }
+
+func TestSettingService_PublicTokenBankSwitchFailsClosedAndMirrorsInjection(t *testing.T) {
+	for _, value := range []string{"", "false", "true", "invalid"} {
+		svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{SettingKeyTokenBankEnabled: value}}, &config.Config{})
+		public, err := svc.GetPublicSettings(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, value == "true", public.TokenBankEnabled)
+		raw, err := svc.GetPublicSettingsForInjection(context.Background())
+		require.NoError(t, err)
+		require.Equal(t, value == "true", raw.(*PublicSettingsInjectionPayload).TokenBankEnabled)
+	}
+}

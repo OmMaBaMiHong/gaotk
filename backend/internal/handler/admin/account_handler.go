@@ -1531,6 +1531,8 @@ func (h *AccountHandler) refreshSingleAccount(ctx context.Context, account *serv
 		if strings.TrimSpace(tokenInfo.Scope) != "" {
 			newCredentials["scope"] = tokenInfo.Scope
 		}
+		newCredentials = service.MergeCredentials(newCredentials, service.BuildClaudeAccountCredentials(tokenInfo))
+		ctx = service.WithClaudeSavingsRefresh(ctx, tokenInfo)
 	}
 
 	updatedAccount, err := h.adminService.UpdateAccount(ctx, account.ID, &service.UpdateAccountInput{

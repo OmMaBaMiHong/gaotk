@@ -115,3 +115,42 @@ func TestUpdateAccount_EmptyCredentialsSkipsUpdate(t *testing.T) {
 	require.Equal(t, "rt-existing", repo.account.Credentials["refresh_token"], "空 credentials 不应触碰已有 token")
 	require.Equal(t, "renamed", repo.account.Name)
 }
+
+type ownedReauthGroupRepo struct{ GroupRepository }
+
+func (ownedReauthGroupRepo) GetByID(context.Context, int64) (*Group, error) {
+	return &Group{ID: 7, Status: StatusActive}, nil
+}
+
+func TestOwnedReauthorizationPersistsOnlyNewIdentity(t *testing.T) {
+	for _, platform := range []string{PlatformOpenAI, PlatformAnthropic} {
+		t.Run(platform, func(t *testing.T) {
+			owner := int64(42)
+			repo := &updateAccountCredsRepoStub{account: &Account{ID: 220, OwnerUserID: &owner, Platform: platform, Type: AccountTypeOAuth, Status: StatusActive, Credentials: map[string]any{
+				"access_token": "old-access", "refresh_token": "old-refresh", "id_token": "old-jwt", "api_key": "old-key", "model_mapping": map[string]any{"model": "upstream"},
+			}}}
+			verifier := ownedVerifierFunc(func(_ context.Context, _, _ string, creds map[string]any) (map[string]any, error) {
+				require.NotContains(t, creds, "refresh_token")
+				creds["savings_verified_plan_type"] = "pro"
+				creds["plan_type"] = "pro"
+				creds["account_uuid"] = "new-account"
+				creds["org_uuid"] = "new-org"
+				creds["email_address"] = "new@example.test"
+				return creds, nil
+			})
+			ctx := WithOwnedAccountScope(context.Background(), owner, ownedGroupsStub{groups: []int64{7}}, verifier)
+			svc := &adminServiceImpl{accountRepo: repo, groupRepo: ownedReauthGroupRepo{}}
+			_, err := svc.UpdateAccount(ctx, 220, &UpdateAccountInput{Credentials: map[string]any{"access_token": "new-access"}})
+			require.NoError(t, err)
+			require.Equal(t, 1, repo.updateCalls)
+			require.Equal(t, "new-access", repo.account.GetCredential("access_token"))
+			for _, key := range []string{"refresh_token", "id_token", "api_key"} {
+				require.NotContains(t, repo.account.Credentials, key)
+			}
+			require.Contains(t, repo.account.Credentials, "model_mapping")
+			if platform == PlatformAnthropic {
+				require.Equal(t, "new-account", repo.account.Extra["account_uuid"])
+			}
+		})
+	}
+}

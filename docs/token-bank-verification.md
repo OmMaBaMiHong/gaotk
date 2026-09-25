@@ -72,3 +72,24 @@
 - 公网验证：页面 302，账号与 OpenAI/Claude 授权及广播接口 503，health 200，普通 profile/admin accounts 匿名仍 401。
 - 关闭后真实 DeepSeek 小请求 200 且返回 choices；Skoob OAuth 客户端、原密钥及回调保持，容器 healthy / 0 restarts。
 - 关闭前配置保存在 `/root/backup-20260925-token-bank-disabled/`：channels-before.json、accounts-before.json、nginx-before.conf；含配置文件均为 root 私有。恢复必须同时明确处理 Nginx include、渠道接收开关和原暂停状态，不能单独开广播开关视为恢复完成。
+
+
+## 2026-09-25：官方订阅与可切换接收政策（本地验收，未上线）
+
+- 新增真正的 `token_bank_enabled` 总开关，默认关闭。系统设置 → 功能开关分别显示银行总开关、收益展示开关。公开设置与 HTML 首屏注入同步，C 端全体本人账号/授权/银行接口逐请求检查总开关；原管理端不受影响。
+- 复用原渠道接收规则增加 `account_types`，显式空数组可关闭规则，API Key 能按未来政策显式重开，未删除原账号管理能力。当前本地配置只有 GPT OAuth（Pro）和 Claude OAuth（Pro/Max），其他类型关闭。
+- 前端依照原渠道能力列表收起其他平台、API Key、setup-token 和通用导入入口；超级管理员访问 C 端也遵循相同范围。原后台管理页面保留原能力。
+- Claude 复用原 OAuth 客户端，增加官方 profile 的组织身份和 Pro/Max 核验。具体证据与限制见 `token-bank-claude-verification.md`。GPT Free 和跨平台套餐值拒绝，客户端身份覆盖字段不会代替已核验令牌。
+- 创建/重授权/刷新继续复用原服务；刷新套餐失效保留轮换凭据但阻止请求。修复 owner 重授权时原敏感字段合并把旧 refresh_token 补回的问题；原后台普通编辑的敏感凭据保留语义不变。
+- 原计费、成本与 80/20 分账金额算法未修改。渠道关闭类型、平台不匹配、套餐不匹配均阻止调度；Claude 最终检查使用实际解析后的 fallback 分组。
+
+验证证据：
+
+- 后端最后一轮 6 个包共 246 项聚焦测试通过，覆盖总开关权限/即时生效、公开设置/首屏同步、原管理端凭据合并回归、owner 全流程重授权、官方核验、刷新缓存、接收与调度；另 Claude provider/refresh 独立回归 102 项通过。
+- 真实 PostgreSQL/Redis `CI=true` 的 TokenBank 原结算场景和 owner/type/actual-group 快照集成通过。测试容器不替代供应商真实授权。
+- 前端 13 个文件 155 项聚焦回归通过；Free/显式关闭规则修正后相关 16 项通过；TypeScript、修改文件 ESLint、生产构建通过。
+- 本地 Docker 只重建 app，保留原 PostgreSQL/Redis 卷；健康检查通过。真实 HTTP 验证关闭/开启/再关闭即时拦截、普通用户不能改配置、旧 API 不能绕过、公开开关同步、接收类型空数组/API Key 的配置往返、伪造凭据拒绝且账号总数不变。
+- 浏览器本地页面已确认新的闲置官方订阅文案，添加窗口只显示 Anthropic / OpenAI OAuth；系统设置存在两个独立开关。本地预览已开启供验收，原模拟账号/收益账本保留，没有注入收益。
+- 线上 `/api/v1/user/accounts` 复查 503，继续维持前一节的 Nginx 临时关闭、渠道关闭及账号暂停。本次没有生产发布。
+
+后续真实验收与发布：使用真实 GPT/Claude 官方订阅账号完成成功授权与小请求核验后再决定开放。正式发布需确认新 scheduler 快照刷新（旧缓存缺少 owner/type 字段会拒绝调度），并处理临时 Nginx include；不能只开广播开关或只移除 Nginx 封禁。总开关管用户工作区，停用供给仍使用渠道和账号调度开关。

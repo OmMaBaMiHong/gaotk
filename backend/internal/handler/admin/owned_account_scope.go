@@ -27,7 +27,7 @@ func (h *AccountHandler) OwnedAccountScope(channel *ChannelHandler) gin.HandlerF
 		if channel != nil {
 			groups = channel.channelService
 		}
-		ctx := service.WithOwnedAccountScope(c.Request.Context(), subject.UserID, groups, h.openaiOAuthService)
+		ctx := service.WithOwnedAccountScope(c.Request.Context(), subject.UserID, groups, service.SavingsAccountVerifiers{OpenAI: h.openaiOAuthService, Claude: h.oauthService})
 		c.Request = c.Request.WithContext(ctx)
 		verify := func(id int64) bool {
 			account, err := h.adminService.GetAccount(ctx, id)
@@ -181,4 +181,35 @@ func accountDTOForContext(ctx context.Context, account *service.Account) *dto.Ac
 		redactOwnedAccountDTO(out)
 	}
 	return out
+}
+
+// OwnedAuthorizationGuard reuses channel admission before starting a provider flow.
+// Existing account management remains available when a type stops accepting deposits.
+func (h *ChannelHandler) OwnedAuthorizationGuard(platform, accountType string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if h == nil || h.channelService == nil {
+			response.ErrorFrom(c, service.ErrSavingsUnavailable)
+			c.Abort()
+			return
+		}
+		capabilities, err := h.channelService.GetSavingsCapabilities(c.Request.Context())
+		if err != nil {
+			response.ErrorFrom(c, err)
+			c.Abort()
+			return
+		}
+		for _, capability := range capabilities {
+			if capability.Platform != platform {
+				continue
+			}
+			for _, typ := range capability.AccountTypes {
+				if typ == accountType {
+					c.Next()
+					return
+				}
+			}
+		}
+		response.ErrorFrom(c, service.ErrSavingsUnavailable)
+		c.Abort()
+	}
 }

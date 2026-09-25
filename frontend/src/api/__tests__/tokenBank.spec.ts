@@ -37,3 +37,17 @@ describe('account workspace scopes', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/user/token-bank/revenue', { params: { account_id: 7 } })
   })
 })
+
+
+describe('Token Bank availability APIs', () => {
+  it('reads authenticated capabilities and saves the independent global config', async () => {
+    const config = { enabled: true }
+    vi.mocked(apiClient.put).mockResolvedValue({ data: config })
+    await tokenBankAPI.capabilities()
+    await tokenBankAPI.config()
+    expect(apiClient.get).toHaveBeenCalledWith('/token-bank/capabilities')
+    expect(apiClient.get).toHaveBeenCalledWith('/admin/token-bank/config')
+    expect(await tokenBankAPI.updateConfig(true)).toEqual(config)
+    expect(apiClient.put).toHaveBeenCalledWith('/admin/token-bank/config', config)
+  })
+})

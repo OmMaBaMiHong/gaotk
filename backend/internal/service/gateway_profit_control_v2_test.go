@@ -401,11 +401,11 @@ func TestGatewayProfitControlSelectionCarriesGateToHandlerContext(t *testing.T) 
 	require.True(t, selection.ProfitGateActive(), "选号结果必须携带调度栈内生效的门")
 
 	// 修复前的缺陷形态：handler 原始 ctx 不含门，终检退化为空操作。
-	_, vetoed, _ := svc.GatewayProfitControlVetoLatest(context.Background(), &expensive)
+	_, vetoed, _ := svc.GatewayProfitControlVetoLatest(context.Background(), &expensive, nil)
 	require.False(t, vetoed, "对照组：不重放门时终检确实看不到门")
 
 	handlerCtx := ContextWithSelectionProfitGate(context.Background(), selection)
-	latest, vetoed, reason := svc.GatewayProfitControlVetoLatest(handlerCtx, &expensive)
+	latest, vetoed, reason := svc.GatewayProfitControlVetoLatest(handlerCtx, &expensive, nil)
 	require.True(t, vetoed, "重放门后终检必须真实生效")
 	require.Equal(t, openAIProfitFilterReasonThreshold, reason)
 	require.NotNil(t, latest)
