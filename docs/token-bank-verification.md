@@ -93,3 +93,15 @@
 - 线上 `/api/v1/user/accounts` 复查 503，继续维持前一节的 Nginx 临时关闭、渠道关闭及账号暂停。本次没有生产发布。
 
 后续真实验收与发布：使用真实 GPT/Claude 官方订阅账号完成成功授权与小请求核验后再决定开放。正式发布需确认新 scheduler 快照刷新（旧缓存缺少 owner/type 字段会拒绝调度），并处理临时 Nginx include；不能只开广播开关或只移除 Nginx 封禁。总开关管用户工作区，停用供给仍使用渠道和账号调度开关。
+
+
+## 2026-09-25：线上侧栏关闭同步（f121865 发布）
+
+- 用户反馈线上关闭后侧栏仍显示。核查证据：旧线上公开设置无 `token_bank_enabled`，首页仍加载 `index-Beuvgwdz.js`；本地新版本为 `index-BhRPsipd.js`。根因是前一阶段只关闭渠道和 Nginx 接口，完整菜单总开关仍未发布，不是现有 Vue 菜单过滤失效。
+- 对照现有功能开关，Token 银行同样由公开设置控制 NavItem.featureFlag；管理员「我的账户」和普通用户导航共享该过滤。浏览器本地实测关闭总开关后菜单即时消失，再开启恢复。
+- 已发布原代码提交 `f121865c6`，镜像 `sub2api:20260925-f121865`。本地编译 linux/amd64，整包 SHA256 校验后载入，线上仅替换 app，保留 PostgreSQL/Redis/代理容器，无新迁移。健康 healthy / 0 restarts，运行版本 commit 核对一致。
+- 线上 `token_bank_enabled=false` 明确入库；原两个渠道接收开关保持 false，原储蓄账号保持暂停，收益广播仍 false。后台配置接口、公开设置、HTML 首屏注入三处确认关闭。
+- 线上已移除 vhost 对临时 `token-bank-disabled.conf` 的 include，nginx 检查和 reload 通过，改由已验证的应用总开关控制本人账号/授权接口。片段文件与版本存档保留作回滚参考。以后启停无需再改 Nginx。
+- 公网页面使用已在本地验证的新前端资源，下载 SHA256 与本地一致，包含 `token_bank_enabled` 门控。旧浏览器会话需要刷新页面加载新资源；未登录账号及授权接口为 401，已登录关闭拦截由应用中间件负责（上一节本地真实 API 和单测覆盖 503）。
+- 发布后真实 DeepSeek 小请求 200/有效 choices；Skoob OAuth 客户端启用、原密钥与原回调保持，管理接口正常、匿名 401；迁移数仍 292。银行未开放，真实 GPT/Claude 储蓄成功授权仍待验收。
+- 回滚材料：`/root/backup-20260925-bank-menu-switch/` 保存原 compose 与 nginx；旧镜像另标记 `sub2api:rollback-20260925-bank-menu-switch`。回退应用时需同时恢复旧 nginx include，避免旧版无总开关的 API 暴露。
