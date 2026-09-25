@@ -1,6 +1,6 @@
 # Token 银行复用改造验收
 
-日期：2026-09-25。目录 `/Users/wade/work-space/sub2api`，主分支 `main`。仅本地验收，不部署生产。
+日期：2026-09-25。目录 `/Users/wade/work-space/sub2api`，主分支 `main`。本文按阶段记录；最新生产发布为文末 df812db 验收。
 
 ## 实现
 
@@ -52,3 +52,13 @@
 - 后端 service / admin handler / gateway handler / routes 的套餐、归属、调度、刷新、利润门与 TokenBank 聚焦测试 386 项通过；新增末尾竞态检查后再跑 90 项定向回归通过。
 - 真实 PostgreSQL18.1 / Redis 集成覆盖主账号与影子账号套餐快照、降级后拒绝，原 8 项结算场景保持通过。
 - 未使用真实 Pro20x 账号完成供应商授权；不将模拟上游测试描述为真实 Pro 可用性证明。无新定时套餐查询，静默套餐变化需等到上游刷新或响应被观测后阻断。
+
+## 2026-09-25：df812db 发布验收
+
+- 代码提交 `df812db9f` 已推送 `gaotk/main`。本地镜像 `sub2api:token-savings-local-df812db` 和线上镜像 `sub2api:20260925-df812db` 均核对运行 commit 为 df812db。
+- 本地真实 API 复测原 DeepSeek 创建、导入、归属隔离、统计、非法 JWT/套餐标记和 API Key 冒充 Pro 拒绝，拒绝后未落库；收益开关及权限验证通过。浏览器在原渠道表单确认优先级 100 和 Pro20x 正确回填。
+- 全库与配置备份 `/root/backup-20260925-token-savings-pro20`，pg_dump 120194055 字节、pg_restore 目录 1298 行；回滚镜像 `sub2api:rollback-20260925-pro20`。镜像在本地构建为 linux/amd64，上传 SHA256 校验通过，仅替换 sub2api。
+- 原 OpenAI 渠道 1 接入原 GPT Pro ×20 分组 19：严格 allowed_plans=[pro]、priority=100、用户 8000bps、Admin 1。移除该渠道对已删除分组 4 的关联；渠道模型定价保持，对外倍率 0.8 保持。DeepSeek 渠道 3 / 分组 15 保持。
+- 线上健康 200、容器 healthy/0 restarts，迁移数量仍为 292；真实 DeepSeek 小请求返回 200 和有效 choices。TokenBankView、ChannelsView、SettingsView 公网产物哈希与本地构建一致。
+- Skoob OAuth 客户端启用、原密钥与两个回调白名单保持；公网授权 GET 302、允许回调的匿名 POST 401、非法回调 POST 400、匿名私有接口 401。收益广播/排行榜已部署，生产总开关默认关闭，待有真实数据后开启。
+- 当前尚未用真实 Pro20x 账号做成功授权验收。30% 毛利口径仍未确认，本次没有擅自更改成本倍率、利润门或 80/20 分账。
