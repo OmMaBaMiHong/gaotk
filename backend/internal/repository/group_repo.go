@@ -256,6 +256,11 @@ func (r *groupRepository) GetByID(ctx context.Context, id int64) (*service.Group
 	if err != nil {
 		return nil, err
 	}
+	membershipGroups, err := loadSkoobMembershipGroups(ctx, r.sql, []int64{id})
+	if err != nil {
+		return nil, err
+	}
+	out.SkoobMembershipOnly = membershipGroups[id]
 	counts, err := r.loadAccountCounts(ctx, []int64{out.ID})
 	if err == nil {
 		c := counts[out.ID]
@@ -685,6 +690,13 @@ func (r *groupRepository) ListActive(ctx context.Context) ([]service.Group, erro
 		groupIDs = append(groupIDs, g.ID)
 	}
 
+	membershipGroups, err := loadSkoobMembershipGroups(ctx, r.sql, groupIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range outGroups {
+		outGroups[i].SkoobMembershipOnly = membershipGroups[outGroups[i].ID]
+	}
 	counts, err := r.loadAccountCounts(ctx, groupIDs)
 	if err == nil {
 		for i := range outGroups {

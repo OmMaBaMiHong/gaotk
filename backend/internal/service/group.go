@@ -34,7 +34,9 @@ type Group struct {
 	// an already committed one-click copy. It must never be mapped to API DTOs.
 	DuplicateOperationID string
 
-	SubscriptionType    string
+	SubscriptionType string
+	// SkoobMembershipOnly is derived from subscription_plans.product_name, not a group setting.
+	SkoobMembershipOnly bool
 	DailyLimitUSD       *float64
 	WeeklyLimitUSD      *float64
 	MonthlyLimitUSD     *float64
