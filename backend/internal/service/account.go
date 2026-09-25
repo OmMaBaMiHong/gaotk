@@ -181,6 +181,9 @@ func (a *Account) EffectiveLoadFactor() int {
 }
 
 func (a *Account) IsSchedulable() bool {
+	if !a.hasVerifiedSavingsPlan() {
+		return false
+	}
 	if a.ParentAccountID != nil && a.Rental != nil && (a.Rental.Status != StatusActive || !a.Rental.Schedulable) {
 		return false
 	}

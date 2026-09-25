@@ -285,7 +285,7 @@ func (h *OpenAIOAuthHandler) RefreshAccountToken(c *gin.Context) {
 	}
 	newCredentials = service.NormalizeOpenAIPersonalAccessTokenCredentials(account, tokenInfo, newCredentials)
 
-	updatedAccount, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
+	updatedAccount, err := h.adminService.UpdateAccount(service.WithTokenSavingsRefresh(c.Request.Context(), tokenInfo), accountID, &service.UpdateAccountInput{
 		Credentials: newCredentials,
 	})
 	if err != nil {

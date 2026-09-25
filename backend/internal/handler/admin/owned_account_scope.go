@@ -27,7 +27,7 @@ func (h *AccountHandler) OwnedAccountScope(channel *ChannelHandler) gin.HandlerF
 		if channel != nil {
 			groups = channel.channelService
 		}
-		ctx := service.WithOwnedAccountScope(c.Request.Context(), subject.UserID, groups)
+		ctx := service.WithOwnedAccountScope(c.Request.Context(), subject.UserID, groups, h.openaiOAuthService)
 		c.Request = c.Request.WithContext(ctx)
 		verify := func(id int64) bool {
 			account, err := h.adminService.GetAccount(ctx, id)

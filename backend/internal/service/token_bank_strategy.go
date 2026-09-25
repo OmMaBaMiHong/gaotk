@@ -10,18 +10,58 @@ import (
 // RentalSnapshot is captured with the scheduled account, never reconstructed
 // from a later policy when settling an in-flight request.
 type RentalSnapshot struct {
-	OwnerAccountID int64  `json:"owner_account_id"`
-	OwnerUserID    int64  `json:"owner_user_id"`
-	AdminUserID    int64  `json:"admin_user_id"`
-	ChannelID      int64  `json:"channel_id"`
-	OwnerShareBPS  int    `json:"owner_share_bps"`
-	Platform       string `json:"platform"`
-	GroupID        int64  `json:"group_id"`
-	Enabled        bool   `json:"enabled"`
-	Status         string `json:"status"`
-	Schedulable    bool   `json:"schedulable"`
+	OwnerAccountID    int64    `json:"owner_account_id"`
+	OwnerUserID       int64    `json:"owner_user_id"`
+	AdminUserID       int64    `json:"admin_user_id"`
+	ChannelID         int64    `json:"channel_id"`
+	OwnerShareBPS     int      `json:"owner_share_bps"`
+	Platform          string   `json:"platform"`
+	GroupID           int64    `json:"group_id"`
+	Enabled           bool     `json:"enabled"`
+	Status            string   `json:"status"`
+	Schedulable       bool     `json:"schedulable"`
+	OwnerVerifiedPlan string   `json:"owner_verified_plan,omitempty"`
+	OwnerCurrentPlan  string   `json:"owner_current_plan,omitempty"`
+	AllowedPlans      []string `json:"allowed_plans,omitempty"`
 	// Channels is keyed by the actual request group, never by a default channel.
 	Channels map[int64]*RentalSnapshot `json:"channels,omitempty"`
+}
+
+func (a *Account) hasVerifiedSavingsPlan() bool {
+	if a.Platform != PlatformOpenAI || (a.OwnerUserID == nil && a.Rental == nil) {
+		return true
+	}
+	if a.Rental == nil || !IsTokenSavingsPlan(a.Rental.OwnerVerifiedPlan) || a.Rental.OwnerVerifiedPlan != a.Rental.OwnerCurrentPlan {
+		return false
+	}
+	if a.ParentAccountID == nil && (a.GetCredential("savings_verified_plan_type") != a.Rental.OwnerVerifiedPlan || a.GetCredential("plan_type") != a.Rental.OwnerVerifiedPlan) {
+		return false
+	}
+	return true
+}
+
+// IsTokenSavingsSchedulableForGroup checks the actual request group; a plan
+// accepted by another linked group never grants access to this group's pool.
+func (a *Account) IsTokenSavingsSchedulableForGroup(groupID *int64) bool {
+	if a == nil {
+		return false
+	}
+	if a.Platform != PlatformOpenAI || (a.OwnerUserID == nil && a.Rental == nil) {
+		return true
+	}
+	if !a.hasVerifiedSavingsPlan() || groupID == nil {
+		return false
+	}
+	selected := a.Rental.ForGroup(*groupID)
+	if selected == nil {
+		return false
+	}
+	for _, allowed := range selected.AllowedPlans {
+		if allowed == a.Rental.OwnerVerifiedPlan {
+			return true
+		}
+	}
+	return false
 }
 
 // ForGroup selects a captured channel policy without reloading mutable configuration.

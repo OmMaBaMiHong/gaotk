@@ -1205,6 +1205,11 @@ func (s *OpenAIGatewayService) GetAccessToken(ctx context.Context, account *Acco
 		if err != nil {
 			return "", "", err
 		}
+		if account.Platform == PlatformOpenAI && (account.OwnerUserID != nil || account.Rental != nil) {
+			if !account.hasVerifiedSavingsPlan() || !credAccount.hasVerifiedSavingsPlan() || credAccount.Rental == nil || account.Rental.OwnerVerifiedPlan != credAccount.Rental.OwnerVerifiedPlan {
+				return "", "", errors.New("token savings subscription changed after account selection")
+			}
+		}
 		account = credAccount
 	}
 	switch account.Type {

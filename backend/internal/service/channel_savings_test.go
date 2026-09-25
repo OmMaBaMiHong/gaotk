@@ -63,10 +63,10 @@ func TestSavingsReceivingGroupsUsesExistingChannelAndPlatform(t *testing.T) {
 			{ID: 99, Platform: PlatformOpenAI, Status: StatusActive},
 		}},
 	}
-	groups, err := s.GetSavingsReceivingGroups(context.Background(), PlatformOpenAI)
+	groups, err := s.GetSavingsReceivingGroups(context.Background(), PlatformAnthropic, "")
 	require.NoError(t, err)
-	require.Equal(t, []int64{11, 14}, groups, "only configured, linked, active groups of the selected platform")
-	_, err = s.GetSavingsReceivingGroups(context.Background(), PlatformDeepseek)
+	require.Equal(t, []int64{12}, groups, "only configured, linked, active groups of the selected platform")
+	_, err = s.GetSavingsReceivingGroups(context.Background(), PlatformDeepseek, "")
 	require.ErrorIs(t, err, ErrSavingsUnavailable)
 }
 
@@ -76,7 +76,7 @@ func TestSavingsConfigRejectsInvalidShareAndReceivingGroups(t *testing.T) {
 		_, err := channel.SavingsConfig()
 		require.ErrorIs(t, err, ErrSavingsChannel)
 	}
-	s := &ChannelService{groupRepo: savingsGroupRepo{groups: []Group{{ID: 1, Platform: PlatformOpenAI, Status: StatusActive}, {ID: 2, Platform: PlatformComposite, Status: StatusActive}}}}
+	s := &ChannelService{groupRepo: savingsGroupRepo{groups: []Group{{ID: 1, Platform: PlatformDeepseek, Status: StatusActive}, {ID: 2, Platform: PlatformComposite, Status: StatusActive}}}}
 	valid := savingsTestChannel([]int64{1}, []int64{1})
 	require.NoError(t, s.validateSavingsConfig(context.Background(), &valid))
 	outside := savingsTestChannel([]int64{1}, []int64{3})
@@ -85,4 +85,59 @@ func TestSavingsConfigRejectsInvalidShareAndReceivingGroups(t *testing.T) {
 	require.ErrorIs(t, s.validateSavingsConfig(context.Background(), &composite), ErrSavingsChannel)
 	legacy := Channel{FeaturesConfig: map[string]any{"web_search": true}}
 	require.NoError(t, s.validateSavingsConfig(context.Background(), &legacy), "existing channel configs are unaffected")
+}
+
+func TestSavingsReceivingRulesRequireExactPlanAndSelectOneHighestPriority(t *testing.T) {
+	channel := savingsTestChannel([]int64{11, 12, 13}, []int64{11, 12, 13})
+	cfg := channel.FeaturesConfig["token_savings"].(TokenSavingsConfig)
+	cfg.ReceivingRules = []SavingsReceivingRule{
+		{GroupID: 11, Priority: 10, AllowedPlans: []string{"pro"}},
+		{GroupID: 12, Priority: 20, AllowedPlans: []string{"pro"}},
+		{GroupID: 13, Priority: 20, AllowedPlans: []string{"prolite"}},
+	}
+	channel.FeaturesConfig["token_savings"] = cfg
+	s := &ChannelService{repo: savingsChannelRepo{channels: []Channel{channel}}, groupRepo: savingsGroupRepo{groups: []Group{
+		{ID: 11, Platform: PlatformOpenAI, Status: StatusActive}, {ID: 12, Platform: PlatformOpenAI, Status: StatusActive}, {ID: 13, Platform: PlatformOpenAI, Status: StatusActive},
+	}}}
+	require.NoError(t, s.validateSavingsConfig(context.Background(), &channel))
+	for _, plan := range []string{"", "plus", "free", "team", "selfservebusinessprolite", "chatgptpro"} {
+		_, err := s.GetSavingsReceivingGroups(context.Background(), PlatformOpenAI, plan)
+		require.ErrorIs(t, err, ErrSavingsUnavailable)
+	}
+	ids, err := s.GetSavingsReceivingGroups(context.Background(), PlatformOpenAI, "pro")
+	require.NoError(t, err)
+	require.Equal(t, []int64{12}, ids)
+	ids, err = s.GetSavingsReceivingGroups(context.Background(), PlatformOpenAI, "prolite")
+	require.NoError(t, err)
+	require.Equal(t, []int64{13}, ids)
+	cfg.ReceivingRules[0].Priority = 20
+	channel.FeaturesConfig["token_savings"] = cfg
+	s.repo = savingsChannelRepo{channels: []Channel{channel}}
+	ids, err = s.GetSavingsReceivingGroups(context.Background(), PlatformOpenAI, "pro")
+	require.NoError(t, err)
+	require.Equal(t, []int64{11}, ids)
+	cfg.ReceivingRules = nil
+	channel.FeaturesConfig["token_savings"] = cfg
+	s.repo = savingsChannelRepo{channels: []Channel{channel}}
+	_, err = s.GetSavingsReceivingGroups(context.Background(), PlatformOpenAI, "pro")
+	require.ErrorIs(t, err, ErrSavingsUnavailable, "legacy membership cannot admit an unverified tier")
+	require.ErrorIs(t, s.validateSavingsConfig(context.Background(), &channel), ErrSavingsChannel)
+}
+
+func TestSavingsReceivingRulesValidation(t *testing.T) {
+	for _, rules := range [][]SavingsReceivingRule{
+		{{GroupID: 1, Priority: -1, AllowedPlans: []string{"pro"}}},
+		{{GroupID: 1, Priority: 1001, AllowedPlans: []string{"pro"}}},
+		{{GroupID: 2, Priority: 1, AllowedPlans: []string{"pro"}}},
+		{{GroupID: 1, AllowedPlans: []string{"pro"}}, {GroupID: 1, AllowedPlans: []string{"plus"}}},
+		{{GroupID: 1, AllowedPlans: []string{"unknown"}}},
+		{{GroupID: 1, AllowedPlans: []string{"pro", "pro"}}},
+	} {
+		channel := savingsTestChannel([]int64{1}, []int64{1})
+		cfg := channel.FeaturesConfig["token_savings"].(TokenSavingsConfig)
+		cfg.ReceivingRules = rules
+		channel.FeaturesConfig["token_savings"] = cfg
+		_, err := channel.SavingsConfig()
+		require.ErrorIs(t, err, ErrSavingsChannel)
+	}
 }

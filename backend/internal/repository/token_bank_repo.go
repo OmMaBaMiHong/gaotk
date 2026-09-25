@@ -84,7 +84,8 @@ func (r *accountRepository) loadRentalSnapshots(ctx context.Context, accounts []
 		return out, nil
 	}
 	rows, err := r.sql.QueryContext(ctx, `SELECT a.id,o.id,o.owner_user_id,o.platform,o.status,(o.schedulable AND o.deleted_at IS NULL),
-	COALESCE(ag.group_id,0),COALESCE(c.id,0),COALESCE(c.status,''),COALESCE(c.features_config,'{}'::jsonb)
+	COALESCE(ag.group_id,0),COALESCE(c.id,0),COALESCE(c.status,''),COALESCE(c.features_config,'{}'::jsonb),
+	COALESCE(o.credentials->>'savings_verified_plan_type',''),COALESCE(o.credentials->>'plan_type','')
 	FROM accounts a JOIN accounts o ON o.id=COALESCE(a.parent_account_id,a.id)
 	LEFT JOIN account_groups ag ON ag.account_id=a.id
 	LEFT JOIN channel_groups cg ON cg.group_id=ag.group_id
@@ -99,7 +100,7 @@ func (r *accountRepository) loadRentalSnapshots(ctx context.Context, accounts []
 		var channelStatus string
 		var configJSON []byte
 		s := &service.RentalSnapshot{}
-		if err := rows.Scan(&id, &s.OwnerAccountID, &s.OwnerUserID, &s.Platform, &s.Status, &s.Schedulable, &groupID, &channelID, &channelStatus, &configJSON); err != nil {
+		if err := rows.Scan(&id, &s.OwnerAccountID, &s.OwnerUserID, &s.Platform, &s.Status, &s.Schedulable, &groupID, &channelID, &channelStatus, &configJSON, &s.OwnerVerifiedPlan, &s.OwnerCurrentPlan); err != nil {
 			return nil, err
 		}
 		base := out[id]
@@ -126,6 +127,9 @@ func (r *accountRepository) loadRentalSnapshots(ctx context.Context, accounts []
 		selected.Channels = nil
 		selected.ChannelID, selected.GroupID = channelID, groupID
 		selected.AdminUserID, selected.OwnerShareBPS, selected.Enabled = config.AdminUserID, config.OwnerShareBPS, config.Enabled && channel.IsActive()
+		if rule := config.ReceivingRule(groupID); rule != nil {
+			selected.AllowedPlans = rule.AllowedPlans
+		}
 		base.Channels[groupID] = &selected
 	}
 	return out, rows.Err()

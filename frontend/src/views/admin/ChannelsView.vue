@@ -210,9 +210,11 @@
                 <p class="text-xs text-gray-500">{{ t('tokenBank.channelSavingsHint') }}</p>
                 <label class="block text-sm">{{ t('tokenBank.ownerShare') }}<input v-model.number="tokenSavingsSharePercent" type="number" min="0" max="100" step="0.01" required class="input mt-1" /><span class="text-xs text-gray-500">%</span></label>
                 <label class="block text-sm">{{ t('tokenBank.adminRecipient') }}<input v-model.number="tokenSavings.admin_user_id" type="number" min="1" required class="input mt-1" /></label>
-                <p class="text-sm">{{ t('tokenBank.receivingGroups') }}</p>
-                <p v-if="!savingsGroupOptions.length" class="text-xs text-gray-500">{{ t('tokenBank.selectChannelGroupsFirst') }}</p>
-                <label v-for="group in savingsGroupOptions" :key="group.id" class="flex items-center gap-2 text-sm"><input v-model="tokenSavings.receiving_group_ids" type="checkbox" :value="group.id" /><span>{{ group.platform }} · {{ group.name }}</span></label>
+                <TokenSavingsRulesEditor
+                  :groups="savingsGroupOptions"
+                  v-model:group-ids="tokenSavings.receiving_group_ids"
+                  v-model:rules="tokenSavings.receiving_rules"
+                />
               </template>
             </section>
 
@@ -661,6 +663,8 @@ import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Toggle from '@/components/common/Toggle.vue'
+import TokenSavingsRulesEditor from '@/components/channels/TokenSavingsRulesEditor.vue'
+import { buildReceivingConfig, validReceivingRules, type ReceivingRule } from '@/components/channels/tokenSavingsRules'
 import PricingEntryCard from '@/components/admin/channel/PricingEntryCard.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useKeyedDebouncedSearch } from '@/composables/useKeyedDebouncedSearch'
@@ -754,7 +758,7 @@ const showDeleteDialog = ref(false)
 const deletingChannel = ref<Channel | null>(null)
 const activeTab = ref<string>('basic')
 
-const tokenSavings = reactive({ enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [] as number[] })
+const tokenSavings = reactive({ enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [] as number[], receiving_rules: [] as ReceivingRule[] })
 const tokenSavingsSharePercent = computed({
   get: () => tokenSavings.owner_share_bps / 100,
   set: (value: number) => { tokenSavings.owner_share_bps = Math.round(value * 100) }
@@ -1169,7 +1173,7 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
   const uniqueGroupIds = Array.from(new Set(group_ids))
   featuresConfig.token_savings = {
     ...tokenSavings,
-    receiving_group_ids: tokenSavings.receiving_group_ids.filter(id => uniqueGroupIds.includes(id))
+    ...buildReceivingConfig(tokenSavings.receiving_group_ids, tokenSavings.receiving_rules, savingsGroupOptions.value.filter(group => uniqueGroupIds.includes(group.id)))
   }
 
   // Collect web_search_emulation (only anthropic platform supports it)
@@ -1377,7 +1381,7 @@ function handleSort(key: string, order: 'asc' | 'desc') {
 
 // ── Dialog ──
 function resetForm() {
-  Object.assign(tokenSavings, { enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [] })
+  Object.assign(tokenSavings, { enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [], receiving_rules: [] })
   form.name = ''
   form.description = ''
   form.status = 'active'
@@ -1401,7 +1405,10 @@ async function openCreateDialog() {
 async function openEditDialog(channel: Channel) {
   editingChannel.value = channel
   const savings = channel.features_config?.token_savings as Partial<typeof tokenSavings> | undefined
-  Object.assign(tokenSavings, { enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [] }, savings, { receiving_group_ids: [...(savings?.receiving_group_ids || [])] })
+  Object.assign(tokenSavings, { enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [], receiving_rules: [] }, savings, {
+    receiving_group_ids: [...(savings?.receiving_group_ids || [])],
+    receiving_rules: (savings?.receiving_rules || []).map(rule => ({ ...rule, allowed_plans: [...(rule.allowed_plans || [])] }))
+  })
   form.name = channel.name
   form.description = channel.description || ''
   form.status = channel.status
@@ -1516,6 +1523,15 @@ async function handleSubmit() {
     !tokenSavings.receiving_group_ids.some(id => savingsGroupOptions.value.some(group => group.id === id))
   )) {
     appStore.showError(t('tokenBank.invalidSavingsConfig'))
+    activeTab.value = 'basic'
+    return
+  }
+
+  if (tokenSavings.enabled && !validReceivingRules(
+    buildReceivingConfig(tokenSavings.receiving_group_ids, tokenSavings.receiving_rules, savingsGroupOptions.value).receiving_rules,
+    savingsGroupOptions.value
+  )) {
+    appStore.showError(t('tokenBank.invalidReceivingRules'))
     activeTab.value = 'basic'
     return
   }

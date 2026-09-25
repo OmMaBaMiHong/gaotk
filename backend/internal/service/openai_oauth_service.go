@@ -113,6 +113,10 @@ type OpenAIExchangeCodeInput struct {
 
 // OpenAITokenInfo represents the token information for OpenAI
 type OpenAITokenInfo struct {
+	// Set only by owned-account refresh verification; a pointer to an empty
+	// string explicitly invalidates a previously persisted plan after merging.
+	savingsVerifiedPlan   *string
+	savingsVerifiedAt     int64
 	AccessToken           string `json:"access_token"`
 	RefreshToken          string `json:"refresh_token"`
 	IDToken               string `json:"id_token,omitempty"`
@@ -340,7 +344,12 @@ func resolveChatGPTSubscriptionAccountID(tokenInfo *OpenAITokenInfo, orgID strin
 }
 
 // RefreshAccountToken refreshes token for an OpenAI OAuth account
-func (s *OpenAIOAuthService) RefreshAccountToken(ctx context.Context, account *Account) (*OpenAITokenInfo, error) {
+func (s *OpenAIOAuthService) RefreshAccountToken(ctx context.Context, account *Account) (result *OpenAITokenInfo, refreshErr error) {
+	defer func() {
+		if refreshErr == nil && result != nil && account.OwnerUserID != nil && account.Platform == PlatformOpenAI {
+			s.reverifySavingsRefresh(ctx, account, result)
+		}
+	}()
 	if account.Platform != PlatformOpenAI {
 		return nil, infraerrors.New(http.StatusBadRequest, "OPENAI_OAUTH_INVALID_ACCOUNT", "account is not an OpenAI account")
 	}
@@ -423,6 +432,11 @@ func (s *OpenAIOAuthService) BuildAccountCredentials(tokenInfo *OpenAITokenInfo)
 	}
 	if tokenInfo.PlanType != "" {
 		creds["plan_type"] = tokenInfo.PlanType
+	}
+	if tokenInfo.savingsVerifiedPlan != nil {
+		creds["plan_type"] = *tokenInfo.savingsVerifiedPlan
+		creds["savings_verified_plan_type"] = *tokenInfo.savingsVerifiedPlan
+		creds["savings_verified_at"] = tokenInfo.savingsVerifiedAt
 	}
 	if tokenInfo.SubscriptionExpiresAt != "" {
 		creds["subscription_expires_at"] = tokenInfo.SubscriptionExpiresAt

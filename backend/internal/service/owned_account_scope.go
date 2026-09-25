@@ -7,16 +7,21 @@ import (
 
 type ownedAccountScopeKey struct{}
 type SavingsReceivingGroups interface {
-	GetSavingsReceivingGroups(context.Context, string) ([]int64, error)
+	GetSavingsReceivingGroups(context.Context, string, string) ([]int64, error)
 }
 type ownedAccountScope struct {
-	userID int64
-	groups SavingsReceivingGroups
+	userID   int64
+	groups   SavingsReceivingGroups
+	verifier SavingsAccountVerifier
 }
 
 // WithOwnedAccountScope is used only after JWT authentication on the explicit user account routes.
-func WithOwnedAccountScope(ctx context.Context, userID int64, groups SavingsReceivingGroups) context.Context {
-	return context.WithValue(ctx, ownedAccountScopeKey{}, ownedAccountScope{userID, groups})
+func WithOwnedAccountScope(ctx context.Context, userID int64, groups SavingsReceivingGroups, verifiers ...SavingsAccountVerifier) context.Context {
+	scope := ownedAccountScope{userID: userID, groups: groups}
+	if len(verifiers) > 0 {
+		scope.verifier = verifiers[0]
+	}
+	return context.WithValue(ctx, ownedAccountScopeKey{}, scope)
 }
 func OwnedAccountUserID(ctx context.Context) int64 {
 	scope, _ := ctx.Value(ownedAccountScopeKey{}).(ownedAccountScope)
@@ -60,12 +65,24 @@ func prepareOwnedAccountCreate(ctx context.Context, input *CreateAccountInput) e
 	if input.Type == AccountTypeUpstream {
 		return infraerrors.BadRequest("OWNED_ACCOUNT_UPSTREAM_NOT_SUPPORTED", "Custom upstream connections must be configured by an administrator")
 	}
-	groups, err := scope.groups.GetSavingsReceivingGroups(ctx, input.Platform)
+	credentials := OwnedAccountCredentials(input.Credentials)
+	if input.Platform == PlatformOpenAI {
+		if scope.verifier == nil {
+			return savingsPlanUnverified()
+		}
+		var err error
+		credentials, err = scope.verifier.VerifySavingsAccount(ctx, input.Platform, input.Type, credentials)
+		if err != nil {
+			return err
+		}
+	}
+	plan, _ := credentials["savings_verified_plan_type"].(string)
+	groups, err := scope.groups.GetSavingsReceivingGroups(ctx, input.Platform, plan)
 	if err != nil {
 		return err
 	}
 	if len(groups) == 0 {
-		return infraerrors.BadRequest("SAVINGS_RECEIVING_GROUP_NOT_CONFIGURED", "This platform has no receiving groups configured")
+		return infraerrors.BadRequest("SAVINGS_RECEIVING_GROUP_NOT_CONFIGURED", "该平台或套餐暂无符合条件的接收分组")
 	}
 	input.OwnerUserID = &scope.userID
 	input.GroupIDs = groups
@@ -76,7 +93,7 @@ func prepareOwnedAccountCreate(ctx context.Context, input *CreateAccountInput) e
 	input.LoadFactor = nil
 	input.ProbeEnabled = nil
 	input.Extra = OwnedAccountExtra(input.Extra)
-	input.Credentials = OwnedAccountCredentials(input.Credentials)
+	input.Credentials = credentials
 	input.SkipDefaultGroupBind = true
 	input.SkipMixedChannelCheck = false
 	return nil
@@ -100,16 +117,66 @@ func prepareOwnedAccountUpdate(ctx context.Context, account *Account, input *Upd
 	input.ProbeEnabled = nil
 	input.RateSyncEnabled = nil
 	input.Extra = nil
+	// Upstream refresh already verified (or explicitly invalidated) the plan.
+	// Keep rotated credentials even when the old group no longer admits it;
+	// the runtime gate blocks that group using the new/empty verification.
+	if account.Platform == PlatformOpenAI && isTokenSavingsRefresh(ctx) {
+		return nil
+	}
 	if input.Credentials != nil {
 		// Preserve administrator routing while replacing only owner supplied credentials.
 		credentials := make(map[string]any, len(account.Credentials))
 		for key, value := range account.Credentials {
 			credentials[key] = value
 		}
-		for key, value := range OwnedAccountCredentials(input.Credentials) {
+		supplied := OwnedAccountCredentials(input.Credentials)
+		// Re-authorization must not retain the old identity's refresh token
+		// when only a new access token is supplied, or vice versa.
+		if account.Platform == PlatformOpenAI {
+			for _, key := range []string{"access_token", "refresh_token", "api_key"} {
+				value, exists := supplied[key]
+				text, _ := value.(string)
+				if exists && text != account.GetCredential(key) {
+					for authKey := range OwnedAccountCredentials(account.Credentials) {
+						delete(credentials, authKey)
+					}
+					delete(credentials, openAIAuthModeLegacyCredentialKey)
+					break
+				}
+			}
+		}
+		for key, value := range supplied {
 			credentials[key] = value
 		}
 		input.Credentials = credentials
+	}
+	if account.Platform == PlatformOpenAI && (input.Credentials != nil || (input.Type != "" && input.Type != account.Type)) {
+		scope, _ := ctx.Value(ownedAccountScopeKey{}).(ownedAccountScope)
+		if scope.verifier == nil || scope.groups == nil {
+			return savingsPlanUnverified()
+		}
+		credentials := input.Credentials
+		if credentials == nil {
+			credentials = account.Credentials
+		}
+		accountType := account.Type
+		if input.Type != "" {
+			accountType = input.Type
+		}
+		verified, err := scope.verifier.VerifySavingsAccount(ctx, account.Platform, accountType, credentials)
+		if err != nil {
+			return err
+		}
+		plan, _ := verified["savings_verified_plan_type"].(string)
+		groups, err := scope.groups.GetSavingsReceivingGroups(ctx, account.Platform, plan)
+		if err != nil {
+			return err
+		}
+		if len(groups) == 0 {
+			return infraerrors.BadRequest("SAVINGS_RECEIVING_GROUP_NOT_CONFIGURED", "该平台或套餐暂无符合条件的接收分组")
+		}
+		input.Credentials = verified
+		input.GroupIDs = &groups
 	}
 	return nil
 }

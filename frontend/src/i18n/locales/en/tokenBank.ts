@@ -22,6 +22,11 @@ export default {
   channelSavingsHint: 'Set one revenue share for this channel and choose the groups that receive each platform’s accounts. Authorized accounts join matching platform groups automatically.',
   ownerShare: 'Owner share',
   receivingGroups: 'Receiving groups',
+  receivingRulesHint: 'An account joins only the highest-priority eligible group. Higher numbers take precedence; ties use the lower group ID. OpenAI plans come from official verification; group names do not define eligibility.',
+  receivingPriority: 'Receiving priority (0–1000)',
+  receivingAllowedPlans: 'Accepted OpenAI plans (required, multiple allowed)',
+  receivingAllowedPlansHint: 'Hold Ctrl / Command to select multiple. Pro20x accepts verified Pro 20x only, excluding Pro5x, Plus and Free unless separately selected.',
+  invalidReceivingRules: 'Set an integer priority from 0 to 1000 for every receiving group and explicitly select accepted plans for OpenAI groups.',
   selectChannelGroupsFirst: 'Associate groups in the channel platform settings first.',
 
   allStatuses: 'All savings statuses',

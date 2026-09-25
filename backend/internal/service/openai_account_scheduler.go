@@ -1776,6 +1776,9 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx con
 	if account == nil {
 		return false, "account_nil"
 	}
+	if !account.IsTokenSavingsSchedulableForGroup(req.GroupID) {
+		return false, "savings_plan_not_allowed"
+	}
 	if req.RequirePrivacySet && !account.IsPrivacySet() {
 		return false, "privacy_not_set"
 	}

@@ -131,13 +131,38 @@ func (p *OpenAITokenProvider) ensureMetrics() {
 }
 
 // GetAccessToken returns a valid access_token.
-func (p *OpenAITokenProvider) GetAccessToken(ctx context.Context, account *Account) (string, error) {
+func (p *OpenAITokenProvider) GetAccessToken(ctx context.Context, account *Account) (token string, tokenErr error) {
 	p.ensureMetrics()
 	if account == nil {
 		return "", errors.New("account is nil")
 	}
 	if account.Platform != PlatformOpenAI || account.Type != AccountTypeOAuth {
 		return "", errors.New("not an openai oauth account")
+	}
+	if account.OwnerUserID != nil || account.Rental != nil {
+		admittedPlan := ""
+		if account.Rental != nil {
+			admittedPlan = account.Rental.OwnerVerifiedPlan
+		}
+		defer func() {
+			if tokenErr != nil {
+				return
+			}
+			latest := account
+			if p.accountRepo != nil {
+				var err error
+				latest, err = p.accountRepo.GetByID(ctx, account.ID)
+				if err != nil {
+					token, tokenErr = "", err
+					return
+				}
+			}
+			// Token rotation/cache races must not forward the request after the
+			// plan used at scheduling changed or lost upstream verification.
+			if latest == nil || !latest.hasVerifiedSavingsPlan() || latest.Rental == nil || latest.Rental.OwnerVerifiedPlan != admittedPlan {
+				token, tokenErr = "", errors.New("token savings subscription is no longer eligible")
+			}
+		}()
 	}
 
 	cacheKey := OpenAITokenCacheKey(account)

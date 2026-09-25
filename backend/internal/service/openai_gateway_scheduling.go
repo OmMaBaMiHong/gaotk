@@ -1592,7 +1592,7 @@ func (s *OpenAIGatewayService) recheckSelectedOpenAIAccountFromDB(ctx context.Co
 }
 
 func (s *OpenAIGatewayService) recheckSelectedOpenAIAccountFromDBBeforeProfit(ctx context.Context, account *Account, groupID *int64, platform string, requestedModel string, requireCompact bool, requiredCapability OpenAIEndpointCapability) *Account {
-	if account == nil {
+	if account == nil || !account.IsTokenSavingsSchedulableForGroup(groupID) {
 		return nil
 	}
 	platform = NormalizeOpenAICompatiblePlatform(platform)
@@ -1644,6 +1644,9 @@ func (s *OpenAIGatewayService) recheckSelectedOpenAIAccountFromDBBeforeProfit(ct
 }
 
 func (s *OpenAIGatewayService) openAIAccountMatchesSchedulingGroup(account *Account, groupID *int64) bool {
+	if !account.IsTokenSavingsSchedulableForGroup(groupID) {
+		return false
+	}
 	if s != nil && s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
 		return account != nil
 	}

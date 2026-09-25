@@ -330,9 +330,22 @@ func OpenAIProfitControlVeto(ctx context.Context, account *Account) (bool, strin
 // concurrency slot is actually acquired. The latest cached account replaces
 // the selection snapshot when available, so a probe/manual rate change during
 // wait time cannot pass on a stale pointer.
-func (s *OpenAIGatewayService) ProfitControlVetoLatest(ctx context.Context, selected *Account) (*Account, bool, string) {
+func (s *OpenAIGatewayService) ProfitControlVetoLatest(ctx context.Context, selected *Account, groupID *int64) (*Account, bool, string) {
 	if s == nil {
 		return selected, false, ""
+	}
+	// This terminal gate also runs before every WebSocket turn. Owner plans
+	// must use fresh database credentials even when profit control is disabled.
+	if selected != nil && selected.Platform == PlatformOpenAI && (selected.OwnerUserID != nil || selected.Rental != nil) {
+		if s.accountRepo == nil {
+			return selected, true, "savings_plan_not_allowed"
+		}
+		latest, err := s.accountRepo.GetByID(ctx, selected.ID)
+		if err != nil || !latest.IsTokenSavingsSchedulableForGroup(groupID) {
+			return selected, true, "savings_plan_not_allowed"
+		}
+		vetoed, reason := openAIProfitControlVetoReason(ctx, latest)
+		return latest, vetoed, reason
 	}
 	return profitControlVetoLatest(ctx, selected, s.schedulerSnapshot)
 }

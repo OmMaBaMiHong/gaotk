@@ -22,6 +22,11 @@ export default {
   channelSavingsHint: '本渠道统一设置分账比例，并指定各平台接收账号的分组。用户授权账号后会自动进入匹配平台的接收分组。',
   ownerShare: '储蓄用户分成',
   receivingGroups: '接收分组',
+  receivingRulesHint: '账号仅进入符合条件且优先级最高的一个分组，优先级越大越优先；相同时选择 ID 较小的分组。OpenAI 套餐以官方验证结果为准；分组名称不会决定接收条件。',
+  receivingPriority: '接收优先级（0–1000）',
+  receivingAllowedPlans: '允许接收的 OpenAI 套餐（必选，可多选）',
+  receivingAllowedPlansHint: '按住 Ctrl / Command 多选。Pro20x 仅对应真正的 Pro 20x，不包含 Pro5x、Plus 或 Free；其他套餐须单独选择。',
+  invalidReceivingRules: '请为每个接收分组填写 0–1000 的整数优先级，并为 OpenAI 分组明确选择允许接收的套餐。',
   selectChannelGroupsFirst: '请先在渠道的平台配置中关联分组。',
 
   allStatuses: '全部储蓄状态',
