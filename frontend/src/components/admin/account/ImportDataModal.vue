@@ -8,12 +8,12 @@
   >
     <form id="import-data-form" class="space-y-4" @submit.prevent="handleImport">
       <div class="text-sm text-gray-600 dark:text-dark-300">
-        {{ t('admin.accounts.dataImportHint') }}
+        {{ t(isAdmin ? 'admin.accounts.dataImportHint' : 'tokenBank.accountImportHint') }}
       </div>
       <div
         class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-600 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-400"
       >
-        {{ t('admin.accounts.dataImportWarning') }}
+        {{ t(isAdmin ? 'admin.accounts.dataImportWarning' : 'tokenBank.accountImportWarning') }}
       </div>
 
       <div>
@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-const { api: adminAPI } = useAccountWorkspace()
+const { api: adminAPI, isAdmin } = useAccountWorkspace()
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'

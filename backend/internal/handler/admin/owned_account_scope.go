@@ -122,6 +122,11 @@ func (h *AccountHandler) OwnedAccountScope(channel *ChannelHandler) gin.HandlerF
 }
 
 func sanitizeOwnedAccountPayload(payload map[string]any) {
+	// The shared import validator requires a non-nil proxies array. Preserve that
+	// contract while discarding all proxy records from owner-supplied imports.
+	if _, ok := payload["proxies"].([]any); ok {
+		payload["proxies"] = []any{}
+	}
 	if extra, ok := payload["extra"].(map[string]any); ok {
 		if safe := service.OwnedAccountExtra(extra); len(safe) > 0 {
 			payload["extra"] = safe
@@ -132,7 +137,7 @@ func sanitizeOwnedAccountPayload(payload map[string]any) {
 	if credentials, ok := payload["credentials"].(map[string]any); ok {
 		payload["credentials"] = service.OwnedAccountCredentials(credentials)
 	}
-	for _, key := range []string{"owner_user_id", "rental_policy_id", "rental_identity", "rental_status", "proxy_id", "proxy_key", "group_ids", "priority", "concurrency", "rate_multiplier", "load_factor", "credential_extras", "upstream_billing_probe_enabled", "upstream_billing_rate_sync_enabled", "confirm_mixed_channel_risk", "skip_default_group_bind", "filters", "proxies", "base_url", "credentials_extra"} {
+	for _, key := range []string{"owner_user_id", "rental_policy_id", "rental_identity", "rental_status", "proxy_id", "proxy_key", "group_ids", "priority", "concurrency", "rate_multiplier", "load_factor", "credential_extras", "upstream_billing_probe_enabled", "upstream_billing_rate_sync_enabled", "confirm_mixed_channel_risk", "skip_default_group_bind", "filters", "base_url", "credentials_extra"} {
 		delete(payload, key)
 	}
 	if data, ok := payload["data"].(map[string]any); ok {

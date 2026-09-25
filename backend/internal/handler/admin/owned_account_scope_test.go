@@ -63,7 +63,7 @@ func TestOwnedImportSanitizesNestedAccountsAndNeverImportsProxies(t *testing.T) 
 	require.NotContains(t, payload, "proxy_id")
 	require.NotContains(t, payload, "group_ids")
 	data := payload["data"].(map[string]any)
-	require.NotContains(t, data, "proxies")
+	require.Equal(t, []any{}, data["proxies"])
 	account := data["accounts"].([]any)[0].(map[string]any)
 	require.NotContains(t, account, "extra")
 	require.NotContains(t, account, "proxy_key")
@@ -121,4 +121,43 @@ func TestAdminAccountListOwnerFilterDoesNotEnableOwnerPermissions(t *testing.T) 
 	w = httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/admin/accounts?owner_user_id=invalid", nil))
 	require.Equal(t, 400, w.Code)
+}
+
+func TestOwnedDataImportRunsOriginalValidationAndImportAfterSanitizing(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, test := range []struct {
+		name, proxies string
+		status        int
+	}{
+		{"empty proxies", `"proxies":[],`, http.StatusOK},
+		{"discard supplied proxies", `"proxies":[{"name":"forbidden","host":"internal.invalid","port":8080,"protocol":"http"}],`, http.StatusOK},
+		{"missing proxies keeps validation", ``, http.StatusBadRequest},
+		{"null proxies keeps validation", `"proxies":null,`, http.StatusBadRequest},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			svc := newStubAdminService()
+			h := &AccountHandler{adminService: svc}
+			r := gin.New()
+			r.Use(func(c *gin.Context) { c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 42}) })
+			r.POST("/user/accounts/data", h.OwnedAccountScope(nil), h.ImportData)
+			body := `{"data":{"type":"sub2api-data","version":1,` + test.proxies + `"accounts":[{"name":"mine","platform":"deepseek","type":"apikey","credentials":{"api_key":"test-only","base_url":"http://internal.invalid"},"proxy_key":"forbidden"}]}}`
+			request := httptest.NewRequest(http.MethodPost, "/user/accounts/data", strings.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			r.ServeHTTP(w, request)
+			require.Equal(t, test.status, w.Code, w.Body.String())
+			require.Empty(t, svc.createdProxies)
+			require.Zero(t, svc.lastListProxies.calls)
+			if test.status == http.StatusOK {
+				require.Len(t, svc.createdAccounts, 1)
+				require.Nil(t, svc.createdAccounts[0].ProxyID)
+				require.Equal(t, map[string]any{"api_key": "test-only"}, svc.createdAccounts[0].Credentials)
+				require.Contains(t, w.Body.String(), `"account_created":1`)
+				require.Contains(t, w.Body.String(), `"proxy_created":0`)
+			} else {
+				require.Empty(t, svc.createdAccounts)
+				require.Contains(t, w.Body.String(), "proxies is required")
+			}
+		})
+	}
 }

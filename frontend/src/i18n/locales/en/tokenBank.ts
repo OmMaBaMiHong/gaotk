@@ -1,4 +1,7 @@
 export default {
+  accountImportHint: 'Upload exported JSON files to import accounts in bulk. Imported accounts belong to your current user.',
+  accountImportWarning: 'Accounts automatically join the receiving groups configured by administrators for each platform. Proxies are not imported.',
+
   invalidSavingsConfig: 'Enter a valid revenue share, receiving admin and at least one channel receiving group.',
   usageRecords: 'Usage records',
   deleteConfirm: 'Delete account “{name}”? Existing savings revenue records will be retained.',

@@ -253,7 +253,7 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 
 	var existingProxies []service.Proxy
 	if service.OwnedAccountUserID(ctx) > 0 {
-		dataPayload.Proxies = nil
+		dataPayload.Proxies = []DataProxy{}
 		for i := range dataPayload.Accounts {
 			dataPayload.Accounts[i].ProxyKey = nil
 		}

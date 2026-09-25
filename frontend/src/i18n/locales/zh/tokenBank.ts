@@ -1,4 +1,7 @@
 export default {
+  accountImportHint: '上传导出的 JSON 文件以批量导入账号。导入的账号归当前用户所有。',
+  accountImportWarning: '账号将按平台自动加入管理员配置的接收分组；不会导入代理。',
+
   invalidSavingsConfig: '请填写有效的分账比例、收款管理员，并选择至少一个渠道接收分组。',
   usageRecords: '使用记录',
   deleteConfirm: '确定删除账号“{name}”？已有储蓄收益记录会保留。',
