@@ -5,7 +5,6 @@
         <div><h1 class="text-xl font-semibold">{{ t('tokenBank.title') }}</h1><p class="mt-2 text-sm text-gray-500">{{ t('tokenBank.description') }}</p></div>
         <div class="flex flex-wrap gap-2">
           <button class="btn btn-secondary" @click="showImport = true">{{ t('admin.accounts.dataImportTitle') }}</button>
-          <button class="btn btn-secondary" @click="showKimi = true">{{ t('admin.accounts.kimiOAuth.connect') }}</button>
           <button class="btn btn-primary" @click="showCreate = true">{{ t('tokenBank.add') }}</button>
         </div>
       </div>
@@ -155,7 +154,6 @@
     </div>
     <CreateAccountModal :show="showCreate" :proxies="[]" :groups="[]" @close="showCreate = false" @created="load" />
     <ImportDataModal :show="showImport" @close="showImport = false" @imported="load" />
-    <KimiOAuthModal :show="showKimi" @close="showKimi = false" @created="load" />
     <EditAccountModal :show="activeModal === 'edit'" :account="activeAccount" :proxies="[]" :groups="[]" @close="activeModal = ''" @updated="load" />
     <ReAuthAccountModal :show="activeModal === 'reauth'" :account="activeAccount" @close="activeModal = ''" @reauthorized="load" />
     <AccountStatsModal :show="activeModal === 'stats'" :account="activeAccount" @close="activeModal = ''" />
@@ -175,7 +173,6 @@ import EditAccountModal from '@/components/account/EditAccountModal.vue'
 import ImportDataModal from '@/components/admin/account/ImportDataModal.vue'
 import ReAuthAccountModal from '@/components/admin/account/ReAuthAccountModal.vue'
 import AccountStatsModal from '@/components/admin/account/AccountStatsModal.vue'
-import KimiOAuthModal from '@/components/admin/account/KimiOAuthModal.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
@@ -199,7 +196,7 @@ const overview = ref<RentalOverview>()
 const ledger = ref<RevenuePage>({ items: [], total: 0 })
 const loading = ref(false), busy = ref(false), error = ref('')
 const platform = ref(''), search = ref(''), accountPage = ref(1), revenuePage = ref(1), selectedAccount = ref(0)
-const showCreate = ref(false), showImport = ref(false), showKimi = ref(false)
+const showCreate = ref(false), showImport = ref(false)
 const activeAccount = ref<Account | null>(null), activeModal = ref('')
 const deletingAccount = ref<AccountListItem | null>(null)
 const usageLogs = ref<AdminUsageLog[]>([]), usageTotal = ref(0), usagePage = ref(1), usageLoading = ref(false)

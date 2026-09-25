@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -31,6 +32,8 @@ var (
 )
 
 var oauthClientIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
+
+const settingKeyOAuthClientLegacySeeded = "oauth_client_legacy_seeded"
 
 // OAuthClientAppRepository 后台客户端注册的持久化接口。
 type OAuthClientAppRepository interface {
@@ -64,12 +67,31 @@ func (s *OAuthClientAppService) ensureLegacySeeded() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+	if s.settings == nil {
+		slog.Warn("oauth client legacy seed: settings unavailable")
+		return
+	}
+	seeded, err := s.settings.settingRepo.GetValue(ctx, settingKeyOAuthClientLegacySeeded)
+	if err != nil && !errors.Is(err, ErrSettingNotFound) {
+		slog.Warn("oauth client legacy seed: marker read failed", "error", err)
+		return
+	}
+	if seeded == "true" {
+		return
+	}
 	count, err := s.repo.Count(ctx)
 	if err != nil {
 		slog.Warn("oauth client legacy seed: count failed", "error", err)
 		return
 	}
 	if count > 0 {
+		if err := s.markLegacySeeded(ctx); err != nil {
+			slog.Warn("oauth client legacy seed: marker write failed", "error", err)
+		}
+		return
+	}
+	if strings.TrimSpace(s.legacy.ClientSecret) == "" {
+		slog.Warn("oauth client legacy seed: client secret is empty")
 		return
 	}
 	redirectURIs := s.legacy.RedirectURI
@@ -93,7 +115,20 @@ func (s *OAuthClientAppService) ensureLegacySeeded() {
 		slog.Warn("oauth client legacy seed failed", "error", err)
 		return
 	}
+	if err := s.markLegacySeeded(ctx); err != nil {
+		slog.Warn("oauth client legacy seed: marker write failed", "error", err)
+	}
 	slog.Info("oauth client legacy seed done", "client_id", s.legacy.ClientID)
+}
+
+func (s *OAuthClientAppService) markLegacySeeded(ctx context.Context) error {
+	if s.legacy.ClientID == "" {
+		return nil
+	}
+	if s.settings == nil {
+		return fmt.Errorf("oauth client legacy settings unavailable")
+	}
+	return s.settings.settingRepo.Set(ctx, settingKeyOAuthClientLegacySeeded, "true")
 }
 
 type CreateOAuthClientAppInput struct {
@@ -189,6 +224,11 @@ func (s *OAuthClientAppService) Update(ctx context.Context, id int64, input *Upd
 }
 
 func (s *OAuthClientAppService) Delete(ctx context.Context, id int64) error {
+	// Persist before deletion: a failed startup marker write must not let restart
+	// recreate the last client that an administrator explicitly removed.
+	if err := s.markLegacySeeded(ctx); err != nil {
+		return err
+	}
 	return s.repo.Delete(ctx, id)
 }
 

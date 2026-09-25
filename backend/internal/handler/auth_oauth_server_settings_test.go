@@ -20,7 +20,14 @@ type oauthSettingsRepo struct {
 	err   error
 }
 
-func (r *oauthSettingsRepo) GetValue(context.Context, string) (string, error) { return r.value, r.err }
+func (r *oauthSettingsRepo) GetValue(_ context.Context, key string) (string, error) {
+	if key != service.SettingKeyOAuthServerRedirectURIs {
+		return "", service.ErrSettingNotFound
+	}
+	return r.value, r.err
+}
+
+func (r *oauthSettingsRepo) Set(context.Context, string, string) error { return nil }
 
 type oauthAppsRepo struct {
 	service.OAuthClientAppRepository
@@ -55,7 +62,7 @@ func (r *oauthAppsRepo) GetByClientID(_ context.Context, id string) (*service.OA
 
 func TestOAuthServerBothAuthorizeEndpointsUseSavedSettings(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	cfg := &config.Config{OAuthServer: config.OAuthServerConfig{ClientID: "skoob", RedirectURI: "https://old.example/callback"}}
+	cfg := &config.Config{OAuthServer: config.OAuthServerConfig{ClientID: "skoob", ClientSecret: "existing-private-secret", RedirectURI: "https://old.example/callback"}}
 	repo := &oauthSettingsRepo{value: `["https://skoob.cc/api/v1/account/oauth/callback"]`}
 	settings := service.NewSettingService(repo, cfg)
 	apps := &oauthAppsRepo{}

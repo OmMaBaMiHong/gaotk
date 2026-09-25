@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -42,20 +43,86 @@ func (r *mergedOAuthClientRepo) Update(_ context.Context, app *OAuthClientApp) e
 	return nil
 }
 
+func (r *mergedOAuthClientRepo) Delete(context.Context, int64) error {
+	r.app = nil
+	return nil
+}
+
+type oauthLegacySettingRepo struct {
+	panelRateLimitSettingRepo
+	setErr error
+}
+
+func (r *oauthLegacySettingRepo) Set(ctx context.Context, key, value string) error {
+	if r.setErr != nil {
+		return r.setErr
+	}
+	return r.panelRateLimitSettingRepo.Set(ctx, key, value)
+}
+
+func TestOAuthClientLegacyDeletionSurvivesRestart(t *testing.T) {
+	ctx := context.Background()
+	cfg := &config.Config{OAuthServer: config.OAuthServerConfig{
+		ClientID: "skoob", ClientSecret: "existing-private-secret", RedirectURI: "https://old.example/callback",
+	}}
+	settingsRepo := &oauthLegacySettingRepo{}
+	settings := NewSettingService(settingsRepo, cfg)
+	repo := &mergedOAuthClientRepo{}
+	settings.SetOAuthClientAppRepository(repo)
+	clients := NewOAuthClientAppService(repo, cfg, settings)
+	require.NotNil(t, repo.app)
+	disabled := false
+	_, err := clients.Update(ctx, repo.app.ID, &UpdateOAuthClientAppInput{Enabled: &disabled})
+	require.NoError(t, err)
+	clients = NewOAuthClientAppService(repo, cfg, settings)
+	_, err = clients.GetEnabledByClientID(ctx, "skoob")
+	require.ErrorIs(t, err, ErrOAuthClientDisabled)
+	require.NoError(t, clients.Delete(ctx, repo.app.ID))
+	clients = NewOAuthClientAppService(repo, cfg, settings)
+	_, err = clients.GetEnabledByClientID(ctx, "skoob")
+	require.ErrorIs(t, err, ErrOAuthClientNotFound, "deleting the last app must survive restart")
+}
+
+func TestOAuthClientLegacyDeletionRequiresDurableMarker(t *testing.T) {
+	cfg := &config.Config{OAuthServer: config.OAuthServerConfig{
+		ClientID: "skoob", ClientSecret: "existing-private-secret", RedirectURI: "https://old.example/callback",
+	}}
+	settingsRepo := &oauthLegacySettingRepo{setErr: errors.New("settings unavailable")}
+	settings := NewSettingService(settingsRepo, cfg)
+	repo := &mergedOAuthClientRepo{}
+	settings.SetOAuthClientAppRepository(repo)
+	clients := NewOAuthClientAppService(repo, cfg, settings)
+	require.NotNil(t, repo.app)
+	err := clients.Delete(context.Background(), repo.app.ID)
+	require.ErrorIs(t, err, settingsRepo.setErr)
+	require.NotNil(t, repo.app, "do not delete if restart could restore the client")
+}
+
+func TestOAuthClientLegacyEmptySecretDoesNotGenerateCredentials(t *testing.T) {
+	cfg := &config.Config{OAuthServer: config.OAuthServerConfig{
+		ClientID: "skoob", RedirectURI: "https://old.example/callback",
+	}}
+	settings := NewSettingService(&panelRateLimitSettingRepo{}, cfg)
+	repo := &mergedOAuthClientRepo{}
+	settings.SetOAuthClientAppRepository(repo)
+	NewOAuthClientAppService(repo, cfg, settings)
+	require.Nil(t, repo.app, "legacy clients without credentials must not become enabled")
+}
+
 func TestOAuthClientMergePreservesSavedCallbacksAndBothEditors(t *testing.T) {
 	ctx := context.Background()
 	cfg := &config.Config{OAuthServer: config.OAuthServerConfig{
 		ClientID: "skoob", ClientSecret: "existing-private-secret", RedirectURI: "https://old.example/callback",
 	}}
 	settings := NewSettingService(&panelRateLimitSettingRepo{}, cfg)
-	_, err := settings.SetOAuthServerRedirectURIs(ctx, []string{"https://saved.example/callback"})
+	_, err := settings.SetOAuthServerRedirectURIs(ctx, []string{"https://saved.example/callback", "https://second.example/callback"})
 	require.NoError(t, err)
 	repo := &mergedOAuthClientRepo{}
 	settings.SetOAuthClientAppRepository(repo)
 	clients := NewOAuthClientAppService(repo, cfg, settings)
 	require.NotNil(t, repo.app)
 	require.Equal(t, cfg.OAuthServer.ClientSecret, repo.app.ClientSecret)
-	require.Equal(t, []string{"https://saved.example/callback"}, repo.app.RedirectURIs)
+	require.Equal(t, []string{"https://saved.example/callback", "https://second.example/callback"}, repo.app.RedirectURIs)
 	require.False(t, repo.app.IsAllowedRedirectURI(cfg.OAuthServer.RedirectURI))
 
 	_, err = settings.SetOAuthServerRedirectURIs(ctx, []string{"https://settings.example/callback"})
