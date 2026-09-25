@@ -1,0 +1,99 @@
+{
+  "simulation": true,
+  "verified_at": "2026-09-20 17:56:47",
+  "checks": [
+    "启笔模型列表准确，未暴露旧型号",
+    "启笔零现金余额可调用，越权模型被拒绝",
+    "成章模型列表准确，未暴露旧型号",
+    "成章零现金余额可调用，越权模型被拒绝",
+    "著作模型列表准确，未暴露旧型号",
+    "著作零现金余额可调用，越权模型被拒绝",
+    "模型费用与人民币成本匹配；订阅扣额等于各模型费用之和，免费模型不扣额",
+    "40 元订阅额度耗尽后拒绝付费调用",
+    "订阅到期后拒绝调用"
+  ],
+  "subscriptions": [
+    {
+      "id": 2,
+      "balance": 0.0,
+      "monthly_usage_usd": 0.0,
+      "group_id": 2
+    },
+    {
+      "id": 3,
+      "balance": 0.0,
+      "monthly_usage_usd": 0.01404918,
+      "group_id": 3
+    },
+    {
+      "id": 4,
+      "balance": 0.0,
+      "monthly_usage_usd": 0.09774918,
+      "group_id": 4
+    }
+  ],
+  "usage": [
+    {
+      "group_id": 2,
+      "model": "qwen/qwen3.8-27b:free",
+      "actual_cost": 0.0,
+      "account_stats_cost": null
+    },
+    {
+      "group_id": 3,
+      "model": "qwen/qwen3.8-27b:free",
+      "actual_cost": 0.0,
+      "account_stats_cost": null
+    },
+    {
+      "group_id": 3,
+      "model": "deepseek-flash",
+      "actual_cost": 0.00306306,
+      "account_stats_cost": 0.00204204
+    },
+    {
+      "group_id": 3,
+      "model": "glm-5.3-flash",
+      "actual_cost": 0.00162,
+      "account_stats_cost": 0.00108
+    },
+    {
+      "group_id": 4,
+      "model": "qwen/qwen3.8-27b:free",
+      "actual_cost": 0.0,
+      "account_stats_cost": null
+    },
+    {
+      "group_id": 4,
+      "model": "deepseek-flash",
+      "actual_cost": 0.00306306,
+      "account_stats_cost": 0.00204204
+    },
+    {
+      "group_id": 4,
+      "model": "glm-5.3-flash",
+      "actual_cost": 0.00162,
+      "account_stats_cost": 0.00108
+    },
+    {
+      "group_id": 4,
+      "model": "glm-5.3",
+      "actual_cost": 0.0162,
+      "account_stats_cost": 0.0108
+    },
+    {
+      "group_id": 4,
+      "model": "hy4-preview",
+      "actual_cost": 0.0117,
+      "account_stats_cost": 0.0078
+    }
+  ],
+  "limitations": [
+    "模型响应和 tokens 是模拟值，未验证供应商可用性或质量",
+    "未发布线上套餐",
+    "界面部分 USD 标签仍需人民币展示适配",
+    "未验证 Skoob OAuth/兑换界面",
+    "GPT/Claude 未配置具体供货型号",
+    "同一付费 Key 的额度耗尽后，分组闸门也会拒绝免费模型；发布前待处理"
+  ]
+}

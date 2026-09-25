@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"sync"
@@ -934,6 +935,11 @@ func (s *BillingCacheService) checkSubscriptionEligibility(ctx context.Context, 
 	// 获取订阅缓存数据
 	subData, err := s.GetSubscriptionStatus(ctx, userID, group.ID)
 	if err != nil {
+		// An expired subscription is absent from the active-only DB query.
+		// This is an entitlement failure, not a billing infrastructure outage.
+		if errors.Is(err, ErrSubscriptionNotFound) {
+			return ErrSubscriptionInvalid
+		}
 		if s.circuitBreaker != nil {
 			s.circuitBreaker.OnFailure(err)
 		}
