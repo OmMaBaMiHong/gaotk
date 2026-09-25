@@ -15,9 +15,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 
-	"github.com/gin-gonic/gin"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/gin-gonic/gin"
 )
 
 // oauthServerCodeTTL 授权码有效期（一次性 code，无状态签名）。
@@ -33,6 +34,18 @@ type oauthServerAuthCode struct {
 
 func (h *AuthHandler) oauthServerClient() *config.OAuthServerConfig {
 	return &h.cfg.OAuthServer
+}
+
+func (h *AuthHandler) oauthRedirectAllowed(c *gin.Context, uri string) bool {
+	if h.settingSvc == nil {
+		return isAllowedRedirectURI(h.cfg.OAuthServer.RedirectURI, uri)
+	}
+	allowed, err := h.settingSvc.IsOAuthServerRedirectAllowed(c.Request.Context(), uri)
+	if err != nil {
+		response.Error(c, http.StatusServiceUnavailable, "OAuth settings unavailable")
+		return false
+	}
+	return allowed
 }
 
 func (h *AuthHandler) signOAuthServerCode(payload oauthServerAuthCode) (string, error) {
@@ -127,7 +140,10 @@ func (h *AuthHandler) OAuthAuthorize(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "unknown client_id")
 		return
 	}
-	if !isAllowedRedirectURI(client.RedirectURI, redirectURI) {
+	if !h.oauthRedirectAllowed(c, redirectURI) {
+		if c.Writer.Written() {
+			return
+		}
 		response.Error(c, http.StatusBadRequest, "redirect_uri not allowed")
 		return
 	}
@@ -187,7 +203,10 @@ func (h *AuthHandler) OAuthAuthorizeJSON(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "unknown client_id")
 		return
 	}
-	if !isAllowedRedirectURI(client.RedirectURI, redirectURI) {
+	if !h.oauthRedirectAllowed(c, redirectURI) {
+		if c.Writer.Written() {
+			return
+		}
 		response.Error(c, http.StatusBadRequest, "redirect_uri not allowed")
 		return
 	}
@@ -270,14 +289,5 @@ func isAllowedRedirectURI(configured, requested string) bool {
 	if configured == "" {
 		return false
 	}
-	if configured == requested {
-		return true
-	}
-	// 开源自部署:允许本地回调(任何端口)
-	if strings.HasPrefix(requested, "http://127.0.0.1:") ||
-		strings.HasPrefix(requested, "http://localhost:") ||
-		strings.HasPrefix(requested, "http://[::1]:") {
-		return true
-	}
-	return false
+	return service.OAuthServerRedirectAllowed([]string{configured}, requested)
 }

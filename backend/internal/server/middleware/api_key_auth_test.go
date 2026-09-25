@@ -1792,3 +1792,36 @@ func (r *stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64,
 func (r *stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
 }
+
+func TestZeroRateStandardGroupAllowsZeroBalanceWithoutBypassingKeyLimits(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, tc := range []struct {
+		name    string
+		rate    float64
+		expired bool
+		status  int
+	}{
+		{"free", 0, false, 200}, {"paid", 1, false, 403}, {"expired_free", 0, true, 403},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			group := &service.Group{ID: 16, Name: "free", Status: service.StatusActive, Hydrated: true, SubscriptionType: service.SubscriptionTypeStandard, RateMultiplier: tc.rate}
+			user := &service.User{ID: 99, Role: service.RoleUser, Status: service.StatusActive, Balance: 0}
+			key := &service.APIKey{ID: 900, UserID: user.ID, Key: "test-free-key", Status: service.StatusActive, User: user, Group: group, GroupID: &group.ID}
+			if tc.expired {
+				expired := time.Now().Add(-time.Hour)
+				key.ExpiresAt = &expired
+			}
+			repo := &stubApiKeyRepo{getByKey: func(context.Context, string) (*service.APIKey, error) { return key, nil }}
+			cfg := &config.Config{RunMode: config.RunModeStandard}
+			svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+			router := gin.New()
+			router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(svc, nil, cfg)))
+			router.POST("/v1/chat/completions", func(c *gin.Context) { c.Status(200) })
+			req := httptest.NewRequest("POST", "/v1/chat/completions", nil)
+			req.Header.Set("Authorization", "Bearer test-free-key")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			require.Equal(t, tc.status, w.Code, w.Body.String())
+		})
+	}
+}
