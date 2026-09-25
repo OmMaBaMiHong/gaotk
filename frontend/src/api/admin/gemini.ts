@@ -3,7 +3,8 @@
  * Handles Gemini OAuth flows for administrators
  */
 
-import { apiClient } from '../client'
+import { apiClient as defaultClient } from '../client'
+import { createAccountScopeClient, type AccountScope } from '../accountScopeClient'
 
 export interface GeminiAuthUrlResponse {
   auth_url: string
@@ -46,7 +47,20 @@ export type GeminiTokenInfo = {
   [key: string]: unknown
 }
 
-export async function generateAuthUrl(
+export function createGeminiAPI(scope: AccountScope = 'admin') {
+const apiClient = scope === 'admin' ? defaultClient : createAccountScopeClient(scope)
+
+
+
+
+
+
+
+
+
+
+
+async function generateAuthUrl(
   payload: GeminiAuthUrlRequest
 ): Promise<GeminiAuthUrlResponse> {
   const { data } = await apiClient.post<GeminiAuthUrlResponse>(
@@ -56,7 +70,7 @@ export async function generateAuthUrl(
   return data
 }
 
-export async function exchangeCode(payload: GeminiExchangeCodeRequest): Promise<GeminiTokenInfo> {
+async function exchangeCode(payload: GeminiExchangeCodeRequest): Promise<GeminiTokenInfo> {
   const { data } = await apiClient.post<GeminiTokenInfo>(
     '/admin/gemini/oauth/exchange-code',
     payload
@@ -64,9 +78,18 @@ export async function exchangeCode(payload: GeminiExchangeCodeRequest): Promise<
   return data
 }
 
-export async function getCapabilities(): Promise<GeminiOAuthCapabilities> {
+async function getCapabilities(): Promise<GeminiOAuthCapabilities> {
   const { data } = await apiClient.get<GeminiOAuthCapabilities>('/admin/gemini/oauth/capabilities')
   return data
 }
 
-export default { generateAuthUrl, exchangeCode, getCapabilities }
+return { generateAuthUrl, exchangeCode, getCapabilities }
+}
+
+export const geminiAPI = createGeminiAPI()
+export const {
+  generateAuthUrl,
+  exchangeCode,
+  getCapabilities
+} = geminiAPI
+export default geminiAPI

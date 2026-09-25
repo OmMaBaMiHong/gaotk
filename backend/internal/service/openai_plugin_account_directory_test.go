@@ -87,12 +87,13 @@ func TestListPluginAccounts_ScopeAndSchedulable(t *testing.T) {
 // accountReadableSnapshotJSON) if it can hold secrets/heavy data, otherwise add it
 // to `safeToExpose`.
 func TestAccountReadableSnapshot_DenylistTripwire(t *testing.T) {
+	ownerID := int64(731)
 	// Fields the snapshot intentionally strips. Credentials = long-lived secret
 	// (refresh_token) not handed out by ResolveOutboundIdentity. Groups/AccountGroups
 	// = relational graphs with back-references that would cycle under encoding/json.
 	stripped := map[string]struct{}{
 		"Credentials": {}, "Groups": {}, "AccountGroups": {},
-		"OwnerUserID": {}, "RentalPolicyID": {}, "RentalIdentity": {}, "Rental": {},
+		"OwnerUserID": {}, "Rental": {},
 	}
 	// Fields intentionally exposed as readable metadata (incl. Extra and Proxy —
 	// the proxy password is already handed out via ResolveOutboundIdentity's URL).
@@ -105,7 +106,7 @@ func TestAccountReadableSnapshot_DenylistTripwire(t *testing.T) {
 		"RateLimitedAt": {}, "RateLimitResetAt": {}, "OverloadUntil": {},
 		"TempUnschedulableUntil": {}, "TempUnschedulableReason": {},
 		"SessionWindowStart": {}, "SessionWindowEnd": {}, "SessionWindowStatus": {},
-		"ParentAccountID": {}, "QuotaDimension": {}, "GroupIDs": {}, "RentalStatus": {},
+		"ParentAccountID": {}, "QuotaDimension": {}, "GroupIDs": {},
 	}
 	tp := reflect.TypeOf(Account{})
 	for i := 0; i < tp.NumField(); i++ {
@@ -123,10 +124,9 @@ func TestAccountReadableSnapshot_DenylistTripwire(t *testing.T) {
 	}
 
 	// The raw Credentials blob must never serialize; Extra and the proxy ARE released.
-	ownerID, policyID, identity := int64(812), int64(713), "PRIVATE-RENTAL-IDENTITY"
 	acct := &Account{
 		ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive,
-		OwnerUserID: &ownerID, RentalPolicyID: &policyID, RentalIdentity: &identity, Rental: &RentalSnapshot{OwnerUserID: ownerID},
+		OwnerUserID: &ownerID, Rental: &RentalSnapshot{OwnerUserID: ownerID},
 		Credentials: map[string]any{"access_token": "AT", "refresh_token": "LEAK-REFRESH"},
 		Extra:       map[string]any{"opaque": "extra-released"},
 		Proxy:       &Proxy{Host: "host", Port: 1, Username: "user", Password: "pw-released"},
@@ -135,7 +135,7 @@ func TestAccountReadableSnapshot_DenylistTripwire(t *testing.T) {
 	require.NotNil(t, snap)
 	var m map[string]any
 	require.NoError(t, json.Unmarshal(snap, &m))
-	for _, field := range []string{"OwnerUserID", "RentalPolicyID", "RentalIdentity", "Rental"} {
+	for _, field := range []string{"OwnerUserID", "Rental"} {
 		assert.Nil(t, m[field])
 	}
 	assert.NotContains(t, string(snap), "PRIVATE-RENTAL-IDENTITY")

@@ -340,21 +340,27 @@ type AccountSchedulerGroupScore struct {
 
 const accountListGroupUngroupedQueryValue = "ungrouped"
 
-func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
+func (h *AccountHandler) accountResponseFromService(ctx context.Context, account *service.Account) *dto.Account {
 	out := dto.AccountFromService(account)
 	if h != nil && h.ollamaCloudUsage != nil && out != nil {
 		h.ollamaCloudUsage.EnrichState(out.OllamaCloudUsage)
 	}
+	if service.OwnedAccountUserID(ctx) > 0 {
+		redactOwnedAccountDTO(out)
+	}
 	return out
 }
 
-func (h *AccountHandler) accountListResponseFromService(account *service.Account) *dto.Account {
+func (h *AccountHandler) accountListResponseFromService(ctx context.Context, account *service.Account) *dto.Account {
 	out := dto.AccountFromServiceShallow(account)
 	if out != nil && account != nil {
 		out.Proxy = dto.ProxyFromService(account.Proxy)
 	}
 	if h != nil && h.ollamaCloudUsage != nil && out != nil {
 		h.ollamaCloudUsage.EnrichState(out.OllamaCloudUsage)
+	}
+	if service.OwnedAccountUserID(ctx) > 0 {
+		redactOwnedAccountDTO(out)
 	}
 	return out
 }
@@ -365,7 +371,7 @@ func (h *AccountHandler) isSimpleMode() bool {
 
 func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, account *service.Account) AccountWithConcurrency {
 	item := AccountWithConcurrency{
-		Account:            h.accountResponseFromService(account),
+		Account:            h.accountResponseFromService(ctx, account),
 		simpleMode:         h.isSimpleMode(),
 		CurrentConcurrency: 0,
 	}
@@ -639,6 +645,14 @@ func (h *AccountHandler) listAccountSchedulerScoreFilterPool(
 // List handles listing all accounts with pagination
 // GET /api/v1/admin/accounts
 func (h *AccountHandler) List(c *gin.Context) {
+	if raw := strings.TrimSpace(c.Query("owner_user_id")); raw != "" && service.OwnedAccountUserID(c.Request.Context()) == 0 {
+		ownerID, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || ownerID <= 0 {
+			response.BadRequest(c, "Invalid owner_user_id")
+			return
+		}
+		c.Request = c.Request.WithContext(service.WithAccountListOwnerFilter(c.Request.Context(), ownerID))
+	}
 	page, pageSize := response.ParsePagination(c)
 	platform := c.Query("platform")
 	accountType := c.Query("type")
@@ -799,9 +813,9 @@ func (h *AccountHandler) List(c *gin.Context) {
 	result := make([]AccountWithConcurrency, len(accounts))
 	for i := range accounts {
 		acc := &accounts[i]
-		accountResponse := h.accountResponseFromService(acc)
+		accountResponse := h.accountResponseFromService(c.Request.Context(), acc)
 		if lite {
-			accountResponse = h.accountListResponseFromService(acc)
+			accountResponse = h.accountListResponseFromService(c.Request.Context(), acc)
 			if h.isSimpleMode() {
 				accountResponse.GroupIDs = filterSimpleModeGroupIDs(accountResponse.GroupIDs, simpleModeCompositeServiceGroupIDs(acc))
 			}

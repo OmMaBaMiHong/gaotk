@@ -142,9 +142,6 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	builder := client.Account.Create().
 		SetName(account.Name).
 		SetNillableOwnerUserID(account.OwnerUserID).
-		SetNillableRentalPolicyID(account.RentalPolicyID).
-		SetNillableRentalIdentity(account.RentalIdentity).
-		SetRentalStatus(account.RentalStatus).
 		SetNillableNotes(account.Notes).
 		SetPlatform(account.Platform).
 		SetType(account.Type).
@@ -1110,6 +1107,9 @@ func (r *accountRepository) accountListFilteredQuery(platform, accountType, stat
 
 func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+	if ownerID := service.AccountListOwnerID(ctx); ownerID > 0 {
+		q = q.Where(dbaccount.OwnerUserIDEQ(ownerID))
+	}
 	// Clone before Count so interceptor-appended predicates (SoftDeleteMixin's
 	// deleted_at IS NULL) don't accumulate on the shared builder and pollute the
 	// subsequent list query. Same pattern used in group_repo/promo_code_repo/user_repo
@@ -1139,7 +1139,11 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 }
 
 func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, error) {
-	accounts, err := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode).All(ctx)
+	q := r.accountListFilteredQuery(platform, accountType, status, search, groupID, privacyMode)
+	if ownerID := service.AccountListOwnerID(ctx); ownerID > 0 {
+		q = q.Where(dbaccount.OwnerUserIDEQ(ownerID))
+	}
+	accounts, err := q.All(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1164,7 +1168,6 @@ func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platfor
 			dbaccount.FieldID,
 			dbaccount.FieldName,
 			dbaccount.FieldOwnerUserID,
-			dbaccount.FieldRentalStatus,
 			dbaccount.FieldParentAccountID,
 			dbaccount.FieldPlatform,
 			dbaccount.FieldConcurrency,
@@ -3639,9 +3642,6 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 	return &service.Account{
 		ID:                      m.ID,
 		OwnerUserID:             m.OwnerUserID,
-		RentalPolicyID:          m.RentalPolicyID,
-		RentalStatus:            m.RentalStatus,
-		RentalIdentity:          m.RentalIdentity,
 		Name:                    m.Name,
 		Notes:                   m.Notes,
 		Platform:                m.Platform,

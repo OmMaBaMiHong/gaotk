@@ -21,7 +21,7 @@ func prepareRentalSettlement(ctx context.Context, tx *sql.Tx, cmd *service.Usage
 		return nil, nil
 	}
 	s := *cmd.Rental
-	if s.OwnerAccountID <= 0 || s.OwnerUserID <= 0 || s.AdminUserID <= 0 || s.PolicyID <= 0 || s.PolicyVersion <= 0 {
+	if s.OwnerAccountID <= 0 || s.OwnerUserID <= 0 || s.AdminUserID <= 0 || s.ChannelID <= 0 || s.GroupID <= 0 {
 		return nil, errors.New("incomplete rental settlement snapshot")
 	}
 	allocation, err := service.RentalRevenueStrategy().Split(cmd.BalanceCost+cmd.SubscriptionCost, s)
@@ -53,9 +53,9 @@ func (s *rentalSettlement) apply(ctx context.Context, tx *sql.Tx, cmd *service.U
 	}
 	p, a := s.snapshot, s.allocation
 	_, err := tx.ExecContext(ctx, `INSERT INTO account_revenue_ledger
-	(request_id,api_key_id,account_id,owner_account_id,owner_user_id,admin_user_id,policy_id,policy_version,platform,group_id,model,billing_type,input_tokens,output_tokens,cache_tokens,bill_amount,owner_share_bps,owner_amount,admin_amount)
-	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
-		cmd.RequestID, cmd.APIKeyID, cmd.AccountID, p.OwnerAccountID, p.OwnerUserID, p.AdminUserID, p.PolicyID, p.PolicyVersion, p.Platform, p.GroupID, cmd.Model, cmd.BillingType, cmd.InputTokens, cmd.OutputTokens, cmd.CacheCreationTokens+cmd.CacheReadTokens, a.Bill.StringFixed(8), p.OwnerShareBPS, a.Owner.StringFixed(8), a.Admin.StringFixed(8))
+	(request_id,api_key_id,account_id,owner_account_id,owner_user_id,admin_user_id,channel_id,platform,group_id,model,billing_type,input_tokens,output_tokens,cache_tokens,bill_amount,owner_share_bps,owner_amount,admin_amount)
+	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)`,
+		cmd.RequestID, cmd.APIKeyID, cmd.AccountID, p.OwnerAccountID, p.OwnerUserID, p.AdminUserID, p.ChannelID, p.Platform, p.GroupID, cmd.Model, cmd.BillingType, cmd.InputTokens, cmd.OutputTokens, cmd.CacheCreationTokens+cmd.CacheReadTokens, a.Bill.StringFixed(8), p.OwnerShareBPS, a.Owner.StringFixed(8), a.Admin.StringFixed(8))
 	if err != nil {
 		return err
 	}

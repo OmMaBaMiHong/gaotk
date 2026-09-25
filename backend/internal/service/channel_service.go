@@ -866,6 +866,9 @@ func (s *ChannelService) Create(ctx context.Context, input *CreateChannelInput) 
 	}
 	channel.normalizeBillingModelSource()
 
+	if err := s.validateSavingsConfig(ctx, channel); err != nil {
+		return nil, err
+	}
 	if err := validateChannelConfig(channel.ModelPricing, channel.ModelMapping); err != nil {
 		return nil, err
 	}
@@ -908,6 +911,9 @@ func (s *ChannelService) Update(ctx context.Context, id int64, input *UpdateChan
 		return nil, err
 	}
 
+	if err := s.validateSavingsConfig(ctx, channel); err != nil {
+		return nil, err
+	}
 	if err := validateChannelConfig(channel.ModelPricing, channel.ModelMapping); err != nil {
 		return nil, err
 	}

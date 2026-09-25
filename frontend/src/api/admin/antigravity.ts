@@ -3,7 +3,8 @@
  * Handles Antigravity (Google Cloud AI Companion) OAuth flows for administrators
  */
 
-import { apiClient } from '../client'
+import { apiClient as defaultClient } from '../client'
+import { createAccountScopeClient, type AccountScope } from '../accountScopeClient'
 
 export interface AntigravityAuthUrlResponse {
   auth_url: string
@@ -34,7 +35,18 @@ export interface AntigravityTokenInfo {
   [key: string]: unknown
 }
 
-export async function generateAuthUrl(
+export function createAntigravityAPI(scope: AccountScope = 'admin') {
+const apiClient = scope === 'admin' ? defaultClient : createAccountScopeClient(scope)
+
+
+
+
+
+
+
+
+
+async function generateAuthUrl(
   payload: AntigravityAuthUrlRequest
 ): Promise<AntigravityAuthUrlResponse> {
   const { data } = await apiClient.post<AntigravityAuthUrlResponse>(
@@ -44,7 +56,7 @@ export async function generateAuthUrl(
   return data
 }
 
-export async function exchangeCode(
+async function exchangeCode(
   payload: AntigravityExchangeCodeRequest
 ): Promise<AntigravityTokenInfo> {
   const { data } = await apiClient.post<AntigravityTokenInfo>(
@@ -54,7 +66,7 @@ export async function exchangeCode(
   return data
 }
 
-export async function refreshAntigravityToken(
+async function refreshAntigravityToken(
   refreshToken: string,
   proxyId?: number | null
 ): Promise<AntigravityTokenInfo> {
@@ -68,4 +80,13 @@ export async function refreshAntigravityToken(
   return data
 }
 
-export default { generateAuthUrl, exchangeCode, refreshAntigravityToken }
+return { generateAuthUrl, exchangeCode, refreshAntigravityToken }
+}
+
+export const antigravityAPI = createAntigravityAPI()
+export const {
+  generateAuthUrl,
+  exchangeCode,
+  refreshAntigravityToken
+} = antigravityAPI
+export default antigravityAPI

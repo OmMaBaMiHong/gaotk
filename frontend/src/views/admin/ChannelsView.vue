@@ -204,6 +204,18 @@
               <Select v-model="form.status" :options="statusEditOptions" />
             </div>
 
+            <section class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+              <label class="flex items-center gap-2"><input v-model="tokenSavings.enabled" type="checkbox" /><span class="font-medium">{{ t('tokenBank.channelSavings') }}</span></label>
+              <template v-if="tokenSavings.enabled">
+                <p class="text-xs text-gray-500">{{ t('tokenBank.channelSavingsHint') }}</p>
+                <label class="block text-sm">{{ t('tokenBank.ownerShare') }}<input v-model.number="tokenSavingsSharePercent" type="number" min="0" max="100" step="0.01" required class="input mt-1" /><span class="text-xs text-gray-500">%</span></label>
+                <label class="block text-sm">{{ t('tokenBank.adminRecipient') }}<input v-model.number="tokenSavings.admin_user_id" type="number" min="1" required class="input mt-1" /></label>
+                <p class="text-sm">{{ t('tokenBank.receivingGroups') }}</p>
+                <p v-if="!savingsGroupOptions.length" class="text-xs text-gray-500">{{ t('tokenBank.selectChannelGroupsFirst') }}</p>
+                <label v-for="group in savingsGroupOptions" :key="group.id" class="flex items-center gap-2 text-sm"><input v-model="tokenSavings.receiving_group_ids" type="checkbox" :value="group.id" /><span>{{ group.platform }} · {{ group.name }}</span></label>
+              </template>
+            </section>
+
             <!-- Model Restriction -->
             <div>
               <label class="flex items-center gap-2 cursor-pointer">
@@ -742,6 +754,16 @@ const showDeleteDialog = ref(false)
 const deletingChannel = ref<Channel | null>(null)
 const activeTab = ref<string>('basic')
 
+const tokenSavings = reactive({ enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [] as number[] })
+const tokenSavingsSharePercent = computed({
+  get: () => tokenSavings.owner_share_bps / 100,
+  set: (value: number) => { tokenSavings.owner_share_bps = Math.round(value * 100) }
+})
+const savingsGroupOptions = computed(() => {
+  const ids = new Set(form.platforms.filter(section => section.enabled).flatMap(section => section.group_ids))
+  return allGroups.value.filter(group => ids.has(group.id))
+})
+
 // Groups
 const allGroups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
@@ -1145,6 +1167,10 @@ function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[
     }
   }
   const uniqueGroupIds = Array.from(new Set(group_ids))
+  featuresConfig.token_savings = {
+    ...tokenSavings,
+    receiving_group_ids: tokenSavings.receiving_group_ids.filter(id => uniqueGroupIds.includes(id))
+  }
 
   // Collect web_search_emulation (only anthropic platform supports it)
   // Always write the key so that disabling in the UI correctly sets platform to false,
@@ -1351,6 +1377,7 @@ function handleSort(key: string, order: 'asc' | 'desc') {
 
 // ── Dialog ──
 function resetForm() {
+  Object.assign(tokenSavings, { enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [] })
   form.name = ''
   form.description = ''
   form.status = 'active'
@@ -1373,6 +1400,8 @@ async function openCreateDialog() {
 
 async function openEditDialog(channel: Channel) {
   editingChannel.value = channel
+  const savings = channel.features_config?.token_savings as Partial<typeof tokenSavings> | undefined
+  Object.assign(tokenSavings, { enabled: false, owner_share_bps: 8000, admin_user_id: 0, receiving_group_ids: [] }, savings, { receiving_group_ids: [...(savings?.receiving_group_ids || [])] })
   form.name = channel.name
   form.description = channel.description || ''
   form.status = channel.status
@@ -1478,6 +1507,16 @@ async function handleSubmit() {
   if (submitting.value) return
   if (!form.name.trim()) {
     appStore.showError(t('admin.channels.nameRequired', 'Please enter a channel name'))
+    return
+  }
+
+  if (tokenSavings.enabled && (
+    !Number.isInteger(tokenSavings.owner_share_bps) || tokenSavings.owner_share_bps < 0 || tokenSavings.owner_share_bps > 10000 ||
+    !Number.isInteger(tokenSavings.admin_user_id) || tokenSavings.admin_user_id < 1 ||
+    !tokenSavings.receiving_group_ids.some(id => savingsGroupOptions.value.some(group => group.id === id))
+  )) {
+    appStore.showError(t('tokenBank.invalidSavingsConfig'))
+    activeTab.value = 'basic'
     return
   }
 

@@ -62,7 +62,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI } from '@/api/admin'
+import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
+const { api: adminAPI } = useAccountWorkspace()
 import type { CNProviderQuotaProbeResult } from '@/api/admin/cnProviders'
 import type { Account } from '@/types'
 import { cnQuotaCellVisible } from './credentialsBuilder'

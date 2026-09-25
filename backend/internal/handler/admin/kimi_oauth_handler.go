@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/kimi"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -135,13 +134,13 @@ func (h *KimiOAuthHandler) RefreshAccountToken(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, dto.AccountFromService(updatedAccount))
+	response.Success(c, accountDTOForContext(c.Request.Context(), updatedAccount))
 }
 
 // CreateKimiAccountFromOAuthRequest 从设备授权 token 创建账号的请求体。
 type CreateKimiAccountFromOAuthRequest struct {
-	SessionID  string  `json:"session_id" binding:"required"`
-	Name       string  `json:"name"`
+	SessionID   string  `json:"session_id" binding:"required"`
+	Name        string  `json:"name"`
 	Concurrency int     `json:"concurrency"`
 	Priority    int     `json:"priority"`
 	GroupIDs    []int64 `json:"group_ids"`
@@ -191,5 +190,5 @@ func (h *KimiOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, dto.AccountFromService(account))
+	response.Success(c, accountDTOForContext(c.Request.Context(), account))
 }

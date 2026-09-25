@@ -668,9 +668,10 @@
 </template>
 
 <script setup lang="ts">
+const { api: adminAPI } = useAccountWorkspace()
 import { ref, computed, onMounted, onBeforeUnmount, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { adminAPI } from '@/api/admin'
+import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
 import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '@/types'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/utils/usageLoadQueue'

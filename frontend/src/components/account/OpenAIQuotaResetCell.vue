@@ -43,6 +43,7 @@
         class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-orange-400 dark:hover:bg-orange-900/30"
         :disabled="resetting || loading || !canReset"
         :title="resetButtonTitle"
+        v-if="isAdmin"
         @click="openResetConfirm"
       >
         <svg
@@ -73,7 +74,7 @@
         {{ t('admin.accounts.openaiQuotaReset.points') }}
         <span class="truncate tabular-nums">{{ creditsDisplay }}</span>
       </button>
-      <OpenAIReferralCell :account="account" />
+      <OpenAIReferralCell v-if="isAdmin" :account="account" />
     </div>
 
     <div v-if="creditsCacheWarning" class="text-[10px] text-amber-600 dark:text-amber-400">
@@ -185,11 +186,12 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Account } from '@/types'
 import {
-  refreshOpenAIQuota,
-  resetOpenAIQuota,
   type OpenAIQuotaUsage,
   type OpenAIQuotaResetResult
 } from '@/api/admin/accounts'
+import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
+const { api, isAdmin } = useAccountWorkspace()
+const { refreshOpenAIQuota, resetOpenAIQuota } = api.accounts
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import OpenAIReferralCell from '@/components/account/OpenAIReferralCell.vue'
 

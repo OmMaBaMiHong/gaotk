@@ -53,7 +53,14 @@ func (s *adminServiceImpl) ListOpenAISchedulableAccountsForSchedulerScore(ctx co
 }
 
 func (s *adminServiceImpl) GetAccount(ctx context.Context, id int64) (*Account, error) {
-	return s.accountRepo.GetByID(ctx, id)
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := CheckOwnedAccount(ctx, account); err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 
 func (s *adminServiceImpl) GetAccountsByIDs(ctx context.Context, ids []int64) ([]*Account, error) {
@@ -66,6 +73,11 @@ func (s *adminServiceImpl) GetAccountsByIDs(ctx context.Context, ids []int64) ([
 		return nil, fmt.Errorf("failed to get accounts by IDs: %w", err)
 	}
 
+	for _, account := range accounts {
+		if err := CheckOwnedAccount(ctx, account); err != nil {
+			return nil, err
+		}
+	}
 	return accounts, nil
 }
 
@@ -422,6 +434,7 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	delete(accountExtra, OpenCodeGoUsageSnapshotExtraKey)
 	accountExtra = prepareCodexFingerprintExtraForCreate(input.Platform, input.Type, accountExtra)
 	account := &Account{
+		OwnerUserID: input.OwnerUserID,
 		Name:        input.Name,
 		Notes:       normalizeAccountNotes(input.Notes),
 		Platform:    input.Platform,
@@ -476,6 +489,9 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	if err := prepareOwnedAccountCreate(ctx, input); err != nil {
+		return nil, err
+	}
 	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err
@@ -574,6 +590,9 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *UpdateAccountInput) (*Account, error) {
 	account, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := prepareOwnedAccountUpdate(ctx, account, input); err != nil {
 		return nil, err
 	}
 	var normalizedExtra map[string]any
@@ -1277,6 +1296,11 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 }
 
 func (s *adminServiceImpl) DeleteAccount(ctx context.Context, id int64) error {
+	if OwnedAccountUserID(ctx) > 0 {
+		if _, err := s.GetAccount(ctx, id); err != nil {
+			return err
+		}
+	}
 	// 级联删除 spark 影子账号（先删影子，再删母账号）
 	shadows, err := s.accountRepo.ListShadowsByParent(ctx, id)
 	if err != nil {

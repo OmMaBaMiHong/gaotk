@@ -28,7 +28,7 @@
 
       <!-- API Key fields (only for apikey type) -->
       <div v-if="account.type === 'apikey'" class="space-y-4">
-        <div v-if="!isCNApiKeyAccount || editApiProtocol !== 'adaptive'">
+        <div v-if="isAdmin && (!isCNApiKeyAccount || editApiProtocol !== 'adaptive')">
           <label class="input-label">{{ t('admin.accounts.baseUrl') }}</label>
           <input
             v-model="editBaseUrl"
@@ -62,7 +62,7 @@
             @select="onCnPresetSelect"
           />
         </div>
-        <div v-else>
+        <div v-else-if="isAdmin">
           <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.endpoints') }}</label>
           <div class="mt-2 space-y-3">
             <div v-for="item in editAdaptiveProtocolOptions" :key="item.value">
@@ -230,7 +230,7 @@
         </div>
 
         <!-- Model Restriction Section (不适用于 Antigravity) -->
-        <div v-if="account.platform !== 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="isAdmin && (account.platform !== 'antigravity')" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <div
@@ -416,7 +416,7 @@
         </div>
 
         <!-- Pool Mode Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="isAdmin" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
@@ -480,7 +480,7 @@
         </div>
 
         <!-- Custom Error Codes Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="isAdmin" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
@@ -581,7 +581,7 @@
 
       <!-- Grok OAuth client-tool prompt cache opt-in -->
       <div
-        v-if="account.platform === 'grok' && account.type === 'oauth'"
+        v-if="isAdmin && (account.platform === 'grok' && account.type === 'oauth')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -601,7 +601,7 @@
 
       <!-- Grok OAuth media generation eligibility override -->
       <div
-        v-if="isGrokOAuthAccount"
+        v-if="isAdmin && (isGrokOAuthAccount)"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
         data-testid="grok-media-eligibility-card"
       >
@@ -652,7 +652,7 @@
 
       <!-- Grok OAuth Custom Upstream URL (仅改写转发端点，OAuth 授权/刷新不受影响) -->
       <div
-        v-if="account.platform === 'grok' && account.type === 'oauth'"
+        v-if="isAdmin && (account.platform === 'grok' && account.type === 'oauth')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="mb-3 flex items-center justify-between">
@@ -692,7 +692,7 @@
       </div>
 
       <!-- Header Override Section (eligible API-key platforms + grok OAuth) -->
-      <div v-if="headerOverrideCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div v-if="isAdmin && (headerOverrideCapable)" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
@@ -734,7 +734,7 @@
 
       <!-- OpenAI/Grok OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
       <div
-        v-if="(account.platform === 'openai' || account.platform === 'grok') && account.type === 'oauth'"
+        v-if="isAdmin && ((account.platform === 'openai' || account.platform === 'grok') && account.type === 'oauth')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
@@ -870,7 +870,7 @@
 
       <!-- Upstream fields (only for upstream type) -->
       <div v-if="account.type === 'upstream'" class="space-y-4">
-        <div>
+        <div v-if="isAdmin">
           <label class="input-label">{{ t('admin.accounts.upstream.baseUrl') }}</label>
           <input
             v-model="editBaseUrl"
@@ -932,7 +932,7 @@
         </div>
 
         <!-- Model Restriction Section for Service Account -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="isAdmin" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <!-- Mode Toggle -->
@@ -1167,7 +1167,7 @@
         </div>
 
         <!-- Shared: Force Global -->
-        <div>
+        <div v-if="isAdmin">
           <label class="flex items-center gap-2 cursor-pointer">
             <input
               v-model="editBedrockForceGlobal"
@@ -1180,7 +1180,7 @@
         </div>
 
         <!-- Model Restriction for Bedrock -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="isAdmin" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <!-- Mode Toggle -->
@@ -1249,7 +1249,7 @@
         </div>
 
         <!-- Pool Mode Section for Bedrock -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="isAdmin" class="border-t border-gray-200 pt-4 dark:border-dark-600">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
@@ -1330,7 +1330,7 @@
 
       <!-- Antigravity model restriction (applies to all antigravity types) -->
       <!-- Antigravity 只支持模型映射模式，不支持白名单模式 -->
-      <div v-if="account.platform === 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div v-if="isAdmin && (account.platform === 'antigravity')" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
         <!-- Mapping Mode Only (no toggle for Antigravity) -->
@@ -1430,7 +1430,7 @@
       </div>
 
       <!-- Temp Unschedulable Rules -->
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
+      <div v-if="isAdmin" class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
@@ -1579,7 +1579,7 @@
 
 
       <div
-        v-if="supportsAccountSchedulingThresholdOverride"
+        v-if="isAdmin && (supportsAccountSchedulingThresholdOverride)"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
         data-testid="account-scheduling-threshold-section"
       >
@@ -1613,7 +1613,7 @@
 
       <!-- Intercept Warmup Requests (Anthropic/Antigravity) -->
       <div
-        v-if="account?.platform === 'anthropic' || account?.platform === 'antigravity'"
+        v-if="isAdmin && (account?.platform === 'anthropic' || account?.platform === 'antigravity')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -1643,7 +1643,7 @@
         </div>
       </div>
 
-      <div v-if="!isSparkShadow">
+      <div v-if="isAdmin && (!isSparkShadow)">
         <div class="mb-1 flex items-center gap-2">
           <label class="input-label mb-0">{{ t('admin.accounts.proxy') }}</label>
           <ProxyAdBanner />
@@ -1651,13 +1651,13 @@
         <ProxySelector v-model="form.proxy_id" :proxies="proxies" />
       </div>
 
-      <UpstreamRequestIdHeaderField
+      <UpstreamRequestIdHeaderField v-if="isAdmin"
         v-model="upstreamRequestIdHeader"
         :platform="account.platform"
         :type="account.type"
       />
 
-      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div v-if="isAdmin" class="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.concurrency') }}</label>
           <input v-model.number="form.concurrency" type="number" min="1" class="input"
@@ -1722,7 +1722,7 @@
           </div>
         </div>
       </div>
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div v-if="isAdmin" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
         <div class="mt-2 flex gap-2">
@@ -1741,7 +1741,7 @@
 
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="isAdmin && (account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -1771,7 +1771,7 @@
 
       <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth'"
+        v-if="isAdmin && (account?.platform === 'openai' && account?.type === 'oauth')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -1802,7 +1802,7 @@
 
       <!-- OpenAI Codex hosted image_generation bridge policy -->
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="isAdmin && (account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="overflow-hidden rounded-lg border border-sky-100 bg-sky-50/60 shadow-sm dark:border-sky-900/50 dark:bg-sky-950/20">
@@ -1862,7 +1862,7 @@
 
       <!-- OpenAI WS Mode 三态（off/ctx_pool/passthrough） -->
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="isAdmin && (account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -1883,7 +1883,7 @@
 
       <!-- OpenAI APIKey Responses API support mode -->
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        v-if="isAdmin && (account?.platform === 'openai' && account?.type === 'apikey')"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -1939,7 +1939,7 @@
 
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        v-if="isAdmin && (account?.platform === 'openai' && account?.type === 'apikey')"
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -1969,7 +1969,7 @@
       </div>
 
       <div
-        v-if="account?.type === 'apikey'"
+        v-if="isAdmin && (account?.type === 'apikey')"
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -1987,13 +1987,13 @@
       </div>
 
       <OllamaCloudUsageSettings
-        v-if="account?.ollama_cloud_usage?.eligible"
+        v-if="isAdmin && (account?.ollama_cloud_usage?.eligible)"
         :account="account"
         @updated="handleOllamaCloudUsageUpdated"
       />
 
       <section
-        v-if="account?.opencode_go_usage?.eligible"
+        v-if="isAdmin && (account?.opencode_go_usage?.eligible)"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         data-testid="opencode-go-usage-settings"
       >
@@ -2079,7 +2079,7 @@
 
       <!-- Anthropic API Key 自动透传开关 -->
       <div
-        v-if="account?.platform === 'anthropic' && account?.type === 'apikey'"
+        v-if="isAdmin && (account?.platform === 'anthropic' && account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2108,7 +2108,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'anthropic' && account?.type === 'apikey'"
+        v-if="isAdmin && (account?.platform === 'anthropic' && account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -2127,7 +2127,7 @@
 
       <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
       <div
-        v-if="account?.platform === 'anthropic' && account?.type === 'apikey' && webSearchGlobalEnabled"
+        v-if="isAdmin && (account?.platform === 'anthropic' && account?.type === 'apikey' && webSearchGlobalEnabled)"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2147,7 +2147,7 @@
 
       <!-- 配额控制 (Anthropic apikey/bedrock: 配额限制 + 亲和) -->
       <div
-        v-if="account?.platform === 'anthropic' && (account?.type === 'apikey' || account?.type === 'bedrock')"
+        v-if="isAdmin && (account?.platform === 'anthropic' && (account?.type === 'apikey' || account?.type === 'bedrock'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -2198,7 +2198,7 @@
       </div>
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
       <div
-        v-else-if="account?.type === 'apikey' || account?.type === 'bedrock'"
+        v-else-if="isAdmin && (account?.type === 'apikey' || account?.type === 'bedrock')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -2250,7 +2250,7 @@
 
       <!-- OpenAI API 长上下文计费开关 -->
       <div
-        v-if="account?.platform === 'openai' && !isSparkShadow && !hideAccountLongContextBilling && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="isAdmin && (account?.platform === 'openai' && !isSparkShadow && !hideAccountLongContextBilling && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -2282,7 +2282,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token')"
+        v-if="isAdmin && (account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2338,7 +2338,7 @@
 
       <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth'"
+        v-if="isAdmin && (account?.platform === 'openai' && account?.type === 'oauth')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -2356,7 +2356,7 @@
 
       <!-- OpenAI 订阅档位手动覆盖（Plus/Pro/Free），仅 OAuth 非影子账号 -->
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
+        v-if="isAdmin && (account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow)"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -2373,7 +2373,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="isAdmin && (account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="flex items-center justify-between">
@@ -2430,7 +2430,7 @@
         </div>
       </div>
 
-      <div>
+      <div v-if="isAdmin">
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{
@@ -2459,7 +2459,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai'"
+        v-if="isAdmin && (account?.platform === 'openai')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="space-y-2">
@@ -2537,7 +2537,7 @@
       </div>
 
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
+        v-if="isAdmin && (account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow)"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
         data-testid="auto-reset-credit-settings"
       >
@@ -2598,7 +2598,7 @@
 
       <!-- 配额控制 (Anthropic OAuth/SetupToken: 亲和 + 窗口费用 + 会话 + RPM 等) -->
       <div
-        v-if="account?.platform === 'anthropic' && (account?.type === 'oauth' || account?.type === 'setup-token')"
+        v-if="isAdmin && (account?.platform === 'anthropic' && (account?.type === 'oauth' || account?.type === 'setup-token'))"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="mb-3">
@@ -2983,7 +2983,7 @@
         </div>
 
         <!-- Mixed Scheduling (only for antigravity accounts, read-only in edit mode) -->
-        <div v-if="account?.platform === 'antigravity'" class="flex items-center gap-2">
+        <div v-if="isAdmin && (account?.platform === 'antigravity')" class="flex items-center gap-2">
           <label class="flex cursor-not-allowed items-center gap-2 opacity-60">
             <input
               type="checkbox"
@@ -3012,7 +3012,7 @@
             </div>
           </div>
         </div>
-        <div v-if="account?.platform === 'antigravity'" class="mt-3 flex items-center gap-2">
+        <div v-if="isAdmin && (account?.platform === 'antigravity')" class="mt-3 flex items-center gap-2">
           <label class="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
@@ -3042,7 +3042,7 @@
       </div>
 
       <!-- Group Selection - 仅标准模式显示 -->
-      <GroupSelector
+      <GroupSelector v-if="isAdmin"
         v-model="form.group_ids"
         :groups="selectableGroups"
         :platform="account?.platform"
@@ -3104,11 +3104,12 @@
 </template>
 
 <script setup lang="ts">
+const { api: adminAPI, isAdmin } = useAccountWorkspace()
 import { ref, reactive, computed, watch, nextTick, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 
-import { adminAPI } from '@/api/admin'
+import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
 import type {
   Account,
@@ -3585,7 +3586,7 @@ const modeFromGrokMediaExtra = (extra: Record<string, unknown> | undefined): Gro
 }
 
 const loadGrokMediaEligibility = async (accountID: number): Promise<GrokMediaEligibilityState | null> => {
-  if (!isGrokOAuthAccount.value || typeof adminAPI.accounts.getGrokMediaEligibility !== 'function') {
+  if (!isAdmin || !isGrokOAuthAccount.value || typeof adminAPI.accounts.getGrokMediaEligibility !== 'function') {
     return null
   }
   const requestVersion = ++grokMediaEligibilityRequestVersion
@@ -3716,11 +3717,11 @@ const {
 } = useQuotaNotifyState()
 
 // Load global feature states once
-adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
+if (isAdmin) adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
   webSearchGlobalEnabled.value = cfg?.enabled === true && (cfg?.providers?.length ?? 0) > 0
 }).catch(() => { webSearchGlobalEnabled.value = false })
 
-loadQuotaNotifyGlobal()
+if (isAdmin) loadQuotaNotifyGlobal()
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
 const editQuotaWeeklyLimit = ref<number | null>(null)
@@ -4541,7 +4542,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
 
 async function loadTLSProfiles() {
   try {
-    const profiles = await adminAPI.tlsFingerprintProfiles.list()
+    const profiles = isAdmin ? await adminAPI.tlsFingerprintProfiles.list() : []
     tlsFingerprintProfiles.value = profiles.map(p => ({ id: p.id, name: p.name }))
   } catch {
     tlsFingerprintProfiles.value = []
@@ -5019,7 +5020,7 @@ const withAntigravityConfirmFlag = (payload: Record<string, unknown>) => {
 }
 
 const ensureAntigravityMixedChannelConfirmed = async (onConfirm: () => Promise<void>): Promise<boolean> => {
-  if (!needsMixedChannelCheck()) {
+  if (!isAdmin || !needsMixedChannelCheck()) {
     return true
   }
   if (antigravityMixedChannelConfirmed.value) {

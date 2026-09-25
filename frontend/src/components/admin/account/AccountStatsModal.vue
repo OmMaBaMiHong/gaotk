@@ -448,6 +448,7 @@
 </template>
 
 <script setup lang="ts">
+const { api: adminAPI } = useAccountWorkspace()
 import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
@@ -467,7 +468,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { adminAPI } from '@/api/admin'
+import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
 import type { Account, AccountUsageStatsResponse } from '@/types'
 
 ChartJS.register(

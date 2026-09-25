@@ -23,14 +23,10 @@ func (r *tokenBankHandlerRepo) Overview(_ context.Context, ownerID int64, _, _ s
 	r.ownerID = ownerID
 	return &service.RentalOverview{Accounts: []service.RentalAccount{}}, nil
 }
-func (r *tokenBankHandlerRepo) Policies(context.Context) ([]service.RentalPolicy, error) {
-	return []service.RentalPolicy{{Platform: "deepseek", AdminUserID: 731, OwnerShareBPS: 8000, GroupID: 41, Enabled: true}, {Platform: "openai", Enabled: false}}, nil
-}
-
 func TestTokenBankUserHandlersScopeAndPublicPolicy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &tokenBankHandlerRepo{}
-	h := NewTokenBankHandler(service.NewTokenBankService(repo, nil, nil, nil, nil))
+	h := NewTokenBankHandler(repo)
 	request := func(path string, userID int64, fn gin.HandlerFunc) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
@@ -46,10 +42,4 @@ func TestTokenBankUserHandlersScopeAndPublicPolicy(t *testing.T) {
 	response = request("/api/v1/user/token-bank/accounts?owner_user_id=999", 12, h.Overview)
 	require.Equal(t, http.StatusOK, response.Code)
 	require.Equal(t, int64(12), repo.ownerID)
-	response = request("/api/v1/user/token-bank/policies", 12, h.Policies)
-	require.Equal(t, http.StatusOK, response.Code)
-	require.Contains(t, response.Body.String(), "deepseek")
-	require.NotContains(t, response.Body.String(), "openai")
-	require.NotContains(t, response.Body.String(), "admin_user_id")
-	require.NotContains(t, response.Body.String(), "group_id")
 }

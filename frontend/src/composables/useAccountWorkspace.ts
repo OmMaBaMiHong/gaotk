@@ -1,0 +1,28 @@
+import { inject, provide, type InjectionKey } from 'vue'
+import { adminAPI } from '@/api/admin'
+import { createAccountsAPI } from '@/api/admin/accounts'
+import { createGeminiAPI } from '@/api/admin/gemini'
+import { createAntigravityAPI } from '@/api/admin/antigravity'
+import { createGrokAPI } from '@/api/admin/grok'
+import { createCnProvidersAPI } from '@/api/admin/cnProviders'
+import { createKimiOAuthAPI } from '@/api/admin/kimiOAuth'
+import type { AccountScope } from '@/api/accountScopeClient'
+
+const accountScopeKey: InjectionKey<AccountScope> = Symbol('account-workspace')
+
+export function provideAccountWorkspace(scope: AccountScope) {
+  provide(accountScopeKey, scope)
+}
+
+export function useAccountWorkspace() {
+  const scope = inject(accountScopeKey, 'admin')
+  const api = scope === 'admin' ? adminAPI : {
+    ...adminAPI,
+    accounts: createAccountsAPI(scope),
+    gemini: createGeminiAPI(scope),
+    antigravity: createAntigravityAPI(scope),
+    grok: createGrokAPI(scope),
+    cnProviders: createCnProvidersAPI(scope)
+  }
+  return { scope, isAdmin: scope === 'admin', api, kimi: createKimiOAuthAPI(scope) }
+}

@@ -280,9 +280,8 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/admin/token-bank',
-    name: 'AdminTokenBank',
-    component: () => import('@/views/admin/TokenBankView.vue'),
-    meta: { requiresAuth: true, requiresAdmin: true, title: 'Token Bank', titleKey: 'tokenBank.title' }
+    redirect: '/admin/accounts',
+    meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/affiliate',

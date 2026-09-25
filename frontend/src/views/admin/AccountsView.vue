@@ -11,6 +11,7 @@
             @change="debouncedReload"
             @update:searchQuery="debouncedReload"
           />
+          <input v-model="params.owner_user_id" type="number" min="1" class="input w-40" :placeholder="t('tokenBank.ownerID')" :aria-label="t('tokenBank.ownerID')" @input="debouncedReload" />
           <AccountTableActions
             :loading="loading"
             @refresh="handleManualRefresh"
@@ -227,6 +228,12 @@
               @change="toggleSelectAllVisible($event)"
             />
           </template>
+          <template #cell-owner_user_id="{ row }">
+            <button v-if="row.owner_user_id" class="text-primary-600" @click="params.owner_user_id = String(row.owner_user_id); debouncedReload()">
+              {{ t('tokenBank.ownerLabel', { id: row.owner_user_id }) }}
+            </button>
+            <span v-else>{{ t('tokenBank.sourceSelf') }}</span>
+          </template>
           <template #cell-select="{ row }">
             <input type="checkbox" :checked="isSelected(row.id)" @change="toggleSel(row.id)" class="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
           </template>
@@ -253,7 +260,6 @@
                 </template>
               </HelpTooltip>
               <span v-else class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
-              <router-link v-if="row.owner_user_id" :to="{ path: '/admin/token-bank', query: { owner_user_id: row.owner_user_id } }" class="text-xs text-primary-600">{{ t('tokenBank.ownerLabel', { id: row.owner_user_id }) }}</router-link>
               <span
                 v-if="accountDisplayEmail(row)"
                 class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]"
@@ -1098,6 +1104,7 @@ const {
     type: '',
     status: '',
     privacy_mode: '',
+    owner_user_id: '',
     group: '',
     search: '',
     lite: '1',
@@ -1798,6 +1805,7 @@ const allColumns = computed(() => {
   const c = [
     { key: 'select', label: '', sortable: false },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
+    { key: 'owner_user_id', label: t('tokenBank.ownerID'), sortable: false },
     { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
@@ -2140,6 +2148,7 @@ const handleDataImported = () => { showImportData.value = false; reload() }
 const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
 const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
 const buildAccountQueryFilters = () => ({
+  owner_user_id: params.owner_user_id || '',
   platform: params.platform || '',
   type: params.type || '',
   status: params.status || '',
@@ -2151,6 +2160,7 @@ const buildAccountQueryFilters = () => ({
 })
 const accountMatchesCurrentFilters = (account: Account) => {
   const filters = buildAccountQueryFilters()
+  if (filters.owner_user_id && String(account.owner_user_id || '') !== String(filters.owner_user_id)) return false
   if (filters.platform && account.platform !== filters.platform) return false
   if (filters.type && account.type !== filters.type) return false
   if (filters.status) {

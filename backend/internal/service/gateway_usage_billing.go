@@ -295,10 +295,14 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		APIKeyID:           p.APIKey.ID,
 		UserID:             p.User.ID,
 		AccountID:          p.Account.ID,
-		Rental:             p.Account.Rental,
 		AccountType:        p.Account.Type,
 		RequestPayloadHash: strings.TrimSpace(p.RequestPayloadHash),
 	}
+	groupID := valueOrZero(p.APIKey.GroupID)
+	if usageLog != nil && usageLog.GroupID != nil {
+		groupID = *usageLog.GroupID
+	}
+	cmd.Rental = p.Account.Rental.ForGroup(groupID)
 	if usageLog != nil {
 		cmd.Model = usageLog.Model
 		cmd.BillingType = usageLog.BillingType
@@ -358,7 +362,7 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 
 	cmd := buildUsageBillingCommand(requestID, usageLog, p)
 	if cmd == nil || cmd.RequestID == "" || repo == nil {
-		if p.Account != nil && p.Account.Rental != nil {
+		if cmd != nil && cmd.Rental != nil {
 			return false, errors.New("rental settlement requires atomic billing repository")
 		}
 		if p.SimpleModeKeyRateLimitOnly {

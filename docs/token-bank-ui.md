@@ -1,9 +1,9 @@
 # Token 银行界面规范
 
-遵循用户已选择的方案布局及现有后台视觉规范，复用 frontend/tailwind.config.js、AppLayout、card、input、btn、BaseDialog、Pagination。使用现有 primary 青色、灰阶及 dark 暗色 token、系统字体、现有圆角和间距，不增加依赖或平行基础组件。
+C 端保留 Token 银行菜单，用当前用户的原账号列表组合页面；原 CreateAccountModal、ImportDataModal、KimiOAuthModal、EditAccountModal、ReAuthAccountModal、AccountStatsModal、AccountUsageCell 和 UsageTable 共用，不维护第二套授权和账号创建逻辑。
 
-C 端：顶部说明与新增账号按钮；收益概览；按平台筛选的账号列表；选择账号后显示其用量与收益流水；授权表单限制为平台、名称、官方授权/API Key。
+后台在原账号页展示所属用户并可筛选；原渠道表单增加 Token 储蓄开关、用户分成百分比、收款管理员及接收分组。删除独立后台银行页面，旧地址跳转原账号页。
 
-管理员：平台规则（对应分组、分成、收款管理员、启用）与出租账号列表/流水。
+C 端可添加、导入、重新授权、编辑自己的授权资料、暂停/恢复、删除，查看原账号用量/成本统计、使用记录及储蓄收益。分组、渠道、定价、代理、自定义中转端点与调度参数由后台管理。Antigravity 原 OAuth 保留，自定义中转类型仅在后台使用。
 
-窄屏表单改单列，表格横向滚动；空态、加载、错误、提交中状态明确；凭据输入不持久化到浏览器。沿用原货币单位，不自行人民币/美元换算。
+沿用原组件与视觉样式、币种和响应式布局。接口由显式账号工作区选择 admin/user，默认后台行为不变；使用记录隐藏调用方身份和密钥信息。

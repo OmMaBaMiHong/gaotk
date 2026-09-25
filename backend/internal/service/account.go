@@ -22,9 +22,6 @@ import (
 
 type Account struct {
 	OwnerUserID             *int64
-	RentalPolicyID          *int64
-	RentalStatus            string
-	RentalIdentity          *string
 	Rental                  *RentalSnapshot
 	ID                      int64
 	Name                    string
@@ -184,7 +181,7 @@ func (a *Account) EffectiveLoadFactor() int {
 }
 
 func (a *Account) IsSchedulable() bool {
-	if a.OwnerUserID != nil && (a.Rental == nil || !a.Rental.Enabled || a.Rental.Status != StatusActive) {
+	if a.ParentAccountID != nil && a.Rental != nil && (a.Rental.Status != StatusActive || !a.Rental.Schedulable) {
 		return false
 	}
 	if !a.IsActive() || !a.Schedulable {

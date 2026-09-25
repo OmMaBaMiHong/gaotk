@@ -394,6 +394,7 @@ type UpdateGroupInput struct {
 }
 
 type CreateAccountInput struct {
+	OwnerUserID        *int64 // Server-assigned on authenticated owner-scoped requests.
 	Name               string
 	Notes              *string
 	Platform           string

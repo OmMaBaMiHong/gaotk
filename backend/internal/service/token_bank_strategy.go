@@ -13,13 +13,29 @@ type RentalSnapshot struct {
 	OwnerAccountID int64  `json:"owner_account_id"`
 	OwnerUserID    int64  `json:"owner_user_id"`
 	AdminUserID    int64  `json:"admin_user_id"`
-	PolicyID       int64  `json:"policy_id"`
-	PolicyVersion  int    `json:"policy_version"`
+	ChannelID      int64  `json:"channel_id"`
 	OwnerShareBPS  int    `json:"owner_share_bps"`
 	Platform       string `json:"platform"`
 	GroupID        int64  `json:"group_id"`
 	Enabled        bool   `json:"enabled"`
 	Status         string `json:"status"`
+	Schedulable    bool   `json:"schedulable"`
+	// Channels is keyed by the actual request group, never by a default channel.
+	Channels map[int64]*RentalSnapshot `json:"channels,omitempty"`
+}
+
+// ForGroup selects a captured channel policy without reloading mutable configuration.
+func (s *RentalSnapshot) ForGroup(groupID int64) *RentalSnapshot {
+	if s == nil || groupID <= 0 {
+		return nil
+	}
+	selected := s.Channels[groupID]
+	if selected == nil || !selected.Enabled {
+		return nil
+	}
+	cp := *selected
+	cp.Channels = nil
+	return &cp
 }
 
 // RevenueShareStrategy only allocates an already billed amount. It must not
@@ -34,7 +50,7 @@ type RevenueAllocation struct {
 	Admin decimal.Decimal
 }
 
-// ProportionalRevenueShare is the platform policy template; 8000 bps means 80%.
+// ProportionalRevenueShare allocates the billed amount; 8000 bps means 80%.
 type ProportionalRevenueShare struct{}
 
 // RentalRevenueStrategy selects the current template in one place.

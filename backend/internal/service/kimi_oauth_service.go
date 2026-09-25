@@ -19,8 +19,9 @@ type kimiDeviceFlowStore struct {
 }
 
 type kimiDeviceSession struct {
-	deviceCode string
-	expiresAt  time.Time
+	ownerUserID int64
+	deviceCode  string
+	expiresAt   time.Time
 	// tokenInfo 在轮询成功后缓存，供 create-from-oauth 消费；避免轮询与创建两个步骤争抢同一个会话。
 	tokenInfo *KimiTokenInfo
 }
@@ -109,8 +110,9 @@ func (s *KimiOAuthService) StartDeviceFlow(ctx context.Context) (*KimiStartDevic
 		return nil, err
 	}
 	s.deviceStore.Set(sessionID, &kimiDeviceSession{
-		deviceCode: data.DeviceCode,
-		expiresAt:  time.Now().Add(time.Duration(data.ExpiresIn) * time.Second),
+		ownerUserID: OwnedAccountUserID(ctx),
+		deviceCode:  data.DeviceCode,
+		expiresAt:   time.Now().Add(time.Duration(data.ExpiresIn) * time.Second),
 	})
 
 	return &KimiStartDeviceFlowResult{
@@ -125,7 +127,7 @@ func (s *KimiOAuthService) StartDeviceFlow(ctx context.Context) (*KimiStartDevic
 
 // KimiPollDeviceFlowResult 轮询结果。
 type KimiPollDeviceFlowResult struct {
-	Pending   bool            `json:"pending"`
+	Pending   bool           `json:"pending"`
 	TokenInfo *KimiTokenInfo `json:"token_info,omitempty"`
 }
 
@@ -136,6 +138,9 @@ func (s *KimiOAuthService) PollDeviceFlow(ctx context.Context, sessionID string)
 	session, ok := s.deviceStore.Get(sessionID)
 	if !ok {
 		return nil, fmt.Errorf("kimi device flow session not found or expired")
+	}
+	if err := checkOwnedOAuthSession(ctx, session.ownerUserID); err != nil {
+		return nil, err
 	}
 	if session.tokenInfo != nil {
 		return &KimiPollDeviceFlowResult{TokenInfo: session.tokenInfo}, nil
@@ -163,6 +168,9 @@ func (s *KimiOAuthService) ConsumeDeviceFlow(ctx context.Context, sessionID stri
 	session, ok := s.deviceStore.Get(sessionID)
 	if !ok {
 		return nil, fmt.Errorf("kimi device flow session not found or expired")
+	}
+	if err := checkOwnedOAuthSession(ctx, session.ownerUserID); err != nil {
+		return nil, err
 	}
 	defer s.deviceStore.Delete(sessionID)
 

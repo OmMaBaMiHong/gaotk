@@ -134,7 +134,7 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		raw += "|" + payloadHash
 	}
 	if c.Rental != nil {
-		raw += fmt.Sprintf("|rental:%d:%d:%d:%d:%d:%d:%s:%d", c.Rental.OwnerAccountID, c.Rental.OwnerUserID, c.Rental.AdminUserID, c.Rental.PolicyID, c.Rental.PolicyVersion, c.Rental.OwnerShareBPS, c.Rental.Platform, c.Rental.GroupID)
+		raw += fmt.Sprintf("|rental:%d:%d:%d:%d:%d:%s:%d", c.Rental.OwnerAccountID, c.Rental.OwnerUserID, c.Rental.AdminUserID, c.Rental.ChannelID, c.Rental.OwnerShareBPS, c.Rental.Platform, c.Rental.GroupID)
 	}
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])

@@ -7,32 +7,20 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
-var ErrRentalInvalid = infraerrors.BadRequest("RENTAL_INVALID", "出租参数无效或平台尚未开放")
-var ErrRentalNotFound = infraerrors.NotFound("RENTAL_NOT_FOUND", "出租账号不存在")
-
-type RentalPolicy struct {
-	ID            int64  `json:"id"`
-	Platform      string `json:"platform"`
-	GroupID       int64  `json:"group_id"`
-	OwnerShareBPS int    `json:"owner_share_bps"`
-	AdminUserID   int64  `json:"admin_user_id"`
-	Enabled       bool   `json:"enabled"`
-	Version       int    `json:"version"`
-}
+var ErrRentalNotFound = infraerrors.NotFound("RENTAL_NOT_FOUND", "储蓄账号不存在")
 
 // RentalAccount intentionally contains no credentials or consumer identity.
 type RentalAccount struct {
-	ID           int64   `json:"id"`
-	OwnerUserID  int64   `json:"owner_user_id"`
-	Name         string  `json:"name"`
-	Platform     string  `json:"platform"`
-	Type         string  `json:"type"`
-	Status       string  `json:"status"`
-	RentalStatus string  `json:"rental_status"`
-	Schedulable  bool    `json:"schedulable"`
-	Requests     int64   `json:"requests"`
-	Tokens       int64   `json:"tokens"`
-	Revenue      float64 `json:"revenue"`
+	ID          int64   `json:"id"`
+	OwnerUserID int64   `json:"owner_user_id"`
+	Name        string  `json:"name"`
+	Platform    string  `json:"platform"`
+	Type        string  `json:"type"`
+	Status      string  `json:"status"`
+	Schedulable bool    `json:"schedulable"`
+	Requests    int64   `json:"requests"`
+	Tokens      int64   `json:"tokens"`
+	Revenue     float64 `json:"revenue"`
 }
 
 type RentalRevenue struct {
@@ -66,9 +54,6 @@ type RentalRevenuePage struct {
 }
 
 type TokenBankRepository interface {
-	Policies(context.Context) ([]RentalPolicy, error)
-	SavePolicy(context.Context, RentalPolicy) error
 	Overview(context.Context, int64, string, string, int, int) (*RentalOverview, error)
 	Revenue(context.Context, int64, int64, string, int, int) (*RentalRevenuePage, error)
-	SetStatus(context.Context, int64, int64, string) error
 }

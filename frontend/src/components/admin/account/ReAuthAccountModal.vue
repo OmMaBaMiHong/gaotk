@@ -190,10 +190,11 @@
 </template>
 
 <script setup lang="ts">
+const { api: adminAPI } = useAccountWorkspace()
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { adminAPI } from '@/api/admin'
+import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
 import {
   useAccountOAuth,
   type AddMethod,

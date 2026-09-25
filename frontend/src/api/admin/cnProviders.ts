@@ -3,7 +3,8 @@
  * Coding-plan rolling-window quota probe + payg balance probe.
  */
 
-import { apiClient } from '../client'
+import { apiClient as defaultClient } from '../client'
+import { createAccountScopeClient, type AccountScope } from '../accountScopeClient'
 
 /** 滚动用量窗口档（5 小时 / 每周），对齐后端 service.CNQuotaTier。 */
 export interface CNQuotaTier {
@@ -49,7 +50,9 @@ export interface CNProviderBalanceResult {
 }
 
 /** 查询 Coding Plan 滚动窗口用量（5h + weekly）。 */
-export async function queryQuota(id: number): Promise<CNProviderQuotaProbeResult> {
+export function createCnProvidersAPI(scope: AccountScope = 'admin') {
+const apiClient = scope === 'admin' ? defaultClient : createAccountScopeClient(scope)
+async function queryQuota(id: number): Promise<CNProviderQuotaProbeResult> {
   const { data } = await apiClient.get<CNProviderQuotaProbeResult>(
     `/admin/cn-providers/accounts/${id}/quota`
   )
@@ -57,14 +60,19 @@ export async function queryQuota(id: number): Promise<CNProviderQuotaProbeResult
 }
 
 /** 查询 payg 账号余额。 */
-export async function queryBalance(id: number): Promise<CNProviderBalanceResult> {
+async function queryBalance(id: number): Promise<CNProviderBalanceResult> {
   const { data } = await apiClient.get<CNProviderBalanceResult>(
     `/admin/cn-providers/accounts/${id}/balance`
   )
   return data
 }
 
-export default {
+return {
   queryQuota,
   queryBalance
 }
+
+}
+export const cnProvidersAPI = createCnProvidersAPI()
+export const { queryQuota, queryBalance } = cnProvidersAPI
+export default cnProvidersAPI

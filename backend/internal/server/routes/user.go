@@ -27,15 +27,11 @@ func RegisterUserRoutes(
 	{
 		// 用户接口
 		user := authenticated.Group("/user")
+		registerOwnedAccountRoutes(user, h)
 		if h.TokenBank != nil {
 			bank := user.Group("/token-bank")
-			bank.GET("/policies", h.TokenBank.Policies)
 			bank.GET("/accounts", h.TokenBank.Overview)
 			bank.GET("/revenue", h.TokenBank.Revenue)
-			bank.POST("/accounts", h.TokenBank.Import)
-			bank.PATCH("/accounts/:id/status", h.TokenBank.SetStatus)
-			bank.POST("/oauth/start", h.TokenBank.StartOAuth)
-			bank.POST("/oauth/finish", h.TokenBank.FinishOAuth)
 		}
 		{
 			user.GET("/profile", h.User.GetProfile)

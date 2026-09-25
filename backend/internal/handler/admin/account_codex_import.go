@@ -167,6 +167,17 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 	if err != nil {
 		return result, err
 	}
+	// Import identity matching must never select another owner's account, even if
+	// an alternate AdminService implementation returns a broader listing.
+	if service.OwnedAccountUserID(ctx) > 0 {
+		owned := make([]service.Account, 0, len(existingAccounts))
+		for i := range existingAccounts {
+			if service.CheckOwnedAccount(ctx, &existingAccounts[i]) == nil {
+				owned = append(owned, existingAccounts[i])
+			}
+		}
+		existingAccounts = owned
+	}
 	index := buildCodexAccountIndex(existingAccounts)
 
 	updateExisting := true

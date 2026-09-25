@@ -1,24 +1,33 @@
 export default {
-  allStatuses: 'All rental statuses',
+  invalidSavingsConfig: 'Enter a valid revenue share, receiving admin and at least one channel receiving group.',
+  usageRecords: 'Usage records',
+  deleteConfirm: 'Delete account “{name}”? Existing savings revenue records will be retained.',
+  channelSavings: 'Token savings',
+  channelSavingsHint: 'Set one revenue share for this channel and choose the groups that receive each platform’s accounts. Authorized accounts join matching platform groups automatically.',
+  ownerShare: 'Owner share',
+  receivingGroups: 'Receiving groups',
+  selectChannelGroupsFirst: 'Associate groups in the channel platform settings first.',
+
+  allStatuses: 'All savings statuses',
   title: 'Token Bank',
   description:
     'Share spare accounts and earn from actual usage. Earnings are credited to your site balance. No calls means no earnings.',
   adminDescription:
-    'Configure platform rental pools and the receiving admin. Review accounts and revenue shares; consumer pricing remains unchanged.',
-  add: 'Rent out an account',
+    'Configure platform savings pools and the receiving admin. Review accounts and revenue shares; consumer pricing remains unchanged.',
+  add: 'Add account',
   retry: 'Retry',
   today: 'Today (Beijing time)',
   total: 'Total earnings',
-  accounts: 'Rental accounts',
+  accounts: 'Savings accounts',
   platformRevenue: 'Platform share',
-  policies: 'Platform rental policies',
+  policies: 'Platform savings policies',
   policyHint:
     'Create a matching platform group first. Owners receive 80%, the platform 20%. The recipient must be an active admin. Route a consumer channel or composite route to this group to send traffic.',
-  pool: 'Rental group',
+  pool: 'Savings group',
   selectPool: 'Select matching group',
   adminRecipient: 'Receiving admin user ID',
   ratio: 'Owner {rate}%',
-  enabled: 'Accept rentals',
+  enabled: 'Accept savingss',
   save: 'Save policy',
   platform: 'Platform',
   allPlatforms: 'All platforms',
@@ -26,11 +35,11 @@ export default {
   filter: 'Filter',
   loading: 'Loading…',
   closed:
-    'Rentals are not yet enabled. An administrator must configure a platform.',
+    'Savingss are not yet enabled. An administrator must configure a platform.',
   empty:
-    'No rental accounts yet. Add an authorized account to see its usage here.',
+    'No savings accounts yet. Add an authorized account to see its usage here.',
   account: 'Account',
-  status: 'Rental status',
+  status: 'Savings status',
   usage: 'Usage',
   actions: 'Actions',
   paused: 'Paused',
@@ -67,6 +76,6 @@ export default {
   startAuthorization: 'Generate authorization link',
   failed: 'Operation failed. Please retry.',
   saved: 'Saved',
-  ownerLabel: 'Rental owner #{id}',
+  ownerLabel: 'Savings owner #{id}',
   sourceSelf: 'Self-operated'
 }

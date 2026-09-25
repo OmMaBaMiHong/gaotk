@@ -251,9 +251,18 @@ func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) 
 	dataPayload := req.Data
 	result := DataImportResult{}
 
-	existingProxies, err := h.listAllProxies(ctx)
-	if err != nil {
-		return result, err
+	var existingProxies []service.Proxy
+	if service.OwnedAccountUserID(ctx) > 0 {
+		dataPayload.Proxies = nil
+		for i := range dataPayload.Accounts {
+			dataPayload.Accounts[i].ProxyKey = nil
+		}
+	} else {
+		var err error
+		existingProxies, err = h.listAllProxies(ctx)
+		if err != nil {
+			return result, err
+		}
 	}
 
 	proxyKeyToID := make(map[string]int64, len(existingProxies))

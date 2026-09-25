@@ -112,10 +112,9 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { useAccountWorkspace } from '@/composables/useAccountWorkspace'
+const { kimi: { createKimiAccountFromOAuth, startKimiDeviceFlow, pollKimiDeviceFlow } } = useAccountWorkspace()
 import {
-  createKimiAccountFromOAuth,
-  startKimiDeviceFlow,
-  pollKimiDeviceFlow,
   type KimiStartDeviceFlowResult,
 } from '@/api/admin/kimiOAuth'
 

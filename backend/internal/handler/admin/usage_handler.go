@@ -207,12 +207,28 @@ func (h *UsageHandler) List(c *gin.Context) {
 		ExactTotal:            exactTotal,
 	}
 
+	if service.OwnedAccountUserID(c.Request.Context()) > 0 {
+		id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+		if err != nil || id <= 0 {
+			response.BadRequest(c, "Invalid account ID")
+			return
+		}
+		filters = usagestats.UsageLogFilters{AccountID: id, Model: model, ModelFilterSource: usagestats.ModelSourceRequested, StartTime: startTime, EndTime: endTime, ExactTotal: exactTotal, RequestType: requestType, Stream: stream}
+	}
 	records, result, err := h.usageService.ListWithFilters(c.Request.Context(), params, filters)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
+	if service.OwnedAccountUserID(c.Request.Context()) > 0 {
+		out := make([]map[string]any, 0, len(records))
+		for i := range records {
+			out = append(out, ownedAccountUsageDTO(&records[i]))
+		}
+		response.Paginated(c, out, result.Total, page, pageSize)
+		return
+	}
 	out := make([]dto.AdminUsageLog, 0, len(records))
 	for i := range records {
 		out = append(out, *dto.UsageLogFromServiceAdmin(&records[i]))

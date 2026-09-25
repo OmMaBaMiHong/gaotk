@@ -293,7 +293,7 @@ func (h *OpenAIOAuthHandler) RefreshAccountToken(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.AccountFromService(updatedAccount))
+	response.Success(c, accountDTOForContext(c.Request.Context(), updatedAccount))
 }
 
 // CreateAccountFromOAuth creates a new OpenAI OAuth account from token info
@@ -359,7 +359,7 @@ func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.AccountFromService(account))
+	response.Success(c, accountDTOForContext(c.Request.Context(), account))
 }
 
 // CreateAccountFromCodexPAT creates an OpenAI OAuth account from a Codex at-* personal access token.
@@ -456,7 +456,7 @@ func (h *OpenAIOAuthHandler) CreateAccountFromCodexPAT(c *gin.Context) {
 		return
 	}
 
-	response.Success(c, dto.AccountFromService(account))
+	response.Success(c, accountDTOForContext(c.Request.Context(), account))
 }
 
 func buildOpenAICodexPATAccountName(name string, tokenInfo *service.OpenAITokenInfo) string {

@@ -101,48 +101,6 @@ func (_c *AccountCreate) SetNillableOwnerUserID(v *int64) *AccountCreate {
 	return _c
 }
 
-// SetRentalPolicyID sets the "rental_policy_id" field.
-func (_c *AccountCreate) SetRentalPolicyID(v int64) *AccountCreate {
-	_c.mutation.SetRentalPolicyID(v)
-	return _c
-}
-
-// SetNillableRentalPolicyID sets the "rental_policy_id" field if the given value is not nil.
-func (_c *AccountCreate) SetNillableRentalPolicyID(v *int64) *AccountCreate {
-	if v != nil {
-		_c.SetRentalPolicyID(*v)
-	}
-	return _c
-}
-
-// SetRentalStatus sets the "rental_status" field.
-func (_c *AccountCreate) SetRentalStatus(v string) *AccountCreate {
-	_c.mutation.SetRentalStatus(v)
-	return _c
-}
-
-// SetNillableRentalStatus sets the "rental_status" field if the given value is not nil.
-func (_c *AccountCreate) SetNillableRentalStatus(v *string) *AccountCreate {
-	if v != nil {
-		_c.SetRentalStatus(*v)
-	}
-	return _c
-}
-
-// SetRentalIdentity sets the "rental_identity" field.
-func (_c *AccountCreate) SetRentalIdentity(v string) *AccountCreate {
-	_c.mutation.SetRentalIdentity(v)
-	return _c
-}
-
-// SetNillableRentalIdentity sets the "rental_identity" field if the given value is not nil.
-func (_c *AccountCreate) SetNillableRentalIdentity(v *string) *AccountCreate {
-	if v != nil {
-		_c.SetRentalIdentity(*v)
-	}
-	return _c
-}
-
 // SetPlatform sets the "platform" field.
 func (_c *AccountCreate) SetPlatform(v string) *AccountCreate {
 	_c.mutation.SetPlatform(v)
@@ -595,10 +553,6 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
-	if _, ok := _c.mutation.RentalStatus(); !ok {
-		v := account.DefaultRentalStatus
-		_c.mutation.SetRentalStatus(v)
-	}
 	if _, ok := _c.mutation.Credentials(); !ok {
 		if account.DefaultCredentials == nil {
 			return fmt.Errorf("ent: uninitialized account.DefaultCredentials (forgotten import ent/runtime?)")
@@ -658,14 +612,6 @@ func (_c *AccountCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := account.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.RentalStatus(); !ok {
-		return &ValidationError{Name: "rental_status", err: errors.New(`ent: missing required field "Account.rental_status"`)}
-	}
-	if v, ok := _c.mutation.RentalIdentity(); ok {
-		if err := account.RentalIdentityValidator(v); err != nil {
-			return &ValidationError{Name: "rental_identity", err: fmt.Errorf(`ent: validator failed for field "Account.rental_identity": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Platform(); !ok {
@@ -776,18 +722,6 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.OwnerUserID(); ok {
 		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
 		_node.OwnerUserID = &value
-	}
-	if value, ok := _c.mutation.RentalPolicyID(); ok {
-		_spec.SetField(account.FieldRentalPolicyID, field.TypeInt64, value)
-		_node.RentalPolicyID = &value
-	}
-	if value, ok := _c.mutation.RentalStatus(); ok {
-		_spec.SetField(account.FieldRentalStatus, field.TypeString, value)
-		_node.RentalStatus = value
-	}
-	if value, ok := _c.mutation.RentalIdentity(); ok {
-		_spec.SetField(account.FieldRentalIdentity, field.TypeString, value)
-		_node.RentalIdentity = &value
 	}
 	if value, ok := _c.mutation.Platform(); ok {
 		_spec.SetField(account.FieldPlatform, field.TypeString, value)
@@ -1104,60 +1038,6 @@ func (u *AccountUpsert) AddOwnerUserID(v int64) *AccountUpsert {
 // ClearOwnerUserID clears the value of the "owner_user_id" field.
 func (u *AccountUpsert) ClearOwnerUserID() *AccountUpsert {
 	u.SetNull(account.FieldOwnerUserID)
-	return u
-}
-
-// SetRentalPolicyID sets the "rental_policy_id" field.
-func (u *AccountUpsert) SetRentalPolicyID(v int64) *AccountUpsert {
-	u.Set(account.FieldRentalPolicyID, v)
-	return u
-}
-
-// UpdateRentalPolicyID sets the "rental_policy_id" field to the value that was provided on create.
-func (u *AccountUpsert) UpdateRentalPolicyID() *AccountUpsert {
-	u.SetExcluded(account.FieldRentalPolicyID)
-	return u
-}
-
-// AddRentalPolicyID adds v to the "rental_policy_id" field.
-func (u *AccountUpsert) AddRentalPolicyID(v int64) *AccountUpsert {
-	u.Add(account.FieldRentalPolicyID, v)
-	return u
-}
-
-// ClearRentalPolicyID clears the value of the "rental_policy_id" field.
-func (u *AccountUpsert) ClearRentalPolicyID() *AccountUpsert {
-	u.SetNull(account.FieldRentalPolicyID)
-	return u
-}
-
-// SetRentalStatus sets the "rental_status" field.
-func (u *AccountUpsert) SetRentalStatus(v string) *AccountUpsert {
-	u.Set(account.FieldRentalStatus, v)
-	return u
-}
-
-// UpdateRentalStatus sets the "rental_status" field to the value that was provided on create.
-func (u *AccountUpsert) UpdateRentalStatus() *AccountUpsert {
-	u.SetExcluded(account.FieldRentalStatus)
-	return u
-}
-
-// SetRentalIdentity sets the "rental_identity" field.
-func (u *AccountUpsert) SetRentalIdentity(v string) *AccountUpsert {
-	u.Set(account.FieldRentalIdentity, v)
-	return u
-}
-
-// UpdateRentalIdentity sets the "rental_identity" field to the value that was provided on create.
-func (u *AccountUpsert) UpdateRentalIdentity() *AccountUpsert {
-	u.SetExcluded(account.FieldRentalIdentity)
-	return u
-}
-
-// ClearRentalIdentity clears the value of the "rental_identity" field.
-func (u *AccountUpsert) ClearRentalIdentity() *AccountUpsert {
-	u.SetNull(account.FieldRentalIdentity)
 	return u
 }
 
@@ -1733,69 +1613,6 @@ func (u *AccountUpsertOne) UpdateOwnerUserID() *AccountUpsertOne {
 func (u *AccountUpsertOne) ClearOwnerUserID() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearOwnerUserID()
-	})
-}
-
-// SetRentalPolicyID sets the "rental_policy_id" field.
-func (u *AccountUpsertOne) SetRentalPolicyID(v int64) *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetRentalPolicyID(v)
-	})
-}
-
-// AddRentalPolicyID adds v to the "rental_policy_id" field.
-func (u *AccountUpsertOne) AddRentalPolicyID(v int64) *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.AddRentalPolicyID(v)
-	})
-}
-
-// UpdateRentalPolicyID sets the "rental_policy_id" field to the value that was provided on create.
-func (u *AccountUpsertOne) UpdateRentalPolicyID() *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateRentalPolicyID()
-	})
-}
-
-// ClearRentalPolicyID clears the value of the "rental_policy_id" field.
-func (u *AccountUpsertOne) ClearRentalPolicyID() *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.ClearRentalPolicyID()
-	})
-}
-
-// SetRentalStatus sets the "rental_status" field.
-func (u *AccountUpsertOne) SetRentalStatus(v string) *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetRentalStatus(v)
-	})
-}
-
-// UpdateRentalStatus sets the "rental_status" field to the value that was provided on create.
-func (u *AccountUpsertOne) UpdateRentalStatus() *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateRentalStatus()
-	})
-}
-
-// SetRentalIdentity sets the "rental_identity" field.
-func (u *AccountUpsertOne) SetRentalIdentity(v string) *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetRentalIdentity(v)
-	})
-}
-
-// UpdateRentalIdentity sets the "rental_identity" field to the value that was provided on create.
-func (u *AccountUpsertOne) UpdateRentalIdentity() *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateRentalIdentity()
-	})
-}
-
-// ClearRentalIdentity clears the value of the "rental_identity" field.
-func (u *AccountUpsertOne) ClearRentalIdentity() *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.ClearRentalIdentity()
 	})
 }
 
@@ -2609,69 +2426,6 @@ func (u *AccountUpsertBulk) UpdateOwnerUserID() *AccountUpsertBulk {
 func (u *AccountUpsertBulk) ClearOwnerUserID() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.ClearOwnerUserID()
-	})
-}
-
-// SetRentalPolicyID sets the "rental_policy_id" field.
-func (u *AccountUpsertBulk) SetRentalPolicyID(v int64) *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetRentalPolicyID(v)
-	})
-}
-
-// AddRentalPolicyID adds v to the "rental_policy_id" field.
-func (u *AccountUpsertBulk) AddRentalPolicyID(v int64) *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.AddRentalPolicyID(v)
-	})
-}
-
-// UpdateRentalPolicyID sets the "rental_policy_id" field to the value that was provided on create.
-func (u *AccountUpsertBulk) UpdateRentalPolicyID() *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateRentalPolicyID()
-	})
-}
-
-// ClearRentalPolicyID clears the value of the "rental_policy_id" field.
-func (u *AccountUpsertBulk) ClearRentalPolicyID() *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.ClearRentalPolicyID()
-	})
-}
-
-// SetRentalStatus sets the "rental_status" field.
-func (u *AccountUpsertBulk) SetRentalStatus(v string) *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetRentalStatus(v)
-	})
-}
-
-// UpdateRentalStatus sets the "rental_status" field to the value that was provided on create.
-func (u *AccountUpsertBulk) UpdateRentalStatus() *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateRentalStatus()
-	})
-}
-
-// SetRentalIdentity sets the "rental_identity" field.
-func (u *AccountUpsertBulk) SetRentalIdentity(v string) *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetRentalIdentity(v)
-	})
-}
-
-// UpdateRentalIdentity sets the "rental_identity" field to the value that was provided on create.
-func (u *AccountUpsertBulk) UpdateRentalIdentity() *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateRentalIdentity()
-	})
-}
-
-// ClearRentalIdentity clears the value of the "rental_identity" field.
-func (u *AccountUpsertBulk) ClearRentalIdentity() *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.ClearRentalIdentity()
 	})
 }
 

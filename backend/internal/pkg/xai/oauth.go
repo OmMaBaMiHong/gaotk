@@ -55,6 +55,7 @@ var (
 
 // OAuthSession stores one PKCE OAuth flow.
 type OAuthSession struct {
+	OwnerUserID   int64     `json:"owner_user_id,omitempty"`
 	State         string    `json:"state"`
 	CodeVerifier  string    `json:"code_verifier"`
 	CodeChallenge string    `json:"code_challenge"`
@@ -92,6 +93,7 @@ type SessionStore struct {
 }
 
 type oauthSessionDTO struct {
+	OwnerUserID   int64     `json:"owner_user_id,omitempty"`
 	State         string    `json:"state"`
 	CodeVerifier  string    `json:"code_verifier"`
 	CodeChallenge string    `json:"code_challenge"`
@@ -127,7 +129,7 @@ func (s *SessionStore) Set(sessionID string, session *OAuthSession) {
 	var remoteErr error
 	if s != nil && s.remote != nil {
 		remoteErr = s.remote.Set(context.Background(), sessionID, oauthSessionDTO{
-			State: session.State, CodeVerifier: session.CodeVerifier, CodeChallenge: session.CodeChallenge,
+			OwnerUserID: session.OwnerUserID, State: session.State, CodeVerifier: session.CodeVerifier, CodeChallenge: session.CodeChallenge,
 			ClientID: session.ClientID, Scope: session.Scope, ProxyURL: session.ProxyURL,
 			RedirectURI: session.RedirectURI, CreatedAt: session.CreatedAt,
 		})
@@ -154,7 +156,7 @@ func (s *SessionStore) Get(sessionID string) (*OAuthSession, bool) {
 			return nil, false
 		}
 		session := &OAuthSession{
-			State: dto.State, CodeVerifier: dto.CodeVerifier, CodeChallenge: dto.CodeChallenge,
+			OwnerUserID: dto.OwnerUserID, State: dto.State, CodeVerifier: dto.CodeVerifier, CodeChallenge: dto.CodeChallenge,
 			ClientID: dto.ClientID, Scope: dto.Scope, ProxyURL: dto.ProxyURL,
 			RedirectURI: dto.RedirectURI, CreatedAt: dto.CreatedAt,
 		}
