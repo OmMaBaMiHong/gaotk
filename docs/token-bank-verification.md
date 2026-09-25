@@ -62,3 +62,13 @@
 - 线上健康 200、容器 healthy/0 restarts，迁移数量仍为 292；真实 DeepSeek 小请求返回 200 和有效 choices。TokenBankView、ChannelsView、SettingsView 公网产物哈希与本地构建一致。
 - Skoob OAuth 客户端启用、原密钥与两个回调白名单保持；公网授权 GET 302、允许回调的匿名 POST 401、非法回调 POST 400、匿名私有接口 401。收益广播/排行榜已部署，生产总开关默认关闭，待有真实数据后开启。
 - 当前尚未用真实 Pro20x 账号做成功授权验收。30% 毛利口径仍未确认，本次没有擅自更改成本倍率、利润门或 80/20 分账。
+
+## 2026-09-25：按用户要求临时停用线上 C 端
+
+- 产品范围调整：只考虑剩余订阅额度的 GPT、Claude 授权账号；普通 API Key 和其他平台不在下一版开放范围。此次只关闭线上，不提前重新开放新版本。
+- 原渠道 1、3 的 token_savings.enabled 均设为 false；现有 1 个 owner_user_id 账号 schedulable=false。账号、余额、历史账本保留；原售价和分账比例不变。收益广播开关保持 false。
+- 当前代码没有整个 Token 银行的总开关，故使用原渠道配置加 Nginx 临时封禁。线上 `/etc/nginx/conf.d/lai.gaotk.com.conf` 引入 `/etc/nginx/snippets/token-bank-disabled.conf`，内容存档在 `deploy/token-bank-disabled.nginx.conf`。配置测试通过后 reload，无应用重启。
+- `/token-bank` 直接请求跳转 dashboard；C 端账号创建/导入/管理、各供应商授权及银行 API 返回 503 / TOKEN_BANK_DISABLED。旧 SPA 会话可能仍显示菜单，但接口已不可操作。后台管理、普通用户资料、API Key 管理、模型调用和 Skoob OAuth 路径未封禁。
+- 公网验证：页面 302，账号与 OpenAI/Claude 授权及广播接口 503，health 200，普通 profile/admin accounts 匿名仍 401。
+- 关闭后真实 DeepSeek 小请求 200 且返回 choices；Skoob OAuth 客户端、原密钥及回调保持，容器 healthy / 0 restarts。
+- 关闭前配置保存在 `/root/backup-20260925-token-bank-disabled/`：channels-before.json、accounts-before.json、nginx-before.conf；含配置文件均为 root 私有。恢复必须同时明确处理 Nginx include、渠道接收开关和原暂停状态，不能单独开广播开关视为恢复完成。
