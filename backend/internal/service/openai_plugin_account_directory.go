@@ -109,6 +109,11 @@ func accountReadableSnapshotJSON(account *Account) []byte {
 	}
 	clone := *account
 	clone.Credentials = nil
+	// Rental identities and payment recipients are private to Token Bank.
+	clone.OwnerUserID = nil
+	clone.RentalPolicyID = nil
+	clone.RentalIdentity = nil
+	clone.Rental = nil
 	clone.Groups = nil
 	clone.AccountGroups = nil
 	data, err := json.Marshal(&clone)

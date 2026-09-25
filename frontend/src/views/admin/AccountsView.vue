@@ -253,6 +253,7 @@
                 </template>
               </HelpTooltip>
               <span v-else class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <router-link v-if="row.owner_user_id" :to="{ path: '/admin/token-bank', query: { owner_user_id: row.owner_user_id } }" class="text-xs text-primary-600">{{ t('tokenBank.ownerLabel', { id: row.owner_user_id }) }}</router-link>
               <span
                 v-if="accountDisplayEmail(row)"
                 class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]"

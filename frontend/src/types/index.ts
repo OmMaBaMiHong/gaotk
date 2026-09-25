@@ -1196,6 +1196,8 @@ export interface OpenCodeGoUsageSettings {
 }
 
 export interface Account {
+  owner_user_id?: number
+  rental_status?: string
   id: number
   name: string
   notes?: string | null

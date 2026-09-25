@@ -141,6 +141,10 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 
 	builder := client.Account.Create().
 		SetName(account.Name).
+		SetNillableOwnerUserID(account.OwnerUserID).
+		SetNillableRentalPolicyID(account.RentalPolicyID).
+		SetNillableRentalIdentity(account.RentalIdentity).
+		SetRentalStatus(account.RentalStatus).
 		SetNillableNotes(account.Notes).
 		SetPlatform(account.Platform).
 		SetType(account.Type).
@@ -324,9 +328,14 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 		return nil, err
 	}
 
+	rentalSnapshots, err := r.loadRentalSnapshots(ctx, entAccounts)
+	if err != nil {
+		return nil, err
+	}
 	outByID := make(map[int64]*service.Account, len(entAccounts))
 	for _, entAcc := range entAccounts {
 		out := accountEntityToService(entAcc)
+		attachRentalSnapshot(out, rentalSnapshots[entAcc.ID])
 		if out == nil {
 			continue
 		}
@@ -1154,6 +1163,9 @@ func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platfor
 		Select(
 			dbaccount.FieldID,
 			dbaccount.FieldName,
+			dbaccount.FieldOwnerUserID,
+			dbaccount.FieldRentalStatus,
+			dbaccount.FieldParentAccountID,
 			dbaccount.FieldPlatform,
 			dbaccount.FieldConcurrency,
 			dbaccount.FieldLoadFactor,
@@ -3393,9 +3405,14 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 		return nil, err
 	}
 
+	rentalSnapshots, err := r.loadRentalSnapshots(ctx, accounts)
+	if err != nil {
+		return nil, err
+	}
 	outAccounts := make([]service.Account, 0, len(accounts))
 	for _, acc := range accounts {
 		out := accountEntityToService(acc)
+		attachRentalSnapshot(out, rentalSnapshots[acc.ID])
 		if out == nil {
 			continue
 		}
@@ -3621,6 +3638,10 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 
 	return &service.Account{
 		ID:                      m.ID,
+		OwnerUserID:             m.OwnerUserID,
+		RentalPolicyID:          m.RentalPolicyID,
+		RentalStatus:            m.RentalStatus,
+		RentalIdentity:          m.RentalIdentity,
 		Name:                    m.Name,
 		Notes:                   m.Notes,
 		Platform:                m.Platform,
@@ -4078,9 +4099,15 @@ func (r *accountRepository) ListShadowsByParent(ctx context.Context, parentID in
 	if err != nil {
 		return nil, err
 	}
+	snapshots, err := r.loadRentalSnapshots(ctx, rows)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]*service.Account, 0, len(rows))
 	for _, m := range rows {
-		out = append(out, accountEntityToService(m))
+		account := accountEntityToService(m)
+		attachRentalSnapshot(account, snapshots[m.ID])
+		out = append(out, account)
 	}
 	return out, nil
 }

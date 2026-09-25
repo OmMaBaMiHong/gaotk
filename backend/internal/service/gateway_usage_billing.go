@@ -295,6 +295,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		APIKeyID:           p.APIKey.ID,
 		UserID:             p.User.ID,
 		AccountID:          p.Account.ID,
+		Rental:             p.Account.Rental,
 		AccountType:        p.Account.Type,
 		RequestPayloadHash: strings.TrimSpace(p.RequestPayloadHash),
 	}
@@ -357,6 +358,9 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 
 	cmd := buildUsageBillingCommand(requestID, usageLog, p)
 	if cmd == nil || cmd.RequestID == "" || repo == nil {
+		if p.Account != nil && p.Account.Rental != nil {
+			return false, errors.New("rental settlement requires atomic billing repository")
+		}
 		if p.SimpleModeKeyRateLimitOnly {
 			return false, ErrSimpleModeKeyRateLimitBillingUnavailable
 		}
@@ -386,6 +390,7 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	}
 
 	finalizePostUsageBilling(billingCtx, p, deps, result)
+	finalizeRentalRevenue(billingCtx, p, deps, result)
 	return true, nil
 }
 
@@ -464,6 +469,10 @@ func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, de
 
 func syncBalanceCacheAfterDeduction(ctx context.Context, p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	if p == nil || p.Cost == nil || p.User == nil || deps == nil || deps.billingCacheService == nil {
+		return
+	}
+	if result != nil && len(result.RevenueUserIDs) > 0 {
+		// Rental settlement invalidates every participant after commit.
 		return
 	}
 	if result != nil && result.NewBalance != nil && deps.billingCacheService.balanceBelowEligibilityThreshold(*result.NewBalance) {

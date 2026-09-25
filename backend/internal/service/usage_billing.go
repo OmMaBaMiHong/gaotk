@@ -17,6 +17,7 @@ var ErrUsageBillingRequestConflict = errors.New("usage billing request fingerpri
 
 // UsageBillingCommand describes one billable request that must be applied at most once.
 type UsageBillingCommand struct {
+	Rental             *RentalSnapshot
 	RequestID          string
 	APIKeyID           int64
 	RequestFingerprint string
@@ -132,6 +133,9 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 	if payloadHash := strings.TrimSpace(c.RequestPayloadHash); payloadHash != "" {
 		raw += "|" + payloadHash
 	}
+	if c.Rental != nil {
+		raw += fmt.Sprintf("|rental:%d:%d:%d:%d:%d:%d:%s:%d", c.Rental.OwnerAccountID, c.Rental.OwnerUserID, c.Rental.AdminUserID, c.Rental.PolicyID, c.Rental.PolicyVersion, c.Rental.OwnerShareBPS, c.Rental.Platform, c.Rental.GroupID)
+	}
 	sum := sha256.Sum256([]byte(raw))
 	return hex.EncodeToString(sum[:])
 }
@@ -163,6 +167,7 @@ type AccountQuotaState struct {
 }
 
 type UsageBillingApplyResult struct {
+	RevenueUserIDs       []int64
 	Applied              bool
 	APIKeyQuotaExhausted bool
 	NewBalance           *float64           // post-deduction balance (nil = no balance deduction)

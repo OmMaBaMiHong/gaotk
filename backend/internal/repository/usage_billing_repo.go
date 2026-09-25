@@ -50,8 +50,16 @@ func (r *usageBillingRepository) Apply(ctx context.Context, cmd *service.UsageBi
 		return &service.UsageBillingApplyResult{Applied: false}, nil
 	}
 
+	settlement, err := prepareRentalSettlement(ctx, tx, cmd)
+	if err != nil {
+		return nil, err
+	}
 	result := &service.UsageBillingApplyResult{Applied: true}
 	if err := r.applyUsageBillingEffects(ctx, tx, cmd, result); err != nil {
+		return nil, err
+	}
+
+	if err := settlement.apply(ctx, tx, cmd, result); err != nil {
 		return nil, err
 	}
 

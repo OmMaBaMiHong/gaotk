@@ -2292,6 +2292,12 @@ type AccountMutation struct {
 	deleted_at                  *time.Time
 	name                        *string
 	notes                       *string
+	owner_user_id               *int64
+	addowner_user_id            *int64
+	rental_policy_id            *int64
+	addrental_policy_id         *int64
+	rental_status               *string
+	rental_identity             *string
 	platform                    *string
 	_type                       *string
 	credentials                 *map[string]interface{}
@@ -2642,6 +2648,231 @@ func (m *AccountMutation) NotesCleared() bool {
 func (m *AccountMutation) ResetNotes() {
 	m.notes = nil
 	delete(m.clearedFields, account.FieldNotes)
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (m *AccountMutation) SetOwnerUserID(i int64) {
+	m.owner_user_id = &i
+	m.addowner_user_id = nil
+}
+
+// OwnerUserID returns the value of the "owner_user_id" field in the mutation.
+func (m *AccountMutation) OwnerUserID() (r int64, exists bool) {
+	v := m.owner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOwnerUserID returns the old "owner_user_id" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldOwnerUserID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOwnerUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOwnerUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOwnerUserID: %w", err)
+	}
+	return oldValue.OwnerUserID, nil
+}
+
+// AddOwnerUserID adds i to the "owner_user_id" field.
+func (m *AccountMutation) AddOwnerUserID(i int64) {
+	if m.addowner_user_id != nil {
+		*m.addowner_user_id += i
+	} else {
+		m.addowner_user_id = &i
+	}
+}
+
+// AddedOwnerUserID returns the value that was added to the "owner_user_id" field in this mutation.
+func (m *AccountMutation) AddedOwnerUserID() (r int64, exists bool) {
+	v := m.addowner_user_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (m *AccountMutation) ClearOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	m.clearedFields[account.FieldOwnerUserID] = struct{}{}
+}
+
+// OwnerUserIDCleared returns if the "owner_user_id" field was cleared in this mutation.
+func (m *AccountMutation) OwnerUserIDCleared() bool {
+	_, ok := m.clearedFields[account.FieldOwnerUserID]
+	return ok
+}
+
+// ResetOwnerUserID resets all changes to the "owner_user_id" field.
+func (m *AccountMutation) ResetOwnerUserID() {
+	m.owner_user_id = nil
+	m.addowner_user_id = nil
+	delete(m.clearedFields, account.FieldOwnerUserID)
+}
+
+// SetRentalPolicyID sets the "rental_policy_id" field.
+func (m *AccountMutation) SetRentalPolicyID(i int64) {
+	m.rental_policy_id = &i
+	m.addrental_policy_id = nil
+}
+
+// RentalPolicyID returns the value of the "rental_policy_id" field in the mutation.
+func (m *AccountMutation) RentalPolicyID() (r int64, exists bool) {
+	v := m.rental_policy_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRentalPolicyID returns the old "rental_policy_id" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldRentalPolicyID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRentalPolicyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRentalPolicyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRentalPolicyID: %w", err)
+	}
+	return oldValue.RentalPolicyID, nil
+}
+
+// AddRentalPolicyID adds i to the "rental_policy_id" field.
+func (m *AccountMutation) AddRentalPolicyID(i int64) {
+	if m.addrental_policy_id != nil {
+		*m.addrental_policy_id += i
+	} else {
+		m.addrental_policy_id = &i
+	}
+}
+
+// AddedRentalPolicyID returns the value that was added to the "rental_policy_id" field in this mutation.
+func (m *AccountMutation) AddedRentalPolicyID() (r int64, exists bool) {
+	v := m.addrental_policy_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearRentalPolicyID clears the value of the "rental_policy_id" field.
+func (m *AccountMutation) ClearRentalPolicyID() {
+	m.rental_policy_id = nil
+	m.addrental_policy_id = nil
+	m.clearedFields[account.FieldRentalPolicyID] = struct{}{}
+}
+
+// RentalPolicyIDCleared returns if the "rental_policy_id" field was cleared in this mutation.
+func (m *AccountMutation) RentalPolicyIDCleared() bool {
+	_, ok := m.clearedFields[account.FieldRentalPolicyID]
+	return ok
+}
+
+// ResetRentalPolicyID resets all changes to the "rental_policy_id" field.
+func (m *AccountMutation) ResetRentalPolicyID() {
+	m.rental_policy_id = nil
+	m.addrental_policy_id = nil
+	delete(m.clearedFields, account.FieldRentalPolicyID)
+}
+
+// SetRentalStatus sets the "rental_status" field.
+func (m *AccountMutation) SetRentalStatus(s string) {
+	m.rental_status = &s
+}
+
+// RentalStatus returns the value of the "rental_status" field in the mutation.
+func (m *AccountMutation) RentalStatus() (r string, exists bool) {
+	v := m.rental_status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRentalStatus returns the old "rental_status" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldRentalStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRentalStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRentalStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRentalStatus: %w", err)
+	}
+	return oldValue.RentalStatus, nil
+}
+
+// ResetRentalStatus resets all changes to the "rental_status" field.
+func (m *AccountMutation) ResetRentalStatus() {
+	m.rental_status = nil
+}
+
+// SetRentalIdentity sets the "rental_identity" field.
+func (m *AccountMutation) SetRentalIdentity(s string) {
+	m.rental_identity = &s
+}
+
+// RentalIdentity returns the value of the "rental_identity" field in the mutation.
+func (m *AccountMutation) RentalIdentity() (r string, exists bool) {
+	v := m.rental_identity
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRentalIdentity returns the old "rental_identity" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldRentalIdentity(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRentalIdentity is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRentalIdentity requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRentalIdentity: %w", err)
+	}
+	return oldValue.RentalIdentity, nil
+}
+
+// ClearRentalIdentity clears the value of the "rental_identity" field.
+func (m *AccountMutation) ClearRentalIdentity() {
+	m.rental_identity = nil
+	m.clearedFields[account.FieldRentalIdentity] = struct{}{}
+}
+
+// RentalIdentityCleared returns if the "rental_identity" field was cleared in this mutation.
+func (m *AccountMutation) RentalIdentityCleared() bool {
+	_, ok := m.clearedFields[account.FieldRentalIdentity]
+	return ok
+}
+
+// ResetRentalIdentity resets all changes to the "rental_identity" field.
+func (m *AccountMutation) ResetRentalIdentity() {
+	m.rental_identity = nil
+	delete(m.clearedFields, account.FieldRentalIdentity)
 }
 
 // SetPlatform sets the "platform" field.
@@ -4140,7 +4371,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 35)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4155,6 +4386,18 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.notes != nil {
 		fields = append(fields, account.FieldNotes)
+	}
+	if m.owner_user_id != nil {
+		fields = append(fields, account.FieldOwnerUserID)
+	}
+	if m.rental_policy_id != nil {
+		fields = append(fields, account.FieldRentalPolicyID)
+	}
+	if m.rental_status != nil {
+		fields = append(fields, account.FieldRentalStatus)
+	}
+	if m.rental_identity != nil {
+		fields = append(fields, account.FieldRentalIdentity)
 	}
 	if m.platform != nil {
 		fields = append(fields, account.FieldPlatform)
@@ -4252,6 +4495,14 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case account.FieldNotes:
 		return m.Notes()
+	case account.FieldOwnerUserID:
+		return m.OwnerUserID()
+	case account.FieldRentalPolicyID:
+		return m.RentalPolicyID()
+	case account.FieldRentalStatus:
+		return m.RentalStatus()
+	case account.FieldRentalIdentity:
+		return m.RentalIdentity()
 	case account.FieldPlatform:
 		return m.Platform()
 	case account.FieldType:
@@ -4323,6 +4574,14 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldName(ctx)
 	case account.FieldNotes:
 		return m.OldNotes(ctx)
+	case account.FieldOwnerUserID:
+		return m.OldOwnerUserID(ctx)
+	case account.FieldRentalPolicyID:
+		return m.OldRentalPolicyID(ctx)
+	case account.FieldRentalStatus:
+		return m.OldRentalStatus(ctx)
+	case account.FieldRentalIdentity:
+		return m.OldRentalIdentity(ctx)
 	case account.FieldPlatform:
 		return m.OldPlatform(ctx)
 	case account.FieldType:
@@ -4418,6 +4677,34 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetNotes(v)
+		return nil
+	case account.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOwnerUserID(v)
+		return nil
+	case account.FieldRentalPolicyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRentalPolicyID(v)
+		return nil
+	case account.FieldRentalStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRentalStatus(v)
+		return nil
+	case account.FieldRentalIdentity:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRentalIdentity(v)
 		return nil
 	case account.FieldPlatform:
 		v, ok := value.(string)
@@ -4609,6 +4896,12 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 // this mutation.
 func (m *AccountMutation) AddedFields() []string {
 	var fields []string
+	if m.addowner_user_id != nil {
+		fields = append(fields, account.FieldOwnerUserID)
+	}
+	if m.addrental_policy_id != nil {
+		fields = append(fields, account.FieldRentalPolicyID)
+	}
 	if m.addproxy_fallback_origin_id != nil {
 		fields = append(fields, account.FieldProxyFallbackOriginID)
 	}
@@ -4632,6 +4925,10 @@ func (m *AccountMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *AccountMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case account.FieldOwnerUserID:
+		return m.AddedOwnerUserID()
+	case account.FieldRentalPolicyID:
+		return m.AddedRentalPolicyID()
 	case account.FieldProxyFallbackOriginID:
 		return m.AddedProxyFallbackOriginID()
 	case account.FieldConcurrency:
@@ -4651,6 +4948,20 @@ func (m *AccountMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *AccountMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case account.FieldOwnerUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddOwnerUserID(v)
+		return nil
+	case account.FieldRentalPolicyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddRentalPolicyID(v)
+		return nil
 	case account.FieldProxyFallbackOriginID:
 		v, ok := value.(int64)
 		if !ok {
@@ -4699,6 +5010,15 @@ func (m *AccountMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(account.FieldNotes) {
 		fields = append(fields, account.FieldNotes)
+	}
+	if m.FieldCleared(account.FieldOwnerUserID) {
+		fields = append(fields, account.FieldOwnerUserID)
+	}
+	if m.FieldCleared(account.FieldRentalPolicyID) {
+		fields = append(fields, account.FieldRentalPolicyID)
+	}
+	if m.FieldCleared(account.FieldRentalIdentity) {
+		fields = append(fields, account.FieldRentalIdentity)
 	}
 	if m.FieldCleared(account.FieldProxyID) {
 		fields = append(fields, account.FieldProxyID)
@@ -4764,6 +5084,15 @@ func (m *AccountMutation) ClearField(name string) error {
 		return nil
 	case account.FieldNotes:
 		m.ClearNotes()
+		return nil
+	case account.FieldOwnerUserID:
+		m.ClearOwnerUserID()
+		return nil
+	case account.FieldRentalPolicyID:
+		m.ClearRentalPolicyID()
+		return nil
+	case account.FieldRentalIdentity:
+		m.ClearRentalIdentity()
 		return nil
 	case account.FieldProxyID:
 		m.ClearProxyID()
@@ -4832,6 +5161,18 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldNotes:
 		m.ResetNotes()
+		return nil
+	case account.FieldOwnerUserID:
+		m.ResetOwnerUserID()
+		return nil
+	case account.FieldRentalPolicyID:
+		m.ResetRentalPolicyID()
+		return nil
+	case account.FieldRentalStatus:
+		m.ResetRentalStatus()
+		return nil
+	case account.FieldRentalIdentity:
+		m.ResetRentalIdentity()
 		return nil
 	case account.FieldPlatform:
 		m.ResetPlatform()

@@ -131,6 +131,13 @@ func RegisterAdminRoutes(
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
+		if h.TokenBank != nil {
+			bank := admin.Group("/token-bank")
+			bank.GET("/policies", h.TokenBank.AdminPolicies)
+			bank.PUT("/policies", h.TokenBank.SavePolicy)
+			bank.GET("/accounts", h.TokenBank.AdminOverview)
+			bank.GET("/revenue", h.TokenBank.AdminRevenue)
+		}
 
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)

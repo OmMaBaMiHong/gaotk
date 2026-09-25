@@ -61,6 +61,10 @@ func (Account) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "text"}),
 
 		// platform: 所属平台，如 "claude", "gemini", "openai" 等
+		field.Int64("owner_user_id").Optional().Nillable(),
+		field.Int64("rental_policy_id").Optional().Nillable(),
+		field.String("rental_status").Default(""),
+		field.String("rental_identity").Optional().Nillable().MaxLen(128),
 		field.String("platform").
 			MaxLen(50).
 			NotEmpty(),

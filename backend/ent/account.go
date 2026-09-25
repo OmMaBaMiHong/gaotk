@@ -29,6 +29,14 @@ type Account struct {
 	Name string `json:"name,omitempty"`
 	// Notes holds the value of the "notes" field.
 	Notes *string `json:"notes,omitempty"`
+	// OwnerUserID holds the value of the "owner_user_id" field.
+	OwnerUserID *int64 `json:"owner_user_id,omitempty"`
+	// RentalPolicyID holds the value of the "rental_policy_id" field.
+	RentalPolicyID *int64 `json:"rental_policy_id,omitempty"`
+	// RentalStatus holds the value of the "rental_status" field.
+	RentalStatus string `json:"rental_status,omitempty"`
+	// RentalIdentity holds the value of the "rental_identity" field.
+	RentalIdentity *string `json:"rental_identity,omitempty"`
 	// Platform holds the value of the "platform" field.
 	Platform string `json:"platform,omitempty"`
 	// Type holds the value of the "type" field.
@@ -175,9 +183,9 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case account.FieldRateMultiplier:
 			values[i] = new(sql.NullFloat64)
-		case account.FieldID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID:
+		case account.FieldID, account.FieldOwnerUserID, account.FieldRentalPolicyID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID:
 			values[i] = new(sql.NullInt64)
-		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
+		case account.FieldName, account.FieldNotes, account.FieldRentalStatus, account.FieldRentalIdentity, account.FieldPlatform, account.FieldType, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
 			values[i] = new(sql.NullString)
 		case account.FieldCreatedAt, account.FieldUpdatedAt, account.FieldDeletedAt, account.FieldLastUsedAt, account.FieldExpiresAt, account.FieldRateLimitedAt, account.FieldRateLimitResetAt, account.FieldOverloadUntil, account.FieldTempUnschedulableUntil, account.FieldSessionWindowStart, account.FieldSessionWindowEnd:
 			values[i] = new(sql.NullTime)
@@ -233,6 +241,33 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.Notes = new(string)
 				*_m.Notes = value.String
+			}
+		case account.FieldOwnerUserID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field owner_user_id", values[i])
+			} else if value.Valid {
+				_m.OwnerUserID = new(int64)
+				*_m.OwnerUserID = value.Int64
+			}
+		case account.FieldRentalPolicyID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field rental_policy_id", values[i])
+			} else if value.Valid {
+				_m.RentalPolicyID = new(int64)
+				*_m.RentalPolicyID = value.Int64
+			}
+		case account.FieldRentalStatus:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field rental_status", values[i])
+			} else if value.Valid {
+				_m.RentalStatus = value.String
+			}
+		case account.FieldRentalIdentity:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field rental_identity", values[i])
+			} else if value.Valid {
+				_m.RentalIdentity = new(string)
+				*_m.RentalIdentity = value.String
 			}
 		case account.FieldPlatform:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -491,6 +526,24 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	if v := _m.Notes; v != nil {
 		builder.WriteString("notes=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.OwnerUserID; v != nil {
+		builder.WriteString("owner_user_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RentalPolicyID; v != nil {
+		builder.WriteString("rental_policy_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("rental_status=")
+	builder.WriteString(_m.RentalStatus)
+	builder.WriteString(", ")
+	if v := _m.RentalIdentity; v != nil {
+		builder.WriteString("rental_identity=")
 		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")

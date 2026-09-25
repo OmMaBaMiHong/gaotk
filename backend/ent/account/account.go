@@ -26,6 +26,14 @@ const (
 	FieldName = "name"
 	// FieldNotes holds the string denoting the notes field in the database.
 	FieldNotes = "notes"
+	// FieldOwnerUserID holds the string denoting the owner_user_id field in the database.
+	FieldOwnerUserID = "owner_user_id"
+	// FieldRentalPolicyID holds the string denoting the rental_policy_id field in the database.
+	FieldRentalPolicyID = "rental_policy_id"
+	// FieldRentalStatus holds the string denoting the rental_status field in the database.
+	FieldRentalStatus = "rental_status"
+	// FieldRentalIdentity holds the string denoting the rental_identity field in the database.
+	FieldRentalIdentity = "rental_identity"
 	// FieldPlatform holds the string denoting the platform field in the database.
 	FieldPlatform = "platform"
 	// FieldType holds the string denoting the type field in the database.
@@ -136,6 +144,10 @@ var Columns = []string{
 	FieldDeletedAt,
 	FieldName,
 	FieldNotes,
+	FieldOwnerUserID,
+	FieldRentalPolicyID,
+	FieldRentalStatus,
+	FieldRentalIdentity,
 	FieldPlatform,
 	FieldType,
 	FieldCredentials,
@@ -196,6 +208,10 @@ var (
 	UpdateDefaultUpdatedAt func() time.Time
 	// NameValidator is a validator for the "name" field. It is called by the builders before save.
 	NameValidator func(string) error
+	// DefaultRentalStatus holds the default value on creation for the "rental_status" field.
+	DefaultRentalStatus string
+	// RentalIdentityValidator is a validator for the "rental_identity" field. It is called by the builders before save.
+	RentalIdentityValidator func(string) error
 	// PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
 	PlatformValidator func(string) error
 	// TypeValidator is a validator for the "type" field. It is called by the builders before save.
@@ -279,6 +295,26 @@ func ByName(opts ...sql.OrderTermOption) OrderOption {
 // ByNotes orders the results by the notes field.
 func ByNotes(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldNotes, opts...).ToFunc()
+}
+
+// ByOwnerUserID orders the results by the owner_user_id field.
+func ByOwnerUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOwnerUserID, opts...).ToFunc()
+}
+
+// ByRentalPolicyID orders the results by the rental_policy_id field.
+func ByRentalPolicyID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRentalPolicyID, opts...).ToFunc()
+}
+
+// ByRentalStatus orders the results by the rental_status field.
+func ByRentalStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRentalStatus, opts...).ToFunc()
+}
+
+// ByRentalIdentity orders the results by the rental_identity field.
+func ByRentalIdentity(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRentalIdentity, opts...).ToFunc()
 }
 
 // ByPlatform orders the results by the platform field.

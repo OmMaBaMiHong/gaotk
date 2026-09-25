@@ -273,6 +273,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/token-bank',
+    name: 'TokenBank',
+    component: () => import('@/views/user/TokenBankView.vue'),
+    meta: { requiresAuth: true, title: 'Token Bank', titleKey: 'tokenBank.title' }
+  },
+  {
+    path: '/admin/token-bank',
+    name: 'AdminTokenBank',
+    component: () => import('@/views/admin/TokenBankView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true, title: 'Token Bank', titleKey: 'tokenBank.title' }
+  },
+  {
     path: '/affiliate',
     name: 'Affiliate',
     component: () => import('@/views/user/AffiliateView.vue'),

@@ -91,6 +91,94 @@ func (_u *AccountUpdate) ClearNotes() *AccountUpdate {
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *AccountUpdate) SetOwnerUserID(v int64) *AccountUpdate {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableOwnerUserID(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *AccountUpdate) AddOwnerUserID(v int64) *AccountUpdate {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *AccountUpdate) ClearOwnerUserID() *AccountUpdate {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetRentalPolicyID sets the "rental_policy_id" field.
+func (_u *AccountUpdate) SetRentalPolicyID(v int64) *AccountUpdate {
+	_u.mutation.ResetRentalPolicyID()
+	_u.mutation.SetRentalPolicyID(v)
+	return _u
+}
+
+// SetNillableRentalPolicyID sets the "rental_policy_id" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableRentalPolicyID(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetRentalPolicyID(*v)
+	}
+	return _u
+}
+
+// AddRentalPolicyID adds value to the "rental_policy_id" field.
+func (_u *AccountUpdate) AddRentalPolicyID(v int64) *AccountUpdate {
+	_u.mutation.AddRentalPolicyID(v)
+	return _u
+}
+
+// ClearRentalPolicyID clears the value of the "rental_policy_id" field.
+func (_u *AccountUpdate) ClearRentalPolicyID() *AccountUpdate {
+	_u.mutation.ClearRentalPolicyID()
+	return _u
+}
+
+// SetRentalStatus sets the "rental_status" field.
+func (_u *AccountUpdate) SetRentalStatus(v string) *AccountUpdate {
+	_u.mutation.SetRentalStatus(v)
+	return _u
+}
+
+// SetNillableRentalStatus sets the "rental_status" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableRentalStatus(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetRentalStatus(*v)
+	}
+	return _u
+}
+
+// SetRentalIdentity sets the "rental_identity" field.
+func (_u *AccountUpdate) SetRentalIdentity(v string) *AccountUpdate {
+	_u.mutation.SetRentalIdentity(v)
+	return _u
+}
+
+// SetNillableRentalIdentity sets the "rental_identity" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableRentalIdentity(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetRentalIdentity(*v)
+	}
+	return _u
+}
+
+// ClearRentalIdentity clears the value of the "rental_identity" field.
+func (_u *AccountUpdate) ClearRentalIdentity() *AccountUpdate {
+	_u.mutation.ClearRentalIdentity()
+	return _u
+}
+
 // SetPlatform sets the "platform" field.
 func (_u *AccountUpdate) SetPlatform(v string) *AccountUpdate {
 	_u.mutation.SetPlatform(v)
@@ -762,6 +850,11 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RentalIdentity(); ok {
+		if err := account.RentalIdentityValidator(v); err != nil {
+			return &ValidationError{Name: "rental_identity", err: fmt.Errorf(`ent: validator failed for field "Account.rental_identity": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := account.PlatformValidator(v); err != nil {
 			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Account.platform": %w`, err)}
@@ -819,6 +912,33 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.NotesCleared() {
 		_spec.ClearField(account.FieldNotes, field.TypeString)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(account.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.RentalPolicyID(); ok {
+		_spec.SetField(account.FieldRentalPolicyID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRentalPolicyID(); ok {
+		_spec.AddField(account.FieldRentalPolicyID, field.TypeInt64, value)
+	}
+	if _u.mutation.RentalPolicyIDCleared() {
+		_spec.ClearField(account.FieldRentalPolicyID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.RentalStatus(); ok {
+		_spec.SetField(account.FieldRentalStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RentalIdentity(); ok {
+		_spec.SetField(account.FieldRentalIdentity, field.TypeString, value)
+	}
+	if _u.mutation.RentalIdentityCleared() {
+		_spec.ClearField(account.FieldRentalIdentity, field.TypeString)
 	}
 	if value, ok := _u.mutation.Platform(); ok {
 		_spec.SetField(account.FieldPlatform, field.TypeString, value)
@@ -1228,6 +1348,94 @@ func (_u *AccountUpdateOne) SetNillableNotes(v *string) *AccountUpdateOne {
 // ClearNotes clears the value of the "notes" field.
 func (_u *AccountUpdateOne) ClearNotes() *AccountUpdateOne {
 	_u.mutation.ClearNotes()
+	return _u
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *AccountUpdateOne) SetOwnerUserID(v int64) *AccountUpdateOne {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableOwnerUserID(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *AccountUpdateOne) AddOwnerUserID(v int64) *AccountUpdateOne {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *AccountUpdateOne) ClearOwnerUserID() *AccountUpdateOne {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetRentalPolicyID sets the "rental_policy_id" field.
+func (_u *AccountUpdateOne) SetRentalPolicyID(v int64) *AccountUpdateOne {
+	_u.mutation.ResetRentalPolicyID()
+	_u.mutation.SetRentalPolicyID(v)
+	return _u
+}
+
+// SetNillableRentalPolicyID sets the "rental_policy_id" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableRentalPolicyID(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetRentalPolicyID(*v)
+	}
+	return _u
+}
+
+// AddRentalPolicyID adds value to the "rental_policy_id" field.
+func (_u *AccountUpdateOne) AddRentalPolicyID(v int64) *AccountUpdateOne {
+	_u.mutation.AddRentalPolicyID(v)
+	return _u
+}
+
+// ClearRentalPolicyID clears the value of the "rental_policy_id" field.
+func (_u *AccountUpdateOne) ClearRentalPolicyID() *AccountUpdateOne {
+	_u.mutation.ClearRentalPolicyID()
+	return _u
+}
+
+// SetRentalStatus sets the "rental_status" field.
+func (_u *AccountUpdateOne) SetRentalStatus(v string) *AccountUpdateOne {
+	_u.mutation.SetRentalStatus(v)
+	return _u
+}
+
+// SetNillableRentalStatus sets the "rental_status" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableRentalStatus(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetRentalStatus(*v)
+	}
+	return _u
+}
+
+// SetRentalIdentity sets the "rental_identity" field.
+func (_u *AccountUpdateOne) SetRentalIdentity(v string) *AccountUpdateOne {
+	_u.mutation.SetRentalIdentity(v)
+	return _u
+}
+
+// SetNillableRentalIdentity sets the "rental_identity" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableRentalIdentity(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetRentalIdentity(*v)
+	}
+	return _u
+}
+
+// ClearRentalIdentity clears the value of the "rental_identity" field.
+func (_u *AccountUpdateOne) ClearRentalIdentity() *AccountUpdateOne {
+	_u.mutation.ClearRentalIdentity()
 	return _u
 }
 
@@ -1915,6 +2123,11 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "Account.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RentalIdentity(); ok {
+		if err := account.RentalIdentityValidator(v); err != nil {
+			return &ValidationError{Name: "rental_identity", err: fmt.Errorf(`ent: validator failed for field "Account.rental_identity": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Platform(); ok {
 		if err := account.PlatformValidator(v); err != nil {
 			return &ValidationError{Name: "platform", err: fmt.Errorf(`ent: validator failed for field "Account.platform": %w`, err)}
@@ -1989,6 +2202,33 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if _u.mutation.NotesCleared() {
 		_spec.ClearField(account.FieldNotes, field.TypeString)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(account.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.RentalPolicyID(); ok {
+		_spec.SetField(account.FieldRentalPolicyID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedRentalPolicyID(); ok {
+		_spec.AddField(account.FieldRentalPolicyID, field.TypeInt64, value)
+	}
+	if _u.mutation.RentalPolicyIDCleared() {
+		_spec.ClearField(account.FieldRentalPolicyID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.RentalStatus(); ok {
+		_spec.SetField(account.FieldRentalStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RentalIdentity(); ok {
+		_spec.SetField(account.FieldRentalIdentity, field.TypeString, value)
+	}
+	if _u.mutation.RentalIdentityCleared() {
+		_spec.ClearField(account.FieldRentalIdentity, field.TypeString)
 	}
 	if value, ok := _u.mutation.Platform(); ok {
 		_spec.SetField(account.FieldPlatform, field.TypeString, value)
