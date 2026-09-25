@@ -87,6 +87,12 @@ describe("SubscriptionPlanCard", () => {
     expect(mountPlanCard("openai", { currency: "" }).text()).toContain("$10");
   });
 
+  it("shows CNY subscription quota in the plan currency", () => {
+    const text = mountPlanCard("composite", { currency: "CNY", monthly_limit_usd: 40 }).text();
+    expect(text).toContain("¥40");
+    expect(text).not.toContain("$40");
+  });
+
   it.each([
     ["long Chinese", "企业全球加速专业订阅套餐（含高级模型与优先支持）"],
     ["long English", "Enterprise Global Acceleration Subscription with Priority Support"],
