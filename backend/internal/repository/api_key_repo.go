@@ -239,15 +239,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 		}
 		return nil, err
 	}
-	out := apiKeyEntityToService(m)
-	if out.Group != nil {
-		membershipGroups, err := loadSkoobMembershipGroups(ctx, r.sql, []int64{out.Group.ID})
-		if err != nil {
-			return nil, err
-		}
-		out.Group.SkoobMembershipOnly = membershipGroups[out.Group.ID]
-	}
-	return out, nil
+	return apiKeyEntityToService(m), nil
 }
 
 func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fields service.APIKeyUpdateFields) error {
