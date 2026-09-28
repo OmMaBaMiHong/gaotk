@@ -23,6 +23,8 @@ export default {
       secret: 'Secret',
       redirectUris: 'Redirect URI Allowlist',
       redirectUrisHint: 'One per line, exact match; separated by newline or comma',
+      allowedScopes: 'Allowed scopes',
+      allowedScopesHint: 'Comma separated (profile/membership); empty = legacy mode, issues full panel tokens',
       allowLocalhost: 'Allow localhost callbacks on any port',
       allowLocalhostHint: 'Local development only; register production callback URIs instead',
       regenerateSecret: 'Regenerate secret',

@@ -10,6 +10,7 @@ export interface OAuthClientView {
   client_id: string
   secret_last4: string
   redirect_uris: string[]
+  allowed_scopes: string[]
   allow_localhost: boolean
   enabled: boolean
   remark: string
@@ -22,6 +23,7 @@ export interface CreateOAuthClientRequest {
   client_id: string
   client_secret?: string
   redirect_uris: string[]
+  allowed_scopes?: string
   allow_localhost?: boolean
   remark?: string
 }
@@ -30,6 +32,7 @@ export interface UpdateOAuthClientRequest {
   name?: string
   client_secret?: string
   redirect_uris?: string[]
+  allowed_scopes?: string
   allow_localhost?: boolean
   enabled?: boolean
   remark?: string

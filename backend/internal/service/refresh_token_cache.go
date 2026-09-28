@@ -16,8 +16,11 @@ type RefreshTokenData struct {
 	TokenVersion int64     `json:"token_version"`          // 用于检测密码更改后的Token失效
 	FamilyID     string    `json:"family_id"`              // Token家族ID，用于防重放攻击
 	BindingHash  string    `json:"binding_hash,omitempty"` // 会话指纹哈希（IP+UA），会话绑定开启时校验
-	CreatedAt    time.Time `json:"created_at"`
-	ExpiresAt    time.Time `json:"expires_at"`
+	// Scopes OAuth 受限会话的授权范围；nil = 普通登录会话（刷新后仍签发全量令牌）。
+	// 受限会话刷新时必须延续原 scope，否则刷新会成为越权通道。
+	Scopes    []string  `json:"scopes,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // RefreshTokenCache 管理Refresh Token的Redis缓存

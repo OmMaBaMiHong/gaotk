@@ -23,6 +23,8 @@ export default {
       secret: '密钥',
       redirectUris: '回调地址白名单',
       redirectUrisHint: '每行一个，精确匹配；换行或逗号分隔',
+      allowedScopes: '授权范围（scope）',
+      allowedScopesHint: '逗号分隔（profile/membership）；留空 = 传统模式，换到全量面板令牌',
       allowLocalhost: '放行 localhost 任意端口回调',
       allowLocalhostHint: '仅本地开发场景使用，生产接入请登记正式回调地址',
       regenerateSecret: '重新生成密钥',

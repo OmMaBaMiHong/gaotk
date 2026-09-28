@@ -19,6 +19,26 @@ var (
 	ErrOAuthClientSecretInvalid = infraerrors.BadRequest("OAUTH_CLIENT_SECRET_INVALID", "client_secret 长度需在 16-128 位之间")
 )
 
+// OAuth 授权 scope 约定。
+//
+// 受限模式：客户端登记了 allowed_scopes 后，authorize 校验请求的 scope，
+// token 端点签发只带这些 scope 的短时令牌（不能访问面板管理 API）。
+// 空 allowed_scopes = 传统模式，code 换全量面板令牌（存量客户端零影响）。
+const (
+	OAuthScopeProfile    = "profile"    // 身份信息（/auth/me 裁剪视图）
+	OAuthScopeMembership = "membership" // 会员态只读（/subscriptions 只读端点）
+)
+
+// KnownOAuthScopes 全部合法 scope。登记与请求时都按这个集合校验，
+// 防止拼写错误的 scope 静默变成"什么都查不到"。
+var KnownOAuthScopes = map[string]struct{}{
+	OAuthScopeProfile:    {},
+	OAuthScopeMembership: {},
+}
+
+// ErrOAuthClientScopeInvalid scope 不合法（不在 KnownOAuthScopes 或超出客户端白名单）。
+var ErrOAuthClientScopeInvalid = infraerrors.BadRequest("OAUTH_CLIENT_SCOPE_INVALID", "scope 不合法或超出该应用登记的 scope 白名单")
+
 // OAuthClientApp 第三方应用接入中转站 OAuth 的客户端注册信息。
 type OAuthClientApp struct {
 	ID             int64
@@ -26,11 +46,75 @@ type OAuthClientApp struct {
 	ClientID       string
 	ClientSecret   string
 	RedirectURIs   []string
+	AllowedScopes  []string
 	AllowLocalhost bool
 	Enabled        bool
 	Remark         string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+}
+
+// IsScoped 是否为受限模式客户端（登记过 scope 白名单）。
+func (app *OAuthClientApp) IsScoped() bool {
+	return len(app.AllowedScopes) > 0
+}
+
+// NormalizeOAuthScopes 拆分并清洗 scope 原文（逗号/空格分隔），小写、去空、去重、保序。
+func NormalizeOAuthScopes(raw string) []string {
+	fields := strings.FieldsFunc(raw, func(r rune) bool { return r == '\n' || r == '\r' || r == ',' || r == ' ' || r == '\t' })
+	seen := make(map[string]struct{}, len(fields))
+	scopes := make([]string, 0, len(fields))
+	for _, f := range fields {
+		s := strings.ToLower(strings.TrimSpace(f))
+		if s == "" {
+			continue
+		}
+		if _, dup := seen[s]; dup {
+			continue
+		}
+		seen[s] = struct{}{}
+		scopes = append(scopes, s)
+	}
+	return scopes
+}
+
+// ResolveRequestedScopes 把 authorize 请求里的 scope 参数解析成本次授权的 scope 集合。
+// 传统模式客户端：忽略请求参数，返回 nil（签发全量令牌）。
+// 受限模式客户端：请求为空 → 默认授予全部登记 scope；非空 → 必须是登记集合的子集。
+func (app *OAuthClientApp) ResolveRequestedScopes(requested string) ([]string, error) {
+	if !app.IsScoped() {
+		return nil, nil
+	}
+	requestedScopes := NormalizeOAuthScopes(requested)
+	for _, s := range requestedScopes {
+		if _, known := KnownOAuthScopes[s]; !known {
+			return nil, ErrOAuthClientScopeInvalid
+		}
+		allowed := false
+		for _, a := range app.AllowedScopes {
+			if a == s {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			return nil, ErrOAuthClientScopeInvalid
+		}
+	}
+	if len(requestedScopes) == 0 {
+		return append([]string(nil), app.AllowedScopes...), nil
+	}
+	return requestedScopes, nil
+}
+
+// ValidateAllowedScopes 登记侧校验：scope 白名单里的每一项必须是已知 scope。
+func ValidateAllowedScopes(scopes []string) error {
+	for _, s := range scopes {
+		if _, known := KnownOAuthScopes[s]; !known {
+			return ErrOAuthClientScopeInvalid
+		}
+	}
+	return nil
 }
 
 // NormalizeRedirectURIs 拆分并清洗回调白名单（支持换行/逗号分隔），去空去重、保序。

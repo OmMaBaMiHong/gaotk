@@ -18,6 +18,8 @@ const (
 	ContextKeyUser ContextKey = "user"
 	// ContextKeyUserRole 当前用户角色（string）
 	ContextKeyUserRole ContextKey = "user_role"
+	// ContextKeyOAuthScope OAuth 受限令牌的 scope 原文（string；空 = 全量令牌）
+	ContextKeyOAuthScope ContextKey = "oauth_scope"
 	// ContextKeyAPIKey API密钥上下文键
 	ContextKeyAPIKey ContextKey = "api_key"
 	// ContextKeySubscription 订阅上下文键

@@ -21,6 +21,9 @@ type OAuthClientApp = domain.OAuthClientApp
 // NormalizeRedirectURIs 供仓储层复用（domain 层实现的别名）。
 var NormalizeRedirectURIs = domain.NormalizeRedirectURIs
 
+// NormalizeOAuthScopes 供仓储层复用（domain 层实现的别名）。
+var NormalizeOAuthScopes = domain.NormalizeOAuthScopes
+
 var (
 	ErrOAuthClientNotFound      = domain.ErrOAuthClientNotFound
 	ErrOAuthClientDisabled      = domain.ErrOAuthClientDisabled
@@ -136,6 +139,7 @@ type CreateOAuthClientAppInput struct {
 	ClientID       string
 	ClientSecret   string // 留空则自动生成
 	RedirectURIs   string // 换行/逗号分隔的白名单原文
+	AllowedScopes  string // 逗号/空格分隔；空 = 传统模式（签发全量面板令牌）
 	AllowLocalhost bool
 	Remark         string
 }
@@ -148,6 +152,10 @@ func (s *OAuthClientAppService) Create(ctx context.Context, input *CreateOAuthCl
 	if err != nil {
 		return nil, err
 	}
+	app.AllowedScopes = domain.NormalizeOAuthScopes(input.AllowedScopes)
+	if err := domain.ValidateAllowedScopes(app.AllowedScopes); err != nil {
+		return nil, err
+	}
 	if err := s.repo.Create(ctx, app); err != nil {
 		return nil, err
 	}
@@ -158,6 +166,7 @@ type UpdateOAuthClientAppInput struct {
 	Name           *string
 	ClientSecret   *string
 	RedirectURIs   *string
+	AllowedScopes  *string // 置空串 = 回到传统模式；nil = 不改动
 	AllowLocalhost *bool
 	Enabled        *bool
 	Remark         *string
@@ -180,6 +189,12 @@ func (s *OAuthClientAppService) Update(ctx context.Context, id int64, input *Upd
 		app.RedirectURIs = domain.NormalizeRedirectURIs(*input.RedirectURIs)
 		if len(app.RedirectURIs) == 0 {
 			return nil, ErrOAuthClientURIsRequired
+		}
+	}
+	if input.AllowedScopes != nil {
+		app.AllowedScopes = domain.NormalizeOAuthScopes(*input.AllowedScopes)
+		if err := domain.ValidateAllowedScopes(app.AllowedScopes); err != nil {
+			return nil, err
 		}
 	}
 	if input.AllowLocalhost != nil {

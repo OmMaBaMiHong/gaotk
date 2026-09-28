@@ -156,3 +156,9 @@ func (c *refreshTokenCache) IsTokenInFamily(ctx context.Context, familyID string
 	key := tokenFamilyKey(familyID)
 	return c.rdb.SIsMember(ctx, key, tokenHash).Result()
 }
+
+// PutIfAbsent 原子占坑：key 不存在时写入并返回 true，已存在返回 false。
+// 实现 service.OAuthCodeOnceCache（OAuth 授权码一次性消费）。
+func (c *refreshTokenCache) PutIfAbsent(ctx context.Context, key string, value string, ttl time.Duration) (bool, error) {
+	return c.rdb.SetNX(ctx, key, value, ttl).Result()
+}

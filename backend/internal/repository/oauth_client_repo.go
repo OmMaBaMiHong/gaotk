@@ -24,6 +24,7 @@ func (r *oauthClientAppRepository) Create(ctx context.Context, app *service.OAut
 		SetClientID(app.ClientID).
 		SetClientSecret(app.ClientSecret).
 		SetRedirectUris(strings.Join(app.RedirectURIs, "\n")).
+		SetAllowedScopes(strings.Join(app.AllowedScopes, ",")).
 		SetAllowLocalhost(app.AllowLocalhost).
 		SetEnabled(app.Enabled).
 		SetRemark(app.Remark).
@@ -68,6 +69,7 @@ func (r *oauthClientAppRepository) Update(ctx context.Context, app *service.OAut
 		SetClientID(app.ClientID).
 		SetClientSecret(app.ClientSecret).
 		SetRedirectUris(strings.Join(app.RedirectURIs, "\n")).
+		SetAllowedScopes(strings.Join(app.AllowedScopes, ",")).
 		SetAllowLocalhost(app.AllowLocalhost).
 		SetEnabled(app.Enabled).
 		SetRemark(app.Remark)
@@ -113,6 +115,7 @@ func applyOAuthClientEntityToService(app *service.OAuthClientApp, entity *dbent.
 	app.ClientID = entity.ClientID
 	app.ClientSecret = entity.ClientSecret
 	app.RedirectURIs = service.NormalizeRedirectURIs(entity.RedirectUris)
+	app.AllowedScopes = service.NormalizeOAuthScopes(entity.AllowedScopes)
 	app.AllowLocalhost = entity.AllowLocalhost
 	app.Enabled = entity.Enabled
 	app.Remark = entity.Remark

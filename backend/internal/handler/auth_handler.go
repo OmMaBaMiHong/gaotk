@@ -436,6 +436,20 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 		return
 	}
 
+	// OAuth 受限令牌：只回身份视图（id/邮箱/用户名/头像/注册来源 + 授权范围），
+	// 不回余额、配额、绑定身份等面板字段——第三方应用拿到的就是"这个用户是谁"。
+	if scope := c.GetString(string(middleware2.ContextKeyOAuthScope)); scope != "" {
+		response.Success(c, gin.H{
+			"id":            user.ID,
+			"email":         user.Email,
+			"username":      user.Username,
+			"avatar_url":    user.AvatarURL,
+			"signup_source": user.SignupSource,
+			"scopes":        strings.Split(scope, ","),
+		})
+		return
+	}
+
 	identities, err := h.userService.GetProfileIdentitySummaries(c.Request.Context(), subject.UserID, user)
 	if err != nil {
 		response.ErrorFrom(c, err)

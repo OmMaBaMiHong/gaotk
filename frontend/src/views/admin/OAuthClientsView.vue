@@ -140,6 +140,12 @@
           <p class="input-hint">{{ t('admin.oauthClients.fields.redirectUrisHint') }}</p>
         </div>
 
+        <div>
+          <label class="input-label">{{ t('admin.oauthClients.fields.allowedScopes') }}</label>
+          <input v-model="form.allowed_scopes" type="text" class="input font-mono" />
+          <p class="input-hint">{{ t('admin.oauthClients.fields.allowedScopesHint') }}</p>
+        </div>
+
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label class="flex items-center gap-2 text-sm">
@@ -223,6 +229,7 @@ const form = ref({
   name: '',
   client_id: '',
   redirect_uris: '',
+  allowed_scopes: '',
   allow_localhost: false,
   regenerate_secret: false,
   remark: ''
@@ -253,7 +260,7 @@ function openCreateDialog() {
   editingId.value = null
   issuedSecret.value = ''
   formError.value = ''
-  form.value = { name: '', client_id: '', redirect_uris: '', allow_localhost: false, regenerate_secret: false, remark: '' }
+  form.value = { name: '', client_id: '', redirect_uris: '', allowed_scopes: '', allow_localhost: false, regenerate_secret: false, remark: '' }
   showEditDialog.value = true
 }
 
@@ -266,6 +273,7 @@ function openEditDialog(row: OAuthClientView) {
     name: row.name,
     client_id: row.client_id,
     redirect_uris: row.redirect_uris.join('\n'),
+    allowed_scopes: (row.allowed_scopes || []).join(','),
     allow_localhost: row.allow_localhost,
     regenerate_secret: false,
     remark: row.remark
@@ -286,6 +294,7 @@ async function handleSave() {
       const res = await oauthClientsAPI.update(editingId.value, {
         name: form.value.name,
         redirect_uris: form.value.redirect_uris.split('\n').map(s => s.trim()).filter(Boolean),
+        allowed_scopes: form.value.allowed_scopes,
         allow_localhost: form.value.allow_localhost,
         regenerate_secret: form.value.regenerate_secret || undefined,
         remark: form.value.remark
@@ -296,6 +305,7 @@ async function handleSave() {
         name: form.value.name,
         client_id: form.value.client_id,
         redirect_uris: form.value.redirect_uris.split('\n').map(s => s.trim()).filter(Boolean),
+        allowed_scopes: form.value.allowed_scopes,
         allow_localhost: form.value.allow_localhost,
         remark: form.value.remark
       })

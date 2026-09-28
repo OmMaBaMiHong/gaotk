@@ -66,6 +66,9 @@ type JWTClaims struct {
 	SessionID string `json:"sid,omitempty"`
 	// BindingHash 会话指纹哈希（IP+UA），会话绑定开启时校验；空值表示旧 token（平滑升级）。
 	BindingHash string `json:"bnd,omitempty"`
+	// Scope OAuth 受限令牌的授权范围（逗号分隔）。空 = 全量面板令牌（登录/传统 OAuth）。
+	// 非空时中间件只放行 scope 白名单内的端点，面板管理 API 一律 403。
+	Scope string `json:"scope,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -86,6 +89,8 @@ type AuthService struct {
 	affiliateService      *AffiliateService
 	defaultSubAssigner    DefaultSubscriptionAssigner
 	userPlatformQuotaRepo UserPlatformQuotaRepository
+	// codeOnceCache OAuth 授权码一次性消费缓存（受限模式防重放的硬依赖）。
+	codeOnceCache OAuthCodeOnceCache
 }
 
 type CaptchaProof struct {
@@ -1426,6 +1431,52 @@ func (s *AuthService) generateAccessToken(user *User, sessionID, bindingHash str
 		// 向后兼容：使用旧的expire_hour配置
 		expiresAt = now.Add(time.Duration(s.cfg.JWT.ExpireHour) * time.Hour)
 	}
+	return s.signAccessToken(user, sessionID, bindingHash, nil, expiresAt)
+}
+
+// oauthScopedTokenTTL OAuth 受限令牌有效期。第三方应用只需要"这个用户是谁"，
+// 短命令牌 + refresh 轮转足够；不可用面板级 24h 长令牌放大泄漏爆炸半径。
+const oauthScopedTokenTTL = time.Hour
+
+// GenerateScopedTokenPair 签发 OAuth 受限令牌对：access 带 scope（短时），
+// refresh 在 Redis 里记录同一 scope，轮转时延续，刷新不能变成越权通道。
+func (s *AuthService) GenerateScopedTokenPair(ctx context.Context, user *User, familyID string, scopes []string) (*TokenPair, error) {
+	if s.refreshTokenCache == nil {
+		return nil, errors.New("refresh token cache not configured")
+	}
+	if len(scopes) == 0 {
+		return nil, fmt.Errorf("scoped token pair requires non-empty scopes")
+	}
+
+	if familyID == "" {
+		familyBytes := make([]byte, 16)
+		if _, err := rand.Read(familyBytes); err != nil {
+			return nil, fmt.Errorf("generate family id: %w", err)
+		}
+		familyID = hex.EncodeToString(familyBytes)
+	}
+
+	now := time.Now()
+	accessToken, err := s.signAccessToken(user, familyID, "", scopes, now.Add(oauthScopedTokenTTL))
+	if err != nil {
+		return nil, fmt.Errorf("generate scoped access token: %w", err)
+	}
+	refreshToken, err := s.generateRefreshToken(ctx, user, familyID, scopes)
+	if err != nil {
+		return nil, fmt.Errorf("generate scoped refresh token: %w", err)
+	}
+
+	return &TokenPair{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		ExpiresIn:    int(oauthScopedTokenTTL.Seconds()),
+	}, nil
+}
+
+// signAccessToken 组装并签名 JWT。scopes 非空 = OAuth 受限令牌（无会话绑定指纹，
+// 依赖短 TTL + refresh 轮转；绑定指纹是长会话的机制，对 1h 令牌无意义）。
+func (s *AuthService) signAccessToken(user *User, sessionID, bindingHash string, scopes []string, expiresAt time.Time) (string, error) {
+	now := time.Now()
 
 	claims := &JWTClaims{
 		UserID:       user.ID,
@@ -1434,6 +1485,7 @@ func (s *AuthService) generateAccessToken(user *User, sessionID, bindingHash str
 		TokenVersion: resolvedTokenVersion(user),
 		SessionID:    sessionID,
 		BindingHash:  bindingHash,
+		Scope:        strings.Join(scopes, ","),
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -1709,7 +1761,7 @@ func (s *AuthService) GenerateTokenPair(ctx context.Context, user *User, familyI
 	}
 
 	// 生成Refresh Token
-	refreshToken, err := s.generateRefreshToken(ctx, user, familyID)
+	refreshToken, err := s.generateRefreshToken(ctx, user, familyID, nil)
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
@@ -1722,7 +1774,7 @@ func (s *AuthService) GenerateTokenPair(ctx context.Context, user *User, familyI
 }
 
 // generateRefreshToken 生成并存储Refresh Token
-func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, familyID string) (string, error) {
+func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, familyID string, scopes []string) (string, error) {
 	// 生成随机Token
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
@@ -1750,6 +1802,7 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 		TokenVersion: resolvedTokenVersion(user),
 		FamilyID:     familyID,
 		BindingHash:  sessionBindingHashFromContext(ctx),
+		Scopes:       scopes,
 		CreatedAt:    now,
 		ExpiresAt:    now.Add(ttl),
 	}
@@ -1851,7 +1904,13 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 	}
 
 	// 生成新的Token对，保持同一个家族ID
-	pair, err := s.GenerateTokenPair(ctx, user, data.FamilyID)
+	// 受限会话刷新时延续原 scope（Scopes 存在即 OAuth 受限会话）。
+	var pair *TokenPair
+	if len(data.Scopes) > 0 {
+		pair, err = s.GenerateScopedTokenPair(ctx, user, data.FamilyID, data.Scopes)
+	} else {
+		pair, err = s.GenerateTokenPair(ctx, user, data.FamilyID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1872,6 +1931,45 @@ func (s *AuthService) RevokeRefreshToken(ctx context.Context, refreshToken strin
 
 	tokenHash := hashToken(refreshToken)
 	return s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash)
+}
+
+// oauthCodeOnceTTL 授权码一次性消费的 Redis 记账时长。必须 ≥ 授权码 TTL（5 分钟），
+// 否则码还没过期坑位就释放了，重放窗口重新打开。
+const oauthCodeOnceTTL = 10 * time.Minute
+
+const oauthCodeOnceKeyPrefix = "oauth:code_once:"
+
+// OAuthCodeOnceCache 授权码一次性消费缓存（Redis SetNX 语义）。
+type OAuthCodeOnceCache interface {
+	PutIfAbsent(ctx context.Context, key string, value string, ttl time.Duration) (bool, error)
+}
+
+// SetOAuthCodeOnceCache 注入一次性消费缓存（应用装配时调用）。
+func (s *AuthService) SetOAuthCodeOnceCache(cache OAuthCodeOnceCache) {
+	s.codeOnceCache = cache
+}
+
+// ErrOAuthCodeReused 授权码已被消费（重放）。
+var ErrOAuthCodeReused = infraerrors.BadRequest("OAUTH_CODE_ALREADY_USED", "authorization code has already been used")
+
+// ConsumeOAuthCodeOnce 以授权码 nonce 为 jti 原子占坑：首次消费通过，重放返回
+// ErrOAuthCodeReused。缓存不可用时 fail closed——防重放是受限模式的硬要求，
+// 静默放行等于没有防重放。
+func (s *AuthService) ConsumeOAuthCodeOnce(ctx context.Context, nonce string) error {
+	if nonce == "" {
+		return ErrOAuthCodeReused
+	}
+	if s.codeOnceCache == nil {
+		return ErrServiceUnavailable
+	}
+	ok, err := s.codeOnceCache.PutIfAbsent(ctx, oauthCodeOnceKeyPrefix+nonce, "1", oauthCodeOnceTTL)
+	if err != nil {
+		return ErrServiceUnavailable
+	}
+	if !ok {
+		return ErrOAuthCodeReused
+	}
+	return nil
 }
 
 // RevokeSessionFamily 撤销单个会话家族（该会话的所有 refresh token）。

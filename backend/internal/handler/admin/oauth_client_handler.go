@@ -24,6 +24,7 @@ type CreateOAuthClientAppRequest struct {
 	ClientID       string   `json:"client_id" binding:"required"`
 	ClientSecret   string   `json:"client_secret"`
 	RedirectURIs   []string `json:"redirect_uris" binding:"required,min=1"`
+	AllowedScopes  string   `json:"allowed_scopes"` // 逗号分隔；空 = 传统模式（全量面板令牌）
 	AllowLocalhost bool     `json:"allow_localhost"`
 	Remark         string   `json:"remark"`
 }
@@ -32,6 +33,7 @@ type UpdateOAuthClientAppRequest struct {
 	Name             *string   `json:"name"`
 	ClientSecret     *string   `json:"client_secret"`
 	RedirectURIs     *[]string `json:"redirect_uris"`
+	AllowedScopes    *string   `json:"allowed_scopes"`
 	AllowLocalhost   *bool     `json:"allow_localhost"`
 	Enabled          *bool     `json:"enabled"`
 	Remark           *string   `json:"remark"`
@@ -44,6 +46,7 @@ type oauthClientAppView struct {
 	ClientID       string   `json:"client_id"`
 	SecretLast4    string   `json:"secret_last4"`
 	RedirectURIs   []string `json:"redirect_uris"`
+	AllowedScopes  []string `json:"allowed_scopes"`
 	AllowLocalhost bool     `json:"allow_localhost"`
 	Enabled        bool     `json:"enabled"`
 	Remark         string   `json:"remark"`
@@ -63,6 +66,7 @@ func (h *OAuthClientAppHandler) view(app *service.OAuthClientApp) oauthClientApp
 		ClientID:       app.ClientID,
 		SecretLast4:    secretLast4,
 		RedirectURIs:   app.RedirectURIs,
+		AllowedScopes:  app.AllowedScopes,
 		AllowLocalhost: app.AllowLocalhost,
 		Enabled:        app.Enabled,
 		Remark:         app.Remark,
@@ -99,6 +103,7 @@ func (h *OAuthClientAppHandler) Create(c *gin.Context) {
 		ClientID:       req.ClientID,
 		ClientSecret:   req.ClientSecret,
 		RedirectURIs:   strings.Join(req.RedirectURIs, "\n"),
+		AllowedScopes:  req.AllowedScopes,
 		AllowLocalhost: req.AllowLocalhost,
 		Remark:         req.Remark,
 	})
@@ -138,6 +143,7 @@ func (h *OAuthClientAppHandler) Update(c *gin.Context) {
 		uris := strings.Join(*req.RedirectURIs, "\n")
 		input.RedirectURIs = &uris
 	}
+	input.AllowedScopes = req.AllowedScopes
 	app, err := h.oauthClientAppService.Update(c.Request.Context(), id, input)
 	if err != nil {
 		response.ErrorFrom(c, err)
