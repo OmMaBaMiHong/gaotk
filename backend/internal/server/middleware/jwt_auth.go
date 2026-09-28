@@ -121,40 +121,46 @@ func jwtAuth(
 	}
 }
 
-// oauthScopeEndpoints 每个 scope 允许访问的端点白名单。
-// profile = 身份信息（/auth/me 裁剪视图）；membership = 会员态只读。
+// oauthScopeEndpoints 每个 scope 允许访问的端点白名单：scope → 路由 FullPath → 允许的 HTTP 方法。
+// profile = 身份信息；membership = 会员态与在售套餐只读；keys = 用户自己的 API Key 管理
+// （skoob 等 C 端"领 key/登录对账"的最小集，仍远小于全量面板令牌）。
 // 端点用 gin 注册路由的 FullPath 精确匹配，新增授权端点必须显式登记到这里。
-var oauthScopeEndpoints = map[string]map[string]struct{}{ //nolint:gochecknoglobals // 静态白名单，编译期可知
+var oauthScopeEndpoints = map[string]map[string]map[string]struct{}{ //nolint:gochecknoglobals // 静态白名单，编译期可知
 	"profile": {
-		"/api/v1/auth/me": {},
+		"/api/v1/auth/me": {http.MethodGet: {}},
 	},
 	"membership": {
-		"/api/v1/auth/me":                    {},
-		"/api/v1/subscriptions":              {},
-		"/api/v1/subscriptions/active":       {},
-		"/api/v1/subscriptions/progress":     {},
-		"/api/v1/subscriptions/summary":      {},
+		"/api/v1/auth/me":                {http.MethodGet: {}},
+		"/api/v1/subscriptions":          {http.MethodGet: {}},
+		"/api/v1/subscriptions/active":   {http.MethodGet: {}},
+		"/api/v1/subscriptions/progress": {http.MethodGet: {}},
+		"/api/v1/subscriptions/summary":  {http.MethodGet: {}},
+		"/api/v1/payment/plans":          {http.MethodGet: {}},
+	},
+	"keys": {
+		"/api/v1/keys":     {http.MethodGet: {}, http.MethodPost: {}},
+		"/api/v1/keys/:id": {http.MethodGet: {}, http.MethodDelete: {}},
 	},
 }
 
 // oauthScopeAllowsEndpoint 判断携带 scopes 的受限令牌能否访问 method+fullPath。
-// membership 端点只放行只读方法；未知 scope 一律拒绝（fail closed）。
+// 未登记的方法/端点/未知 scope 一律拒绝（fail closed）。
 func oauthScopeAllowsEndpoint(scopes string, method string, fullPath string) bool {
 	if fullPath == "" {
 		fullPath = "/api/v1/auth/me"
 	}
 	for _, scope := range strings.Split(scopes, ",") {
-		allowed, ok := oauthScopeEndpoints[strings.TrimSpace(scope)]
+		paths, ok := oauthScopeEndpoints[strings.TrimSpace(scope)]
 		if !ok {
 			continue
 		}
-		if _, hit := allowed[fullPath]; !hit {
+		methods, hit := paths[fullPath]
+		if !hit {
 			continue
 		}
-		if scope == "membership" && method != http.MethodGet {
-			continue
+		if _, allowed := methods[method]; allowed {
+			return true
 		}
-		return true
 	}
 	return false
 }

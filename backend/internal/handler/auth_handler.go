@@ -443,6 +443,7 @@ func (h *AuthHandler) GetCurrentUser(c *gin.Context) {
 			"id":            user.ID,
 			"email":         user.Email,
 			"username":      user.Username,
+			"role":          user.Role,
 			"avatar_url":    user.AvatarURL,
 			"signup_source": user.SignupSource,
 			"scopes":        strings.Split(scope, ","),

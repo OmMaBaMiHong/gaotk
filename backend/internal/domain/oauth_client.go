@@ -26,7 +26,8 @@ var (
 // 空 allowed_scopes = 传统模式，code 换全量面板令牌（存量客户端零影响）。
 const (
 	OAuthScopeProfile    = "profile"    // 身份信息（/auth/me 裁剪视图）
-	OAuthScopeMembership = "membership" // 会员态只读（/subscriptions 只读端点）
+	OAuthScopeMembership = "membership" // 会员态只读（/subscriptions、/payment/plans 只读端点）
+	OAuthScopeKeys       = "keys"       // 自己的 API Key 管理（GET/POST/DELETE /keys）——C 端"领 key/对账"能力
 )
 
 // KnownOAuthScopes 全部合法 scope。登记与请求时都按这个集合校验，
@@ -34,6 +35,7 @@ const (
 var KnownOAuthScopes = map[string]struct{}{
 	OAuthScopeProfile:    {},
 	OAuthScopeMembership: {},
+	OAuthScopeKeys:       {},
 }
 
 // ErrOAuthClientScopeInvalid scope 不合法（不在 KnownOAuthScopes 或超出客户端白名单）。
