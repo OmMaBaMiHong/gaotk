@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
+	"github.com/Wei-Shaw/sub2api/ent/checkinrecord"
 	"github.com/Wei-Shaw/sub2api/ent/compositemodelroute"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
@@ -859,6 +860,20 @@ func init() {
 	channelmonitorrequesttemplate.DefaultBodyOverrideMode = channelmonitorrequesttemplateDescBodyOverrideMode.Default.(string)
 	// channelmonitorrequesttemplate.BodyOverrideModeValidator is a validator for the "body_override_mode" field. It is called by the builders before save.
 	channelmonitorrequesttemplate.BodyOverrideModeValidator = channelmonitorrequesttemplateDescBodyOverrideMode.Validators[0].(func(string) error)
+	checkinrecordFields := schema.CheckinRecord{}.Fields()
+	_ = checkinrecordFields
+	// checkinrecordDescCheckinDate is the schema descriptor for checkin_date field.
+	checkinrecordDescCheckinDate := checkinrecordFields[1].Descriptor()
+	// checkinrecord.CheckinDateValidator is a validator for the "checkin_date" field. It is called by the builders before save.
+	checkinrecord.CheckinDateValidator = checkinrecordDescCheckinDate.Validators[0].(func(string) error)
+	// checkinrecordDescStreakDays is the schema descriptor for streak_days field.
+	checkinrecordDescStreakDays := checkinrecordFields[3].Descriptor()
+	// checkinrecord.DefaultStreakDays holds the default value on creation for the streak_days field.
+	checkinrecord.DefaultStreakDays = checkinrecordDescStreakDays.Default.(int)
+	// checkinrecordDescCreatedAt is the schema descriptor for created_at field.
+	checkinrecordDescCreatedAt := checkinrecordFields[4].Descriptor()
+	// checkinrecord.DefaultCreatedAt holds the default value on creation for the created_at field.
+	checkinrecord.DefaultCreatedAt = checkinrecordDescCreatedAt.Default.(func() time.Time)
 	compositemodelrouteMixin := schema.CompositeModelRoute{}.Mixin()
 	compositemodelrouteMixinHooks1 := compositemodelrouteMixin[1].Hooks()
 	compositemodelroute.Hooks[0] = compositemodelrouteMixinHooks1[0]
@@ -1346,26 +1361,30 @@ func init() {
 	oauthclientDescRedirectUris := oauthclientFields[3].Descriptor()
 	// oauthclient.DefaultRedirectUris holds the default value on creation for the redirect_uris field.
 	oauthclient.DefaultRedirectUris = oauthclientDescRedirectUris.Default.(string)
+	// oauthclientDescAllowedScopes is the schema descriptor for allowed_scopes field.
+	oauthclientDescAllowedScopes := oauthclientFields[4].Descriptor()
+	// oauthclient.DefaultAllowedScopes holds the default value on creation for the allowed_scopes field.
+	oauthclient.DefaultAllowedScopes = oauthclientDescAllowedScopes.Default.(string)
 	// oauthclientDescAllowLocalhost is the schema descriptor for allow_localhost field.
-	oauthclientDescAllowLocalhost := oauthclientFields[4].Descriptor()
+	oauthclientDescAllowLocalhost := oauthclientFields[5].Descriptor()
 	// oauthclient.DefaultAllowLocalhost holds the default value on creation for the allow_localhost field.
 	oauthclient.DefaultAllowLocalhost = oauthclientDescAllowLocalhost.Default.(bool)
 	// oauthclientDescEnabled is the schema descriptor for enabled field.
-	oauthclientDescEnabled := oauthclientFields[5].Descriptor()
+	oauthclientDescEnabled := oauthclientFields[6].Descriptor()
 	// oauthclient.DefaultEnabled holds the default value on creation for the enabled field.
 	oauthclient.DefaultEnabled = oauthclientDescEnabled.Default.(bool)
 	// oauthclientDescRemark is the schema descriptor for remark field.
-	oauthclientDescRemark := oauthclientFields[6].Descriptor()
+	oauthclientDescRemark := oauthclientFields[7].Descriptor()
 	// oauthclient.DefaultRemark holds the default value on creation for the remark field.
 	oauthclient.DefaultRemark = oauthclientDescRemark.Default.(string)
 	// oauthclient.RemarkValidator is a validator for the "remark" field. It is called by the builders before save.
 	oauthclient.RemarkValidator = oauthclientDescRemark.Validators[0].(func(string) error)
 	// oauthclientDescCreatedAt is the schema descriptor for created_at field.
-	oauthclientDescCreatedAt := oauthclientFields[7].Descriptor()
+	oauthclientDescCreatedAt := oauthclientFields[8].Descriptor()
 	// oauthclient.DefaultCreatedAt holds the default value on creation for the created_at field.
 	oauthclient.DefaultCreatedAt = oauthclientDescCreatedAt.Default.(func() time.Time)
 	// oauthclientDescUpdatedAt is the schema descriptor for updated_at field.
-	oauthclientDescUpdatedAt := oauthclientFields[8].Descriptor()
+	oauthclientDescUpdatedAt := oauthclientFields[9].Descriptor()
 	// oauthclient.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	oauthclient.DefaultUpdatedAt = oauthclientDescUpdatedAt.Default.(func() time.Time)
 	// oauthclient.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

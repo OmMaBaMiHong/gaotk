@@ -444,6 +444,13 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	// Affiliate (邀请返利) feature switch
 	updates[SettingKeyAffiliateEnabled] = strconv.FormatBool(settings.AffiliateEnabled)
 
+	// 签到发额度配置。min/max 交换修正放到发放侧（computeCheckinReward），
+	// 这里只做 clamp，保证写库值始终落在 [0, 上限] 区间。
+	updates[SettingKeyCheckinEnabled] = strconv.FormatBool(settings.CheckinEnabled)
+	updates[SettingKeyCheckinMinAmount] = strconv.FormatFloat(clampCheckinAmount(settings.CheckinMinAmount, CheckinMinAmountDefault), 'f', 8, 64)
+	updates[SettingKeyCheckinMaxAmount] = strconv.FormatFloat(clampCheckinAmount(settings.CheckinMaxAmount, CheckinMaxAmountDefault), 'f', 8, 64)
+	updates[SettingKeyCheckinStreakBonusAmount] = strconv.FormatFloat(clampCheckinAmount(settings.CheckinStreakBonusAmount, CheckinStreakBonusDefault), 'f', 8, 64)
+
 	// 风控中心功能开关
 	updates[SettingKeyRiskControlEnabled] = strconv.FormatBool(settings.RiskControlEnabled)
 

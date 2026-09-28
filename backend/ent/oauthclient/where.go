@@ -74,6 +74,11 @@ func RedirectUris(v string) predicate.OAuthClient {
 	return predicate.OAuthClient(sql.FieldEQ(FieldRedirectUris, v))
 }
 
+// AllowedScopes applies equality check predicate on the "allowed_scopes" field. It's identical to AllowedScopesEQ.
+func AllowedScopes(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldEQ(FieldAllowedScopes, v))
+}
+
 // AllowLocalhost applies equality check predicate on the "allow_localhost" field. It's identical to AllowLocalhostEQ.
 func AllowLocalhost(v bool) predicate.OAuthClient {
 	return predicate.OAuthClient(sql.FieldEQ(FieldAllowLocalhost, v))
@@ -357,6 +362,71 @@ func RedirectUrisEqualFold(v string) predicate.OAuthClient {
 // RedirectUrisContainsFold applies the ContainsFold predicate on the "redirect_uris" field.
 func RedirectUrisContainsFold(v string) predicate.OAuthClient {
 	return predicate.OAuthClient(sql.FieldContainsFold(FieldRedirectUris, v))
+}
+
+// AllowedScopesEQ applies the EQ predicate on the "allowed_scopes" field.
+func AllowedScopesEQ(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldEQ(FieldAllowedScopes, v))
+}
+
+// AllowedScopesNEQ applies the NEQ predicate on the "allowed_scopes" field.
+func AllowedScopesNEQ(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldNEQ(FieldAllowedScopes, v))
+}
+
+// AllowedScopesIn applies the In predicate on the "allowed_scopes" field.
+func AllowedScopesIn(vs ...string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldIn(FieldAllowedScopes, vs...))
+}
+
+// AllowedScopesNotIn applies the NotIn predicate on the "allowed_scopes" field.
+func AllowedScopesNotIn(vs ...string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldNotIn(FieldAllowedScopes, vs...))
+}
+
+// AllowedScopesGT applies the GT predicate on the "allowed_scopes" field.
+func AllowedScopesGT(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldGT(FieldAllowedScopes, v))
+}
+
+// AllowedScopesGTE applies the GTE predicate on the "allowed_scopes" field.
+func AllowedScopesGTE(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldGTE(FieldAllowedScopes, v))
+}
+
+// AllowedScopesLT applies the LT predicate on the "allowed_scopes" field.
+func AllowedScopesLT(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldLT(FieldAllowedScopes, v))
+}
+
+// AllowedScopesLTE applies the LTE predicate on the "allowed_scopes" field.
+func AllowedScopesLTE(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldLTE(FieldAllowedScopes, v))
+}
+
+// AllowedScopesContains applies the Contains predicate on the "allowed_scopes" field.
+func AllowedScopesContains(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldContains(FieldAllowedScopes, v))
+}
+
+// AllowedScopesHasPrefix applies the HasPrefix predicate on the "allowed_scopes" field.
+func AllowedScopesHasPrefix(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldHasPrefix(FieldAllowedScopes, v))
+}
+
+// AllowedScopesHasSuffix applies the HasSuffix predicate on the "allowed_scopes" field.
+func AllowedScopesHasSuffix(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldHasSuffix(FieldAllowedScopes, v))
+}
+
+// AllowedScopesEqualFold applies the EqualFold predicate on the "allowed_scopes" field.
+func AllowedScopesEqualFold(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldEqualFold(FieldAllowedScopes, v))
+}
+
+// AllowedScopesContainsFold applies the ContainsFold predicate on the "allowed_scopes" field.
+func AllowedScopesContainsFold(v string) predicate.OAuthClient {
+	return predicate.OAuthClient(sql.FieldContainsFold(FieldAllowedScopes, v))
 }
 
 // AllowLocalhostEQ applies the EQ predicate on the "allow_localhost" field.

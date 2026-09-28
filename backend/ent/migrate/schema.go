@@ -802,6 +802,33 @@ var (
 			},
 		},
 	}
+	// CheckinRecordsColumns holds the columns for the "checkin_records" table.
+	CheckinRecordsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "checkin_date", Type: field.TypeString, Size: 10},
+		{Name: "amount_awarded", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "numeric(20,8)"}},
+		{Name: "streak_days", Type: field.TypeInt, Default: 1},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+	}
+	// CheckinRecordsTable holds the schema information for the "checkin_records" table.
+	CheckinRecordsTable = &schema.Table{
+		Name:       "checkin_records",
+		Columns:    CheckinRecordsColumns,
+		PrimaryKey: []*schema.Column{CheckinRecordsColumns[0]},
+		Indexes: []*schema.Index{
+			{
+				Name:    "checkinrecord_user_id_checkin_date",
+				Unique:  true,
+				Columns: []*schema.Column{CheckinRecordsColumns[1], CheckinRecordsColumns[2]},
+			},
+			{
+				Name:    "checkinrecord_user_id_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{CheckinRecordsColumns[1], CheckinRecordsColumns[5]},
+			},
+		},
+	}
 	// CompositeModelRoutesColumns holds the columns for the "composite_model_routes" table.
 	CompositeModelRoutesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1105,6 +1132,7 @@ var (
 		{Name: "client_id", Type: field.TypeString, Unique: true, Size: 64},
 		{Name: "client_secret", Type: field.TypeString, Size: 128},
 		{Name: "redirect_uris", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "allowed_scopes", Type: field.TypeString, Default: "", SchemaType: map[string]string{"postgres": "text"}},
 		{Name: "allow_localhost", Type: field.TypeBool, Default: false},
 		{Name: "enabled", Type: field.TypeBool, Default: true},
 		{Name: "remark", Type: field.TypeString, Size: 500, Default: ""},
@@ -2122,6 +2150,7 @@ var (
 		ChannelMonitorDailyRollupsTable,
 		ChannelMonitorHistoriesTable,
 		ChannelMonitorRequestTemplatesTable,
+		CheckinRecordsTable,
 		CompositeModelRoutesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
@@ -2206,6 +2235,9 @@ func init() {
 	}
 	ChannelMonitorRequestTemplatesTable.Annotation = &entsql.Annotation{
 		Table: "channel_monitor_request_templates",
+	}
+	CheckinRecordsTable.Annotation = &entsql.Annotation{
+		Table: "checkin_records",
 	}
 	CompositeModelRoutesTable.ForeignKeys[0].RefTable = GroupsTable
 	CompositeModelRoutesTable.Annotation = &entsql.Annotation{

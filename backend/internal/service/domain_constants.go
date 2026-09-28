@@ -36,6 +36,16 @@ const (
 	AdminRechargeRebateEnabledDefault   = false // 管理员充值默认不产生返利
 )
 
+// Check-in reward settings（每日签到发美元额度）
+const (
+	CheckinEnabledDefault       = false // 签到总开关默认关闭
+	CheckinMinAmountDefault     = 0.01  // 单日随机奖励下限（美元）
+	CheckinMaxAmountDefault     = 0.05  // 单日随机奖励上限（美元）
+	CheckinStreakBonusDefault   = 0.05  // 连续每满 7 天的额外加成（美元），0 = 关闭
+	CheckinStreakBonusInterval  = 7     // 加成触发周期：连续天数每满 7 的倍数
+	CheckinAmountCeilingDefault = 100.0 // 单项金额配置的绝对上限，防止误配置刷穿余额
+)
+
 // Platform constants
 const (
 	PlatformAnthropic   = domain.PlatformAnthropic
@@ -238,6 +248,10 @@ const (
 	SettingKeyAffiliateRebateDurationDays         = "affiliate_rebate_duration_days"   // 返利有效期（天，0=永久）
 	SettingKeyAffiliateRebatePerInviteeCap        = "affiliate_rebate_per_invitee_cap" // 单人返利上限（0=无上限）
 	SettingKeyAffiliateAdminRechargeEnabled       = "affiliate_admin_recharge_enabled" // 管理员充值是否产生返利
+	SettingKeyCheckinEnabled                      = "checkin_enabled"                  // 每日签到发额度总开关
+	SettingKeyCheckinMinAmount                    = "checkin_min_amount"               // 单日随机奖励下限（美元）
+	SettingKeyCheckinMaxAmount                    = "checkin_max_amount"               // 单日随机奖励上限（美元）
+	SettingKeyCheckinStreakBonusAmount            = "checkin_streak_bonus_amount"      // 连续每满 7 天的额外加成（美元，0=关闭）
 	SettingKeyRiskControlEnabled                  = "risk_control_enabled"             // 是否启用风控中心入口与审计链路
 	SettingKeyContentModerationConfig             = "content_moderation_config"        // 内容审计配置（JSON）
 	SettingKeyCyberSessionBlockEnabled            = "cyber_session_block_enabled"      // cyber 命中后会话级自动屏蔽总开关(默认关)

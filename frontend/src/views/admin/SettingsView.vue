@@ -7734,6 +7734,93 @@
           </div>
         </div>
 
+        <!-- Daily check-in (每日签到发额度) feature card -->
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.checkin.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.checkin.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.checkin.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.checkin.enabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.checkin_enabled" />
+            </div>
+
+            <div v-if="form.checkin_enabled" class="space-y-6">
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.checkin.minAmount') }}
+                </label>
+                <div class="relative">
+                  <input
+                    v-model.number="form.checkin_min_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="input pr-10"
+                    placeholder="0.01"
+                  />
+                  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.checkin.minAmountHint') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.checkin.maxAmount') }}
+                </label>
+                <div class="relative">
+                  <input
+                    v-model.number="form.checkin_max_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="input pr-10"
+                    placeholder="0.05"
+                  />
+                  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.checkin.maxAmountHint') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.checkin.streakBonus') }}
+                </label>
+                <div class="relative">
+                  <input
+                    v-model.number="form.checkin_streak_bonus_amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="input pr-10"
+                    placeholder="0.05"
+                  />
+                  <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">$</span>
+                </div>
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.checkin.streakBonusHint') }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Affiliate add/edit modal -->
         <div
           v-if="affiliateModal.open"
@@ -10030,6 +10117,11 @@ const form = reactive<SettingsForm>({
   plugin_management_enabled: false,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
+  // 每日签到发额度配置
+  checkin_enabled: false,
+  checkin_min_amount: 0.01,
+  checkin_max_amount: 0.05,
+  checkin_streak_bonus_amount: 0.05,
   // Allow user view error requests
   allow_user_view_error_requests: false,
 });
@@ -11738,6 +11830,11 @@ async function saveSettings() {
       plugin_management_enabled: form.plugin_management_enabled,
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
+      // 每日签到发额度配置
+      checkin_enabled: form.checkin_enabled,
+      checkin_min_amount: Number(form.checkin_min_amount) || 0,
+      checkin_max_amount: Number(form.checkin_max_amount) || 0,
+      checkin_streak_bonus_amount: Number(form.checkin_streak_bonus_amount) || 0,
       allow_user_view_error_requests: form.allow_user_view_error_requests,
     };
 

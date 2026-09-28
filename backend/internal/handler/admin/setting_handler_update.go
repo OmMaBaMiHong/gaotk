@@ -360,6 +360,12 @@ type UpdateSettingsRequest struct {
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
 
+	// 每日签到发额度配置（指针：省略=保持现值，与 affiliate 金额字段同一惯例）
+	CheckinEnabled           *bool    `json:"checkin_enabled"`
+	CheckinMinAmount         *float64 `json:"checkin_min_amount"`
+	CheckinMaxAmount         *float64 `json:"checkin_max_amount"`
+	CheckinStreakBonusAmount *float64 `json:"checkin_streak_bonus_amount"`
+
 	// 风控中心功能开关
 	RiskControlEnabled *bool `json:"risk_control_enabled"`
 
@@ -2002,6 +2008,18 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AffiliateEnabled
 		}(),
+		CheckinEnabled: func() bool {
+			if req.CheckinEnabled != nil {
+				return *req.CheckinEnabled
+			}
+			return previousSettings.CheckinEnabled
+		}(),
+		CheckinMinAmount: float64ValueOrDefault(req.CheckinMinAmount, previousSettings.CheckinMinAmount),
+		CheckinMaxAmount: float64ValueOrDefault(req.CheckinMaxAmount, previousSettings.CheckinMaxAmount),
+		CheckinStreakBonusAmount: float64ValueOrDefault(
+			req.CheckinStreakBonusAmount,
+			previousSettings.CheckinStreakBonusAmount,
+		),
 		RiskControlEnabled: func() bool {
 			if req.RiskControlEnabled != nil {
 				return *req.RiskControlEnabled
@@ -2426,6 +2444,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PluginManagementEnabled: updatedSettings.PluginManagementEnabled,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
+
+		CheckinEnabled:           updatedSettings.CheckinEnabled,
+		CheckinMinAmount:         updatedSettings.CheckinMinAmount,
+		CheckinMaxAmount:         updatedSettings.CheckinMaxAmount,
+		CheckinStreakBonusAmount: updatedSettings.CheckinStreakBonusAmount,
 
 		RiskControlEnabled:          updatedSettings.RiskControlEnabled,
 		CyberSessionBlockEnabled:    updatedSettings.CyberSessionBlockEnabled,

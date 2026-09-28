@@ -79,6 +79,67 @@ func (s *SettingService) GetCustomMenuItemsRaw(ctx context.Context) string {
 	return value
 }
 
+// IsCheckinEnabled 检查是否启用每日签到发额度（默认关闭）
+func (s *SettingService) IsCheckinEnabled(ctx context.Context) bool {
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyCheckinEnabled)
+	if err != nil {
+		return CheckinEnabledDefault
+	}
+	return value == "true"
+}
+
+// GetCheckinMinAmount 返回单日随机奖励下限（美元）。
+// 解析失败、缺失或为负都回退默认值——奖励金额从不抛错，调用方只关心一个可用的数值。
+func (s *SettingService) GetCheckinMinAmount(ctx context.Context) float64 {
+	return parseCheckinAmountSetting(
+		func() (string, error) { return s.settingRepo.GetValue(ctx, SettingKeyCheckinMinAmount) },
+		CheckinMinAmountDefault,
+	)
+}
+
+// GetCheckinMaxAmount 返回单日随机奖励上限（美元）。
+func (s *SettingService) GetCheckinMaxAmount(ctx context.Context) float64 {
+	return parseCheckinAmountSetting(
+		func() (string, error) { return s.settingRepo.GetValue(ctx, SettingKeyCheckinMaxAmount) },
+		CheckinMaxAmountDefault,
+	)
+}
+
+// GetCheckinStreakBonusAmount 返回连续签到每满 7 天的额外加成（美元，0 = 关闭）。
+func (s *SettingService) GetCheckinStreakBonusAmount(ctx context.Context) float64 {
+	return parseCheckinAmountSetting(
+		func() (string, error) { return s.settingRepo.GetValue(ctx, SettingKeyCheckinStreakBonusAmount) },
+		CheckinStreakBonusDefault,
+	)
+}
+
+// parseCheckinAmountSetting 统一解析签到金额配置：非有限数值或为负一律回退默认值。
+func parseCheckinAmountSetting(getValue func() (string, error), fallback float64) float64 {
+	raw, err := getValue()
+	if err != nil {
+		return fallback
+	}
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return fallback
+	}
+	if value > CheckinAmountCeilingDefault {
+		return CheckinAmountCeilingDefault
+	}
+	return value
+}
+
+// clampCheckinAmount 写库前的金额 clamp：非有限数值回退 fallback，越界截断到 [0, 上限]。
+func clampCheckinAmount(value, fallback float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 0 {
+		return fallback
+	}
+	if value > CheckinAmountCeilingDefault {
+		return CheckinAmountCeilingDefault
+	}
+	return value
+}
+
 // IsAffiliateEnabled 检查是否启用邀请返利功能（总开关）
 func (s *SettingService) IsAffiliateEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateEnabled)

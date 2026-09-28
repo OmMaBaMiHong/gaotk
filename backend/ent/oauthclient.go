@@ -25,6 +25,8 @@ type OAuthClient struct {
 	ClientSecret string `json:"client_secret,omitempty"`
 	// 回调地址白名单（换行分隔，精确匹配）
 	RedirectUris string `json:"redirect_uris,omitempty"`
+	// 授权 scope 白名单，逗号分隔（profile/membership）；空 = 传统模式，签发全量面板令牌
+	AllowedScopes string `json:"allowed_scopes,omitempty"`
 	// 是否放行 localhost/127.0.0.1/[::1] 任意端口回调（本地开发场景）
 	AllowLocalhost bool `json:"allow_localhost,omitempty"`
 	// 启用开关：关闭后该应用无法发起新授权/换 token
@@ -47,7 +49,7 @@ func (*OAuthClient) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullBool)
 		case oauthclient.FieldID:
 			values[i] = new(sql.NullInt64)
-		case oauthclient.FieldName, oauthclient.FieldClientID, oauthclient.FieldClientSecret, oauthclient.FieldRedirectUris, oauthclient.FieldRemark:
+		case oauthclient.FieldName, oauthclient.FieldClientID, oauthclient.FieldClientSecret, oauthclient.FieldRedirectUris, oauthclient.FieldAllowedScopes, oauthclient.FieldRemark:
 			values[i] = new(sql.NullString)
 		case oauthclient.FieldCreatedAt, oauthclient.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -95,6 +97,12 @@ func (_m *OAuthClient) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field redirect_uris", values[i])
 			} else if value.Valid {
 				_m.RedirectUris = value.String
+			}
+		case oauthclient.FieldAllowedScopes:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field allowed_scopes", values[i])
+			} else if value.Valid {
+				_m.AllowedScopes = value.String
 			}
 		case oauthclient.FieldAllowLocalhost:
 			if value, ok := values[i].(*sql.NullBool); !ok {
@@ -173,6 +181,9 @@ func (_m *OAuthClient) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("redirect_uris=")
 	builder.WriteString(_m.RedirectUris)
+	builder.WriteString(", ")
+	builder.WriteString("allowed_scopes=")
+	builder.WriteString(_m.AllowedScopes)
 	builder.WriteString(", ")
 	builder.WriteString("allow_localhost=")
 	builder.WriteString(fmt.Sprintf("%v", _m.AllowLocalhost))

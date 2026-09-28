@@ -54,6 +54,20 @@ func (_c *OAuthClientCreate) SetNillableRedirectUris(v *string) *OAuthClientCrea
 	return _c
 }
 
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (_c *OAuthClientCreate) SetAllowedScopes(v string) *OAuthClientCreate {
+	_c.mutation.SetAllowedScopes(v)
+	return _c
+}
+
+// SetNillableAllowedScopes sets the "allowed_scopes" field if the given value is not nil.
+func (_c *OAuthClientCreate) SetNillableAllowedScopes(v *string) *OAuthClientCreate {
+	if v != nil {
+		_c.SetAllowedScopes(*v)
+	}
+	return _c
+}
+
 // SetAllowLocalhost sets the "allow_localhost" field.
 func (_c *OAuthClientCreate) SetAllowLocalhost(v bool) *OAuthClientCreate {
 	_c.mutation.SetAllowLocalhost(v)
@@ -163,6 +177,10 @@ func (_c *OAuthClientCreate) defaults() {
 		v := oauthclient.DefaultRedirectUris
 		_c.mutation.SetRedirectUris(v)
 	}
+	if _, ok := _c.mutation.AllowedScopes(); !ok {
+		v := oauthclient.DefaultAllowedScopes
+		_c.mutation.SetAllowedScopes(v)
+	}
 	if _, ok := _c.mutation.AllowLocalhost(); !ok {
 		v := oauthclient.DefaultAllowLocalhost
 		_c.mutation.SetAllowLocalhost(v)
@@ -213,6 +231,9 @@ func (_c *OAuthClientCreate) check() error {
 	}
 	if _, ok := _c.mutation.RedirectUris(); !ok {
 		return &ValidationError{Name: "redirect_uris", err: errors.New(`ent: missing required field "OAuthClient.redirect_uris"`)}
+	}
+	if _, ok := _c.mutation.AllowedScopes(); !ok {
+		return &ValidationError{Name: "allowed_scopes", err: errors.New(`ent: missing required field "OAuthClient.allowed_scopes"`)}
 	}
 	if _, ok := _c.mutation.AllowLocalhost(); !ok {
 		return &ValidationError{Name: "allow_localhost", err: errors.New(`ent: missing required field "OAuthClient.allow_localhost"`)}
@@ -276,6 +297,10 @@ func (_c *OAuthClientCreate) createSpec() (*OAuthClient, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RedirectUris(); ok {
 		_spec.SetField(oauthclient.FieldRedirectUris, field.TypeString, value)
 		_node.RedirectUris = value
+	}
+	if value, ok := _c.mutation.AllowedScopes(); ok {
+		_spec.SetField(oauthclient.FieldAllowedScopes, field.TypeString, value)
+		_node.AllowedScopes = value
 	}
 	if value, ok := _c.mutation.AllowLocalhost(); ok {
 		_spec.SetField(oauthclient.FieldAllowLocalhost, field.TypeBool, value)
@@ -394,6 +419,18 @@ func (u *OAuthClientUpsert) SetRedirectUris(v string) *OAuthClientUpsert {
 // UpdateRedirectUris sets the "redirect_uris" field to the value that was provided on create.
 func (u *OAuthClientUpsert) UpdateRedirectUris() *OAuthClientUpsert {
 	u.SetExcluded(oauthclient.FieldRedirectUris)
+	return u
+}
+
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (u *OAuthClientUpsert) SetAllowedScopes(v string) *OAuthClientUpsert {
+	u.Set(oauthclient.FieldAllowedScopes, v)
+	return u
+}
+
+// UpdateAllowedScopes sets the "allowed_scopes" field to the value that was provided on create.
+func (u *OAuthClientUpsert) UpdateAllowedScopes() *OAuthClientUpsert {
+	u.SetExcluded(oauthclient.FieldAllowedScopes)
 	return u
 }
 
@@ -543,6 +580,20 @@ func (u *OAuthClientUpsertOne) SetRedirectUris(v string) *OAuthClientUpsertOne {
 func (u *OAuthClientUpsertOne) UpdateRedirectUris() *OAuthClientUpsertOne {
 	return u.Update(func(s *OAuthClientUpsert) {
 		s.UpdateRedirectUris()
+	})
+}
+
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (u *OAuthClientUpsertOne) SetAllowedScopes(v string) *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetAllowedScopes(v)
+	})
+}
+
+// UpdateAllowedScopes sets the "allowed_scopes" field to the value that was provided on create.
+func (u *OAuthClientUpsertOne) UpdateAllowedScopes() *OAuthClientUpsertOne {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateAllowedScopes()
 	})
 }
 
@@ -866,6 +917,20 @@ func (u *OAuthClientUpsertBulk) SetRedirectUris(v string) *OAuthClientUpsertBulk
 func (u *OAuthClientUpsertBulk) UpdateRedirectUris() *OAuthClientUpsertBulk {
 	return u.Update(func(s *OAuthClientUpsert) {
 		s.UpdateRedirectUris()
+	})
+}
+
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (u *OAuthClientUpsertBulk) SetAllowedScopes(v string) *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.SetAllowedScopes(v)
+	})
+}
+
+// UpdateAllowedScopes sets the "allowed_scopes" field to the value that was provided on create.
+func (u *OAuthClientUpsertBulk) UpdateAllowedScopes() *OAuthClientUpsertBulk {
+	return u.Update(func(s *OAuthClientUpsert) {
+		s.UpdateAllowedScopes()
 	})
 }
 

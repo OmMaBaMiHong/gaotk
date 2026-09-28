@@ -86,6 +86,18 @@ export default {
           cyberSessionBlockHint: '开启后,被上游网络安全策略(cyber_policy)拦截的会话将在 TTL 内被本地屏蔽,不再发往上游。仅屏蔽该会话,不影响同 Key 其他会话。',
           cyberSessionBlockTTL: '屏蔽时长(秒)',
         },
+        checkin: {
+          title: '每日签到',
+          description: '用户每天签到即可领取美元额度，直接计入账户余额。默认关闭。',
+          enabled: '启用每日签到',
+          enabledHint: '关闭后用户侧不显示签到入口与签到接口，已发放的记录与余额不受影响。',
+          minAmount: '单日奖励下限（美元）',
+          minAmountHint: '每天随机奖励的最小金额，0 以上。',
+          maxAmount: '单日奖励上限（美元）',
+          maxAmountHint: '每天随机奖励的最大金额；下限大于上限时按交换处理。',
+          streakBonus: '连续签到加成（美元）',
+          streakBonusHint: '连续签到每满 7 天，当天奖励额外加这笔金额。0 = 关闭加成。',
+        },
         affiliate: {
           title: '邀请返利',
           description: '老用户邀请新用户注册，新用户充值后老用户按比例获得返利额度。默认关闭。',

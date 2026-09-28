@@ -796,6 +796,50 @@ export default {
     pleaseEnterCode: '请输入兑换码'
   },
 
+  // Daily Check-in（每日签到发美元额度）
+  checkin: {
+    title: '每日签到',
+    description: '每天签到领取美元额度，连续签到有加成',
+    streakDays: '连续签到 {days} 天',
+    rewardRange: '今日奖励 {min} ~ {max}',
+    checkinButton: '今日签到',
+    checkingIn: '签到中...',
+    checkinSuccess: '签到成功！',
+    checkinSuccessToast: '签到成功，已到账 {amount}',
+    alreadyCheckedIn: '今日已签到',
+    todayAwarded: '今日已领取 {amount}',
+    awarded: '本次到账',
+    streakBonusHit: '连续满 {days} 天，加成已到账',
+    checkinFailed: '签到失败',
+    failedToCheckin: '签到失败，请稍后重试',
+    loadFailed: '加载签到数据失败',
+    notEnabledTitle: '签到未开启',
+    notEnabledDesc: '管理员暂未开启每日签到，请联系管理员。',
+    monthCalendar: '本月签到日历',
+    weekdays: {
+      sun: '日',
+      mon: '一',
+      tue: '二',
+      wed: '三',
+      thu: '四',
+      fri: '五',
+      sat: '六'
+    },
+    stats: {
+      title: '签到统计',
+      totalCount: '累计签到（次）',
+      totalAmount: '累计领取',
+      currentStreak: '当前连续（天）',
+      streakBonus: '满 {days} 天加成'
+    },
+    rules: {
+      title: '签到说明',
+      rule1: '每天可签到一次，奖励金额在配置区间内随机发放，直接计入账户余额。',
+      rule2: '连续签到每满 7 天，当天奖励额外获得一笔连续加成。',
+      rule3: '中断后连续天数重新计算，累计统计不清零。'
+    }
+  },
+
   // Profile
   profile: {
     title: '个人设置',

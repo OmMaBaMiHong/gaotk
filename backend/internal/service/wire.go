@@ -863,6 +863,10 @@ var ProviderSet = wire.NewSet(
 	NewAccountService,
 	NewProxyService,
 	NewRedeemService,
+	NewCheckinService,
+	// CheckinService 的配置读取抽象到 CheckinSettingsReader，便于单测替换；
+	// 生产装配绑定到 *SettingService（其方法集天然满足该接口）。
+	wire.Bind(new(CheckinSettingsReader), new(*SettingService)),
 	NewPromoService,
 	NewUsageService,
 	NewDashboardService,

@@ -84,6 +84,20 @@ func (_u *OAuthClientUpdate) SetNillableRedirectUris(v *string) *OAuthClientUpda
 	return _u
 }
 
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (_u *OAuthClientUpdate) SetAllowedScopes(v string) *OAuthClientUpdate {
+	_u.mutation.SetAllowedScopes(v)
+	return _u
+}
+
+// SetNillableAllowedScopes sets the "allowed_scopes" field if the given value is not nil.
+func (_u *OAuthClientUpdate) SetNillableAllowedScopes(v *string) *OAuthClientUpdate {
+	if v != nil {
+		_u.SetAllowedScopes(*v)
+	}
+	return _u
+}
+
 // SetAllowLocalhost sets the "allow_localhost" field.
 func (_u *OAuthClientUpdate) SetAllowLocalhost(v bool) *OAuthClientUpdate {
 	_u.mutation.SetAllowLocalhost(v)
@@ -222,6 +236,9 @@ func (_u *OAuthClientUpdate) sqlSave(ctx context.Context) (_node int, err error)
 	if value, ok := _u.mutation.RedirectUris(); ok {
 		_spec.SetField(oauthclient.FieldRedirectUris, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.AllowedScopes(); ok {
+		_spec.SetField(oauthclient.FieldAllowedScopes, field.TypeString, value)
+	}
 	if value, ok := _u.mutation.AllowLocalhost(); ok {
 		_spec.SetField(oauthclient.FieldAllowLocalhost, field.TypeBool, value)
 	}
@@ -306,6 +323,20 @@ func (_u *OAuthClientUpdateOne) SetRedirectUris(v string) *OAuthClientUpdateOne 
 func (_u *OAuthClientUpdateOne) SetNillableRedirectUris(v *string) *OAuthClientUpdateOne {
 	if v != nil {
 		_u.SetRedirectUris(*v)
+	}
+	return _u
+}
+
+// SetAllowedScopes sets the "allowed_scopes" field.
+func (_u *OAuthClientUpdateOne) SetAllowedScopes(v string) *OAuthClientUpdateOne {
+	_u.mutation.SetAllowedScopes(v)
+	return _u
+}
+
+// SetNillableAllowedScopes sets the "allowed_scopes" field if the given value is not nil.
+func (_u *OAuthClientUpdateOne) SetNillableAllowedScopes(v *string) *OAuthClientUpdateOne {
+	if v != nil {
+		_u.SetAllowedScopes(*v)
 	}
 	return _u
 }
@@ -477,6 +508,9 @@ func (_u *OAuthClientUpdateOne) sqlSave(ctx context.Context) (_node *OAuthClient
 	}
 	if value, ok := _u.mutation.RedirectUris(); ok {
 		_spec.SetField(oauthclient.FieldRedirectUris, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AllowedScopes(); ok {
+		_spec.SetField(oauthclient.FieldAllowedScopes, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.AllowLocalhost(); ok {
 		_spec.SetField(oauthclient.FieldAllowLocalhost, field.TypeBool, value)

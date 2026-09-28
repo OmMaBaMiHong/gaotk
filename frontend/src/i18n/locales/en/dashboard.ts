@@ -792,6 +792,50 @@ export default {
     pleaseEnterCode: 'Please enter a redeem code'
   },
 
+  // Daily Check-in (USD balance rewards)
+  checkin: {
+    title: 'Daily Check-in',
+    description: 'Check in every day to earn USD balance, with streak bonuses',
+    streakDays: '{days}-day streak',
+    rewardRange: "Today's reward {min} ~ {max}",
+    checkinButton: 'Check in',
+    checkingIn: 'Checking in...',
+    checkinSuccess: 'Check-in successful!',
+    checkinSuccessToast: 'Check-in successful, {amount} credited',
+    alreadyCheckedIn: "Already checked in today",
+    todayAwarded: "Today's reward {amount}",
+    awarded: 'Awarded',
+    streakBonusHit: '{days}-day streak bonus credited',
+    checkinFailed: 'Check-in failed',
+    failedToCheckin: 'Check-in failed, please try again later',
+    loadFailed: 'Failed to load check-in data',
+    notEnabledTitle: 'Check-in not enabled',
+    notEnabledDesc: 'The administrator has not enabled daily check-in. Please contact admin.',
+    monthCalendar: 'This Month',
+    weekdays: {
+      sun: 'Sun',
+      mon: 'Mon',
+      tue: 'Tue',
+      wed: 'Wed',
+      thu: 'Thu',
+      fri: 'Fri',
+      sat: 'Sat'
+    },
+    stats: {
+      title: 'Check-in Stats',
+      totalCount: 'Total check-ins',
+      totalAmount: 'Total awarded',
+      currentStreak: 'Current streak (days)',
+      streakBonus: 'Every {days}-day bonus'
+    },
+    rules: {
+      title: 'About check-in',
+      rule1: 'One check-in per day. The reward is randomized within the configured range and credited to your balance.',
+      rule2: 'Every 7 consecutive days, the reward for that day earns an extra streak bonus.',
+      rule3: 'Missing a day resets the streak, while lifetime statistics are kept.'
+    }
+  },
+
   // Profile
   profile: {
     title: 'Profile Settings',

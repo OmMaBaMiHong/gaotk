@@ -215,6 +215,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateEnabled:              "false",
 		SettingKeyAffiliateAdminRechargeEnabled: strconv.FormatBool(AdminRechargeRebateEnabledDefault),
 
+		// 签到发额度（默认关闭，显式启用）
+		SettingKeyCheckinEnabled:           strconv.FormatBool(CheckinEnabledDefault),
+		SettingKeyCheckinMinAmount:         strconv.FormatFloat(CheckinMinAmountDefault, 'f', 8, 64),
+		SettingKeyCheckinMaxAmount:         strconv.FormatFloat(CheckinMaxAmountDefault, 'f', 8, 64),
+		SettingKeyCheckinStreakBonusAmount: strconv.FormatFloat(CheckinStreakBonusDefault, 'f', 8, 64),
+
 		// 风控中心功能（默认关闭，显式启用）
 		SettingKeyRiskControlEnabled: "false",
 
@@ -837,6 +843,21 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
+
+	// 签到发额度配置（金额非法/为负回退默认值，与 setting_features.go 单键读取路径同一口径）
+	result.CheckinEnabled = settings[SettingKeyCheckinEnabled] == "true"
+	result.CheckinMinAmount = parseCheckinAmountSetting(
+		func() (string, error) { return settings[SettingKeyCheckinMinAmount], nil },
+		CheckinMinAmountDefault,
+	)
+	result.CheckinMaxAmount = parseCheckinAmountSetting(
+		func() (string, error) { return settings[SettingKeyCheckinMaxAmount], nil },
+		CheckinMaxAmountDefault,
+	)
+	result.CheckinStreakBonusAmount = parseCheckinAmountSetting(
+		func() (string, error) { return settings[SettingKeyCheckinStreakBonusAmount], nil },
+		CheckinStreakBonusDefault,
+	)
 
 	// 风控中心功能（默认关闭，严格 true 才启用）
 	result.RiskControlEnabled = settings[SettingKeyRiskControlEnabled] == "true"

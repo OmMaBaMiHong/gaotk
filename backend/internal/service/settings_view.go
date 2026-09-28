@@ -176,6 +176,10 @@ type SystemSettings struct {
 	AffiliateRebateDurationDays  int
 	AffiliateRebatePerInviteeCap float64
 	AdminRechargeRebateEnabled   bool
+	CheckinEnabled               bool    // 每日签到发额度总开关
+	CheckinMinAmount             float64 // 单日随机奖励下限（美元）
+	CheckinMaxAmount             float64 // 单日随机奖励上限（美元）
+	CheckinStreakBonusAmount     float64 // 连续每满 7 天的额外加成（美元，0=关闭）
 	DefaultUserRPMLimit          int
 	DefaultSubscriptions         []DefaultSubscriptionSetting
 

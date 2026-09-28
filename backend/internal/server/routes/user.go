@@ -130,12 +130,16 @@ func RegisterUserRoutes(
 			announcements.POST("/:id/read", h.Announcement.MarkRead)
 		}
 
-		// 卡密兑换
-		redeem := authenticated.Group("/redeem")
-		{
-			redeem.POST("", h.Redeem.Redeem)
-			redeem.GET("/history", h.Redeem.GetHistory)
-		}
+			// 卡密兑换
+			redeem := authenticated.Group("/redeem")
+			{
+				redeem.POST("", h.Redeem.Redeem)
+				redeem.GET("/history", h.Redeem.GetHistory)
+			}
+
+			// 每日签到（发美元额度）
+			user.GET("/checkin", h.Checkin.GetStatus)
+			user.POST("/checkin", h.Checkin.Checkin)
 
 		// 用户订阅
 		subscriptions := authenticated.Group("/subscriptions")

@@ -341,6 +341,12 @@ type SystemSettings struct {
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 
+	// 每日签到发额度配置
+	CheckinEnabled           bool    `json:"checkin_enabled"`
+	CheckinMinAmount         float64 `json:"checkin_min_amount"`
+	CheckinMaxAmount         float64 `json:"checkin_max_amount"`
+	CheckinStreakBonusAmount float64 `json:"checkin_streak_bonus_amount"`
+
 	// OpenAI fast/flex policy
 	OpenAIFastPolicySettings *OpenAIFastPolicySettings `json:"openai_fast_policy_settings,omitempty"`
 

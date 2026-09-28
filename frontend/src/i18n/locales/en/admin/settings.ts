@@ -86,6 +86,18 @@ export default {
           cyberSessionBlockHint: 'When enabled, sessions hit by upstream cyber_policy are blocked locally for the TTL and no longer forwarded. Only the offending session is blocked; other sessions on the same key are unaffected.',
           cyberSessionBlockTTL: 'Block TTL (seconds)',
         },
+        checkin: {
+          title: 'Daily Check-in',
+          description: 'Users earn a randomized USD reward each day, credited directly to their balance. Disabled by default.',
+          enabled: 'Enable Daily Check-in',
+          enabledHint: 'When off, the user-side check-in entry and API are hidden. Existing records and balances are unaffected.',
+          minAmount: 'Daily min reward (USD)',
+          minAmountHint: 'The minimum randomized reward per day (0 or above).',
+          maxAmount: 'Daily max reward (USD)',
+          maxAmountHint: 'The maximum randomized reward per day. An inverted min/max range is swapped automatically.',
+          streakBonus: 'Streak bonus (USD)',
+          streakBonusHint: 'For every 7 consecutive check-in days, that day’s reward earns this extra bonus. 0 = bonus off.',
+        },
         affiliate: {
           title: 'Affiliate (Invite Rebate)',
           description: 'Existing users invite new ones; the inviter earns a percentage rebate on the invitee’s recharges. Disabled by default.',

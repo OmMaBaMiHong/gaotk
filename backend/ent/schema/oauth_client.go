@@ -43,6 +43,10 @@ func (OAuthClient) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "text"}).
 			Default("").
 			Comment("回调地址白名单（换行分隔，精确匹配）"),
+		field.String("allowed_scopes").
+			SchemaType(map[string]string{dialect.Postgres: "text"}).
+			Default("").
+			Comment("授权 scope 白名单，逗号分隔（profile/membership）；空 = 传统模式，签发全量面板令牌"),
 		field.Bool("allow_localhost").
 			Default(false).
 			Comment("是否放行 localhost/127.0.0.1/[::1] 任意端口回调（本地开发场景）"),

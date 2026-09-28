@@ -21,6 +21,8 @@ const (
 	FieldClientSecret = "client_secret"
 	// FieldRedirectUris holds the string denoting the redirect_uris field in the database.
 	FieldRedirectUris = "redirect_uris"
+	// FieldAllowedScopes holds the string denoting the allowed_scopes field in the database.
+	FieldAllowedScopes = "allowed_scopes"
 	// FieldAllowLocalhost holds the string denoting the allow_localhost field in the database.
 	FieldAllowLocalhost = "allow_localhost"
 	// FieldEnabled holds the string denoting the enabled field in the database.
@@ -42,6 +44,7 @@ var Columns = []string{
 	FieldClientID,
 	FieldClientSecret,
 	FieldRedirectUris,
+	FieldAllowedScopes,
 	FieldAllowLocalhost,
 	FieldEnabled,
 	FieldRemark,
@@ -68,6 +71,8 @@ var (
 	ClientSecretValidator func(string) error
 	// DefaultRedirectUris holds the default value on creation for the "redirect_uris" field.
 	DefaultRedirectUris string
+	// DefaultAllowedScopes holds the default value on creation for the "allowed_scopes" field.
+	DefaultAllowedScopes string
 	// DefaultAllowLocalhost holds the default value on creation for the "allow_localhost" field.
 	DefaultAllowLocalhost bool
 	// DefaultEnabled holds the default value on creation for the "enabled" field.
@@ -110,6 +115,11 @@ func ByClientSecret(opts ...sql.OrderTermOption) OrderOption {
 // ByRedirectUris orders the results by the redirect_uris field.
 func ByRedirectUris(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRedirectUris, opts...).ToFunc()
+}
+
+// ByAllowedScopes orders the results by the allowed_scopes field.
+func ByAllowedScopes(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAllowedScopes, opts...).ToFunc()
 }
 
 // ByAllowLocalhost orders the results by the allow_localhost field.
