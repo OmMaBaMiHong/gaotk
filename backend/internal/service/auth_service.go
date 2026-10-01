@@ -1434,9 +1434,10 @@ func (s *AuthService) generateAccessToken(user *User, sessionID, bindingHash str
 	return s.signAccessToken(user, sessionID, bindingHash, nil, expiresAt)
 }
 
-// oauthScopedTokenTTL OAuth 受限令牌有效期。第三方应用只需要"这个用户是谁"，
-// 短命令牌 + refresh 轮转足够；不可用面板级 24h 长令牌放大泄漏爆炸半径。
-const oauthScopedTokenTTL = time.Hour
+// oauthScopedTokenTTL OAuth 受限令牌有效期。消费方（skoob）后端逐请求向本服务
+// 实测身份（/api/v1/auth/me），会话可随时按 family 吊销，令牌因此可以发长——
+// 30 天长效令牌换取前端免静默续期；泄漏窗口由吊销兜底，不靠短 TTL。
+const oauthScopedTokenTTL = 30 * 24 * time.Hour
 
 // GenerateScopedTokenPair 签发 OAuth 受限令牌对：access 带 scope（短时），
 // refresh 在 Redis 里记录同一 scope，轮转时延续，刷新不能变成越权通道。
