@@ -1,0 +1,9 @@
+[Unit]
+Description=Check the single Skoob free model catalog and availability
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/sub2api/ops/free_model_health.py
+TimeoutStartSec=110

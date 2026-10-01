@@ -1,0 +1,10 @@
+[Unit]
+Description=Check Skoob free model every ten minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=10min
+Unit=sub2api-free-model.service
+
+[Install]
+WantedBy=timers.target
