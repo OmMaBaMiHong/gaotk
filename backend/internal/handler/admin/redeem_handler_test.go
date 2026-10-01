@@ -63,6 +63,13 @@ func TestCreateAndRedeem_TypeDefaultsToBalance(t *testing.T) {
 		"omitting type should default to balance and pass validation")
 }
 
+func TestCreateAndRedeem_AcceptsPredefinedBookReward(t *testing.T) {
+	code := postCreateAndRedeemValidation(t, newCreateAndRedeemHandler(), map[string]any{
+		"code": "predefined-book-fixed-receipt", "type": "template_upload", "value": 0.7, "user_id": 12,
+	})
+	assert.NotEqual(t, http.StatusBadRequest, code)
+}
+
 func TestCreateAndRedeem_SubscriptionRequiresGroupID(t *testing.T) {
 	h := newCreateAndRedeemHandler()
 	code := postCreateAndRedeemValidation(t, h, map[string]any{

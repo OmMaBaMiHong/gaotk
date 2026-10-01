@@ -550,9 +550,7 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 	s.invalidateRedeemCaches(ctx, userID, redeemCode)
 
 	// 余额类正数兑换码触发邀请返利（best-effort，失败不影响兑换结果）
-	if (redeemCode.Type == RedeemTypeBalance || redeemCode.Type == AdjustmentTypeTemplateUpload) && redeemCode.Value > 0 {
-		s.tryAccrueAffiliateRebateForRedeem(ctx, userID, redeemCode.Value)
-	}
+	s.tryAccrueAffiliateRebateForRedeem(ctx, userID, redeemCode)
 
 	// 重新获取更新后的兑换码
 	redeemCode, err = s.redeemRepo.GetByID(ctx, redeemCode.ID)
@@ -603,7 +601,12 @@ func (s *RedeemService) invalidateRedeemCaches(ctx context.Context, userID int64
 	}
 }
 
-func (s *RedeemService) tryAccrueAffiliateRebateForRedeem(ctx context.Context, userID int64, amount float64) {
+func (s *RedeemService) tryAccrueAffiliateRebateForRedeem(ctx context.Context, userID int64, code *RedeemCode) {
+	// Promotional credits are not a cash recharge eligible for invite rebates, on any redemption path.
+	if code.Type != RedeemTypeBalance || code.Value <= 0 {
+		return
+	}
+	amount := code.Value
 	if ctx.Value(ctxKeySkipRedeemAffiliate{}) != nil {
 		return
 	}
