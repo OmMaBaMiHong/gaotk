@@ -14,6 +14,8 @@ const (
 	refreshTokenKeyPrefix   = "refresh_token:"
 	userRefreshTokensPrefix = "user_refresh_tokens:"
 	tokenFamilyPrefix       = "token_family:"
+	revokedAccessPrefix     = "revoked_access_session:"
+	userTokenEpochPrefix    = "user_token_epoch:"
 )
 
 // refreshTokenKey generates the Redis key for a refresh token.
@@ -122,6 +124,27 @@ func (c *refreshTokenCache) DeleteTokenFamily(ctx context.Context, familyID stri
 	}
 	_, err = pipe.Exec(ctx)
 	return err
+}
+
+func (c *refreshTokenCache) RevokeAccessSession(ctx context.Context, familyID string, ttl time.Duration) error {
+	return c.rdb.Set(ctx, revokedAccessPrefix+familyID, "1", ttl).Err()
+}
+
+func (c *refreshTokenCache) IsAccessSessionRevoked(ctx context.Context, familyID string) (bool, error) {
+	count, err := c.rdb.Exists(ctx, revokedAccessPrefix+familyID).Result()
+	return count > 0, err
+}
+
+func (c *refreshTokenCache) GetUserTokenEpoch(ctx context.Context, userID int64) (int64, error) {
+	epoch, err := c.rdb.Get(ctx, fmt.Sprintf("%s%d", userTokenEpochPrefix, userID)).Int64()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	return epoch, err
+}
+
+func (c *refreshTokenCache) IncrementUserTokenEpoch(ctx context.Context, userID int64) (int64, error) {
+	return c.rdb.Incr(ctx, fmt.Sprintf("%s%d", userTokenEpochPrefix, userID)).Result()
 }
 
 func (c *refreshTokenCache) AddToUserTokenSet(ctx context.Context, userID int64, tokenHash string, ttl time.Duration) error {

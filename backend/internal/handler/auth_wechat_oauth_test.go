@@ -1456,7 +1456,18 @@ func (s *wechatOAuthSettingRepoStub) Delete(context.Context, string) error {
 	return nil
 }
 
-type wechatOAuthRefreshTokenCacheStub struct{}
+type wechatOAuthRefreshTokenCacheStub struct {
+	epoch int64
+}
+
+func (s *wechatOAuthRefreshTokenCacheStub) GetUserTokenEpoch(context.Context, int64) (int64, error) {
+	return s.epoch, nil
+}
+
+func (s *wechatOAuthRefreshTokenCacheStub) IncrementUserTokenEpoch(context.Context, int64) (int64, error) {
+	s.epoch++
+	return s.epoch, nil
+}
 
 func (s *wechatOAuthRefreshTokenCacheStub) StoreRefreshToken(context.Context, string, *service.RefreshTokenData, time.Duration) error {
 	return nil

@@ -12,15 +12,16 @@ var ErrRefreshTokenNotFound = errors.New("refresh token not found")
 
 // RefreshTokenData 存储在Redis中的Refresh Token数据
 type RefreshTokenData struct {
-	UserID       int64     `json:"user_id"`
-	TokenVersion int64     `json:"token_version"`          // 用于检测密码更改后的Token失效
-	FamilyID     string    `json:"family_id"`              // Token家族ID，用于防重放攻击
-	BindingHash  string    `json:"binding_hash,omitempty"` // 会话指纹哈希（IP+UA），会话绑定开启时校验
+	UserID       int64  `json:"user_id"`
+	TokenVersion int64  `json:"token_version"`          // 用于检测密码更改后的Token失效
+	FamilyID     string `json:"family_id"`              // Token家族ID，用于防重放攻击
+	BindingHash  string `json:"binding_hash,omitempty"` // 会话指纹哈希（IP+UA），会话绑定开启时校验
 	// Scopes OAuth 受限会话的授权范围；nil = 普通登录会话（刷新后仍签发全量令牌）。
 	// 受限会话刷新时必须延续原 scope，否则刷新会成为越权通道。
-	Scopes    []string  `json:"scopes,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	ExpiresAt time.Time `json:"expires_at"`
+	Scopes          []string  `json:"scopes,omitempty"`
+	RevocationEpoch int64     `json:"revocation_epoch,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
+	ExpiresAt       time.Time `json:"expires_at"`
 }
 
 // RefreshTokenCache 管理Refresh Token的Redis缓存
@@ -74,4 +75,17 @@ type RefreshTokenCache interface {
 	// IsTokenInFamily 检查Token是否属于指定家族
 	// 用于验证Token家族关系
 	IsTokenInFamily(ctx context.Context, familyID string, tokenHash string) (bool, error)
+}
+
+// AccessSessionRevocationCache records revoked OAuth access sessions until their JWTs expire.
+// Kept separate from RefreshTokenCache so ordinary refresh-token implementations remain valid.
+type AccessSessionRevocationCache interface {
+	RevokeAccessSession(ctx context.Context, familyID string, ttl time.Duration) error
+	IsAccessSessionRevoked(ctx context.Context, familyID string) (bool, error)
+}
+
+// UserTokenEpochCache invalidates all scoped access and refresh tokens for one user.
+type UserTokenEpochCache interface {
+	GetUserTokenEpoch(ctx context.Context, userID int64) (int64, error)
+	IncrementUserTokenEpoch(ctx context.Context, userID int64) (int64, error)
 }

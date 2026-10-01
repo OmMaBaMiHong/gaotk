@@ -416,6 +416,16 @@ type userHandlerEmailCacheStub struct {
 
 type userHandlerRefreshTokenCacheStub struct {
 	revokedUserIDs []int64
+	epoch          int64
+}
+
+func (s *userHandlerRefreshTokenCacheStub) GetUserTokenEpoch(context.Context, int64) (int64, error) {
+	return s.epoch, nil
+}
+
+func (s *userHandlerRefreshTokenCacheStub) IncrementUserTokenEpoch(context.Context, int64) (int64, error) {
+	s.epoch++
+	return s.epoch, nil
 }
 
 func (s *userHandlerRefreshTokenCacheStub) StoreRefreshToken(context.Context, string, *service.RefreshTokenData, time.Duration) error {
@@ -664,10 +674,8 @@ func TestUserHandlerUnbindIdentityRevokesAllUserSessionsWhenAuthServiceConfigure
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, []int64{23}, refreshTokenCache.revokedUserIDs)
-	// 撤销依赖的是 refresh session 清理，而不是 token_version：users 表没有这一列
-	// （见 resolvedTokenVersion，实际值由 email+password_hash 指纹推导），
-	// 所以此前"自增 TokenVersion 再整行写回"不持久化任何东西，
-	// 却会用旧快照覆盖并发写入的列。这里断言用户行未被改写。
+	// scoped access 撤销使用 Redis 用户 epoch，refresh session 同步清理；
+	// users 表无需增加或写回 token_version 列。
 	require.Equal(t, int64(4), repo.user.TokenVersion)
 }
 

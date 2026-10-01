@@ -19,13 +19,13 @@ import (
 
 // AuthHandler handles authentication-related requests
 type AuthHandler struct {
-	cfg                  *config.Config
-	authService          *service.AuthService
-	userService          *service.UserService
-	settingSvc           *service.SettingService
-	promoService         *service.PromoService
-	redeemService        *service.RedeemService
-	totpService          *service.TotpService
+	cfg                   *config.Config
+	authService           *service.AuthService
+	userService           *service.UserService
+	settingSvc            *service.SettingService
+	promoService          *service.PromoService
+	redeemService         *service.RedeemService
+	totpService           *service.TotpService
 	userAttributeService  *service.UserAttributeService
 	oauthClientAppService *service.OAuthClientAppService
 
@@ -36,13 +36,13 @@ type AuthHandler struct {
 // NewAuthHandler creates a new AuthHandler
 func NewAuthHandler(cfg *config.Config, authService *service.AuthService, userService *service.UserService, settingService *service.SettingService, promoService *service.PromoService, redeemService *service.RedeemService, totpService *service.TotpService, userAttributeService *service.UserAttributeService, oauthClientAppService *service.OAuthClientAppService) *AuthHandler {
 	return &AuthHandler{
-		cfg:                  cfg,
-		authService:          authService,
-		userService:          userService,
-		settingSvc:           settingService,
-		promoService:         promoService,
-		redeemService:        redeemService,
-		totpService:          totpService,
+		cfg:                   cfg,
+		authService:           authService,
+		userService:           userService,
+		settingSvc:            settingService,
+		promoService:          promoService,
+		redeemService:         redeemService,
+		totpService:           totpService,
 		userAttributeService:  userAttributeService,
 		oauthClientAppService: oauthClientAppService,
 	}
@@ -750,6 +750,14 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 			// 不影响登出流程
 		}
 	}
+	if raw := strings.TrimSpace(c.GetHeader("Authorization")); len(raw) > 7 && strings.EqualFold(raw[:7], "Bearer ") {
+		if claims, err := h.authService.ValidateToken(strings.TrimSpace(raw[7:])); err == nil && claims.Scope != "" {
+			if err := h.authService.RevokeSessionFamily(c.Request.Context(), claims.SessionID); err != nil {
+				response.InternalError(c, "Failed to revoke OAuth session")
+				return
+			}
+		}
+	}
 	h.consumePendingOAuthSessionOnLogout(c)
 	clearOAuthLogoutCookies(c)
 
@@ -774,7 +782,7 @@ func (h *AuthHandler) RevokeAllSessions(c *gin.Context) {
 
 	if err := h.authService.RevokeAllUserTokens(c.Request.Context(), subject.UserID); err != nil {
 		slog.Error("failed to revoke all sessions", "user_id", subject.UserID, "error", err)
-		response.InternalError(c, "Failed to revoke sessions")
+		response.ErrorFrom(c, err)
 		return
 	}
 

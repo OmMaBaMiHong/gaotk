@@ -105,7 +105,7 @@ func TestOAuthTokenScopedGrantIssuesScopedTokensOnce(t *testing.T) {
 	require.NotEmpty(t, resp.Data.AccessToken)
 	require.NotEmpty(t, resp.Data.RefreshToken)
 	require.Equal(t, "profile membership", resp.Data.Scope)
-	require.LessOrEqual(t, resp.Data.ExpiresIn, 3600)
+	require.Equal(t, 30*24*60*60, resp.Data.ExpiresIn)
 	// 裁剪视图：只回身份字段，不回余额
 	require.Equal(t, "me@example.com", resp.Data.User["email"])
 	require.NotContains(t, resp.Data.User, "balance")

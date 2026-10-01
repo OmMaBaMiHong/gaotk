@@ -92,6 +92,26 @@ func jwtAuth(
 			AbortWithError(c, 401, "TOKEN_REVOKED", "Token has been revoked (password changed)")
 			return
 		}
+		if claims.Scope != "" {
+			revoked, err := authService.IsAccessSessionRevoked(c.Request.Context(), claims.SessionID)
+			if err != nil {
+				AbortWithError(c, 503, "SESSION_CHECK_UNAVAILABLE", "Session status unavailable")
+				return
+			}
+			if revoked {
+				AbortWithError(c, 401, "TOKEN_REVOKED", "Token has been revoked")
+				return
+			}
+			epoch, err := authService.GetUserTokenEpoch(c.Request.Context(), claims.UserID)
+			if err != nil {
+				AbortWithError(c, 503, "SESSION_CHECK_UNAVAILABLE", "Session status unavailable")
+				return
+			}
+			if claims.RevocationEpoch != epoch {
+				AbortWithError(c, 401, "TOKEN_REVOKED", "Token has been revoked")
+				return
+			}
+		}
 
 		// OAuth 受限令牌：只放行 scope 白名单内的端点，面板管理 API 一律 403。
 		// 这是"第三方应用拿到的不是全量钥匙"的执行点。

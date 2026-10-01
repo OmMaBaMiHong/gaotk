@@ -69,6 +69,8 @@ type JWTClaims struct {
 	// Scope OAuth 受限令牌的授权范围（逗号分隔）。空 = 全量面板令牌（登录/传统 OAuth）。
 	// 非空时中间件只放行 scope 白名单内的端点，面板管理 API 一律 403。
 	Scope string `json:"scope,omitempty"`
+	// RevocationEpoch changes when the user revokes all OAuth sessions.
+	RevocationEpoch int64 `json:"revocation_epoch"`
 	jwt.RegisteredClaims
 }
 
@@ -1439,7 +1441,7 @@ func (s *AuthService) generateAccessToken(user *User, sessionID, bindingHash str
 // 30 天长效令牌换取前端免静默续期；泄漏窗口由吊销兜底，不靠短 TTL。
 const oauthScopedTokenTTL = 30 * 24 * time.Hour
 
-// GenerateScopedTokenPair 签发 OAuth 受限令牌对：access 带 scope（短时），
+// GenerateScopedTokenPair 签发 OAuth 受限令牌对：access 带 scope（30 天），
 // refresh 在 Redis 里记录同一 scope，轮转时延续，刷新不能变成越权通道。
 func (s *AuthService) GenerateScopedTokenPair(ctx context.Context, user *User, familyID string, scopes []string) (*TokenPair, error) {
 	if s.refreshTokenCache == nil {
@@ -1448,6 +1450,18 @@ func (s *AuthService) GenerateScopedTokenPair(ctx context.Context, user *User, f
 	if len(scopes) == 0 {
 		return nil, fmt.Errorf("scoped token pair requires non-empty scopes")
 	}
+	epochCache, ok := s.refreshTokenCache.(UserTokenEpochCache)
+	if !ok {
+		return nil, ErrServiceUnavailable
+	}
+	epoch, err := epochCache.GetUserTokenEpoch(ctx, user.ID)
+	if err != nil {
+		return nil, ErrServiceUnavailable
+	}
+	return s.generateScopedTokenPairAtEpoch(ctx, user, familyID, scopes, epoch)
+}
+
+func (s *AuthService) generateScopedTokenPairAtEpoch(ctx context.Context, user *User, familyID string, scopes []string, epoch int64) (*TokenPair, error) {
 
 	if familyID == "" {
 		familyBytes := make([]byte, 16)
@@ -1458,11 +1472,11 @@ func (s *AuthService) GenerateScopedTokenPair(ctx context.Context, user *User, f
 	}
 
 	now := time.Now()
-	accessToken, err := s.signAccessToken(user, familyID, "", scopes, now.Add(oauthScopedTokenTTL))
+	accessToken, err := s.signAccessTokenAtEpoch(user, familyID, "", scopes, now.Add(oauthScopedTokenTTL), epoch)
 	if err != nil {
 		return nil, fmt.Errorf("generate scoped access token: %w", err)
 	}
-	refreshToken, err := s.generateRefreshToken(ctx, user, familyID, scopes)
+	refreshToken, err := s.generateRefreshTokenAtEpoch(ctx, user, familyID, scopes, epoch)
 	if err != nil {
 		return nil, fmt.Errorf("generate scoped refresh token: %w", err)
 	}
@@ -1474,19 +1488,23 @@ func (s *AuthService) GenerateScopedTokenPair(ctx context.Context, user *User, f
 	}, nil
 }
 
-// signAccessToken 组装并签名 JWT。scopes 非空 = OAuth 受限令牌（无会话绑定指纹，
-// 依赖短 TTL + refresh 轮转；绑定指纹是长会话的机制，对 1h 令牌无意义）。
+// signAccessToken 组装并签名 JWT。scopes 非空 = OAuth 受限令牌。
 func (s *AuthService) signAccessToken(user *User, sessionID, bindingHash string, scopes []string, expiresAt time.Time) (string, error) {
+	return s.signAccessTokenAtEpoch(user, sessionID, bindingHash, scopes, expiresAt, 0)
+}
+
+func (s *AuthService) signAccessTokenAtEpoch(user *User, sessionID, bindingHash string, scopes []string, expiresAt time.Time, epoch int64) (string, error) {
 	now := time.Now()
 
 	claims := &JWTClaims{
-		UserID:       user.ID,
-		Email:        user.Email,
-		Role:         user.Role,
-		TokenVersion: resolvedTokenVersion(user),
-		SessionID:    sessionID,
-		BindingHash:  bindingHash,
-		Scope:        strings.Join(scopes, ","),
+		UserID:          user.ID,
+		Email:           user.Email,
+		Role:            user.Role,
+		TokenVersion:    resolvedTokenVersion(user),
+		SessionID:       sessionID,
+		BindingHash:     bindingHash,
+		Scope:           strings.Join(scopes, ","),
+		RevocationEpoch: epoch,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -1776,6 +1794,10 @@ func (s *AuthService) GenerateTokenPair(ctx context.Context, user *User, familyI
 
 // generateRefreshToken 生成并存储Refresh Token
 func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, familyID string, scopes []string) (string, error) {
+	return s.generateRefreshTokenAtEpoch(ctx, user, familyID, scopes, 0)
+}
+
+func (s *AuthService) generateRefreshTokenAtEpoch(ctx context.Context, user *User, familyID string, scopes []string, epoch int64) (string, error) {
 	// 生成随机Token
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
@@ -1799,13 +1821,14 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 	ttl := time.Duration(s.cfg.JWT.RefreshTokenExpireDays) * 24 * time.Hour
 
 	data := &RefreshTokenData{
-		UserID:       user.ID,
-		TokenVersion: resolvedTokenVersion(user),
-		FamilyID:     familyID,
-		BindingHash:  sessionBindingHashFromContext(ctx),
-		Scopes:       scopes,
-		CreatedAt:    now,
-		ExpiresAt:    now.Add(ttl),
+		UserID:          user.ID,
+		TokenVersion:    resolvedTokenVersion(user),
+		FamilyID:        familyID,
+		BindingHash:     sessionBindingHashFromContext(ctx),
+		Scopes:          scopes,
+		RevocationEpoch: epoch,
+		CreatedAt:       now,
+		ExpiresAt:       now.Add(ttl),
 	}
 
 	// 存储Token数据
@@ -1887,6 +1910,26 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 		_ = s.refreshTokenCache.DeleteTokenFamily(ctx, data.FamilyID)
 		return nil, ErrTokenRevoked
 	}
+	if len(data.Scopes) > 0 {
+		sessionRevoked, err := s.IsAccessSessionRevoked(ctx, data.FamilyID)
+		if err != nil {
+			return nil, err
+		}
+		if sessionRevoked {
+			return nil, ErrTokenRevoked
+		}
+		epochCache, ok := s.refreshTokenCache.(UserTokenEpochCache)
+		if !ok {
+			return nil, ErrServiceUnavailable
+		}
+		currentEpoch, err := epochCache.GetUserTokenEpoch(ctx, data.UserID)
+		if err != nil {
+			return nil, ErrServiceUnavailable
+		}
+		if currentEpoch != data.RevocationEpoch {
+			return nil, ErrTokenRevoked
+		}
+	}
 
 	// 会话绑定检查：IP/UA 任一变化即撤销整个会话家族。
 	// data.BindingHash 为空表示功能开启前签发的旧会话，放行并在轮转时补齐绑定。
@@ -1908,7 +1951,7 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 	// 受限会话刷新时延续原 scope（Scopes 存在即 OAuth 受限会话）。
 	var pair *TokenPair
 	if len(data.Scopes) > 0 {
-		pair, err = s.GenerateScopedTokenPair(ctx, user, data.FamilyID, data.Scopes)
+		pair, err = s.generateScopedTokenPairAtEpoch(ctx, user, data.FamilyID, data.Scopes, data.RevocationEpoch)
 	} else {
 		pair, err = s.GenerateTokenPair(ctx, user, data.FamilyID)
 	}
@@ -1977,13 +2020,50 @@ func (s *AuthService) ConsumeOAuthCodeOnce(ctx context.Context, nonce string) er
 // 用于会话绑定失效等单会话级撤销场景，不影响用户的其他设备会话。
 func (s *AuthService) RevokeSessionFamily(ctx context.Context, familyID string) error {
 	if s.refreshTokenCache == nil || familyID == "" {
-		return nil
+		return ErrServiceUnavailable
+	}
+	revocation, ok := s.refreshTokenCache.(AccessSessionRevocationCache)
+	if !ok {
+		return ErrServiceUnavailable
+	}
+	if err := revocation.RevokeAccessSession(ctx, familyID, oauthScopedTokenTTL); err != nil {
+		return ErrServiceUnavailable
 	}
 	return s.refreshTokenCache.DeleteTokenFamily(ctx, familyID)
 }
 
-// RevokeAllUserSessions 撤销用户的所有会话（所有Refresh Token）
-// 用于密码更改或用户主动登出所有设备
+func (s *AuthService) IsAccessSessionRevoked(ctx context.Context, familyID string) (bool, error) {
+	if familyID == "" {
+		return false, ErrServiceUnavailable
+	}
+	revocation, ok := s.refreshTokenCache.(AccessSessionRevocationCache)
+	if !ok {
+		return false, ErrServiceUnavailable
+	}
+	revoked, err := revocation.IsAccessSessionRevoked(ctx, familyID)
+	if err != nil {
+		return false, ErrServiceUnavailable
+	}
+	return revoked, nil
+}
+
+func (s *AuthService) GetUserTokenEpoch(ctx context.Context, userID int64) (int64, error) {
+	if s.refreshTokenCache == nil {
+		return 0, ErrServiceUnavailable
+	}
+	epochCache, ok := s.refreshTokenCache.(UserTokenEpochCache)
+	if !ok {
+		return 0, ErrServiceUnavailable
+	}
+	epoch, err := epochCache.GetUserTokenEpoch(ctx, userID)
+	if err != nil {
+		return 0, ErrServiceUnavailable
+	}
+	return epoch, nil
+}
+
+// RevokeAllUserSessions 删除用户的所有 refresh sessions。
+// 用于改密、邮箱身份变更等；用户主动退出所有设备请使用 RevokeAllUserTokens。
 func (s *AuthService) RevokeAllUserSessions(ctx context.Context, userID int64) error {
 	if s.refreshTokenCache == nil {
 		return nil // No-op if cache not configured
@@ -1991,20 +2071,31 @@ func (s *AuthService) RevokeAllUserSessions(ctx context.Context, userID int64) e
 	return s.refreshTokenCache.DeleteUserRefreshTokens(ctx, userID)
 }
 
-// RevokeAllUserTokens invalidates both stateless access tokens and refresh sessions.
+// RevokeAllUserTokens invalidates scoped access and refresh sessions.
 //
 // 注意：users 表没有 token_version 列（resolvedTokenVersion 由 email+password_hash
 // 指纹推导），因此对 user.TokenVersion 自增只影响内存副本。之前紧跟其后的整行
 // Update 不写任何有效数据，却会用旧快照覆盖并发写入的列，故已移除。
-// 会话撤销由下面的 refresh session 清理承担；改密路径通过 password_hash 变化
-// 改变指纹，从而使旧 token 失效。
+// scoped 会话撤销由用户 epoch 承担；改密路径通过 password_hash 变化改变指纹，
+// 使普通 access token 失效。
 func (s *AuthService) RevokeAllUserTokens(ctx context.Context, userID int64) error {
 	if _, err := s.userRepo.GetByID(ctx, userID); err != nil {
 		return fmt.Errorf("get user: %w", err)
 	}
+	if s.refreshTokenCache == nil {
+		return ErrServiceUnavailable
+	}
+	epochCache, ok := s.refreshTokenCache.(UserTokenEpochCache)
+	if !ok {
+		return ErrServiceUnavailable
+	}
+	if _, err := epochCache.IncrementUserTokenEpoch(ctx, userID); err != nil {
+		return ErrServiceUnavailable
+	}
 
 	if err := s.RevokeAllUserSessions(ctx, userID); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to revoke refresh sessions after token invalidation for user %d: %v", userID, err)
+		return ErrServiceUnavailable
 	}
 	return nil
 }
