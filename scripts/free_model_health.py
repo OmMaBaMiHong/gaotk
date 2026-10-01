@@ -76,12 +76,9 @@ BEGIN
 END $guard$;
 WITH changed AS (
  UPDATE groups SET status='%s',updated_at=NOW() WHERE id=16 AND status IS DISTINCT FROM '%s' RETURNING id
-), scheduling AS (
- INSERT INTO scheduler_outbox(event_type,group_id) SELECT 'group_changed',id FROM changed
 )
-INSERT INTO auth_cache_invalidation_outbox(cache_key)
-SELECT encode(sha256(convert_to(k.key,'UTF8')),'hex') FROM api_keys k JOIN changed c ON c.id=k.group_id
-WHERE k.deleted_at IS NULL AND k.key<>'';
+-- Existing groups status trigger enqueues auth-cache invalidation in this transaction.
+INSERT INTO scheduler_outbox(event_type,group_id) SELECT 'group_changed',id FROM changed;
 COMMIT;
 """ % (status, status))
 
