@@ -16,7 +16,7 @@
             {{ t('auth.consent.title') }}
           </h1>
           <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            {{ t('auth.consent.intro', { app: appName, site: siteName }) }}
+            {{ t(requestedScopes.length ? 'auth.consent.introScoped' : 'auth.consent.intro', { app: appName, site: siteName }) }}
           </p>
         </div>
 
@@ -135,6 +135,7 @@ const account = ref('')
 const clientId = String(route.query.client_id ?? '')
 const redirectUri = String(route.query.redirect_uri ?? '')
 const state = String(route.query.state ?? '')
+const requestedScopes = [...new Set(String(route.query.scope ?? '').split(/[\s,]+/).filter(Boolean))]
 
 /**
  * 参数缺失就**什么按钮都不给**。
@@ -145,6 +146,9 @@ const state = String(route.query.state ?? '')
 const paramError = computed(() => {
   if (!clientId) return t('auth.consent.missingParam', { param: 'client_id' })
   if (!redirectUri) return t('auth.consent.missingParam', { param: 'redirect_uri' })
+  if (requestedScopes.some(scope => !['profile', 'membership', 'keys'].includes(scope))) {
+    return t('auth.consent.invalidScope')
+  }
   return ''
 })
 
@@ -154,11 +158,16 @@ const appInitial = computed(() => appName.value.charAt(0).toUpperCase())
 const siteName = computed(() => appStore.siteName || window.location.hostname)
 const accountInitial = computed(() => (account.value || 'U').charAt(0).toUpperCase())
 
-const scopes = computed(() => [
-  t('auth.consent.scopeProfile'),
-  t('auth.consent.scopeSubscription'),
-  t('auth.consent.scopeContent'),
-])
+const scopes = computed(() => {
+  // Explicit scopes must be displayed and forwarded unchanged. In particular,
+  // a model-key connection does not request membership or content access.
+  if (requestedScopes.length) return requestedScopes.flatMap(scope => {
+    if (scope === 'profile') return [t('auth.consent.scopeProfile')]
+    if (scope === 'membership') return [t('auth.consent.scopeSubscription'), t('auth.consent.scopeContent')]
+    return [t('auth.consent.scopeKeys')]
+  })
+  return [t('auth.consent.scopeProfile'), t('auth.consent.scopeSubscription'), t('auth.consent.scopeContent')]
+})
 
 /**
  * 确认登录状态。
@@ -192,7 +201,10 @@ async function handleAllow(): Promise<void> {
   submitting.value = true
   error.value = ''
   try {
-    const res = await oauthAuthorize({ client_id: clientId, redirect_uri: redirectUri, state })
+    const res = await oauthAuthorize({
+      client_id: clientId, redirect_uri: redirectUri, state,
+      ...(requestedScopes.length ? { scope: requestedScopes.join(' ') } : {}),
+    })
     const url = (res as { data?: { redirectUrl?: string } })?.data?.redirectUrl
     if (!url) {
       error.value = t('auth.consent.failed')

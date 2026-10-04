@@ -689,6 +689,7 @@ export interface OAuthAuthorizeRequest {
   client_id: string
   redirect_uri: string
   state: string
+  scope?: string
 }
 
 export interface OAuthAuthorizeResponse {

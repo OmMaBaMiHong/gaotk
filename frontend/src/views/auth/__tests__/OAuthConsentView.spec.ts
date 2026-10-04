@@ -159,4 +159,44 @@ describe('OAuthConsentView', () => {
     expect(wrapper.findAll('button')).toHaveLength(0)
     expect(getCurrentUserMock).not.toHaveBeenCalled()
   })
+
+  it('模型连接只展示请求的 profile/keys，并把 scope 传到授权接口', async () => {
+    routeState.query = { ...routeState.query, client_id: 'cixi', scope: 'profile keys' }
+    getCurrentUserMock.mockResolvedValue({ data: { email: 'a@example.com' } })
+    oauthAuthorizeMock.mockResolvedValue({ data: { redirectUrl: 'http://app.test/cb?code=c1&state=st1' } })
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('auth.consent.scopeProfile')
+    expect(wrapper.text()).toContain('auth.consent.scopeKeys')
+    expect(wrapper.text()).toContain('auth.consent.introScoped')
+    expect(wrapper.text()).not.toContain('auth.consent.scopeSubscription')
+    expect(wrapper.text()).not.toContain('auth.consent.scopeContent')
+    await wrapper.get('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(oauthAuthorizeMock).toHaveBeenCalledWith({
+      client_id: 'cixi', redirect_uri: 'http://app.test/cb', state: 'st1', scope: 'profile keys',
+    })
+  })
+
+  it('显式 profile 授权不丢失范围而扩大为应用的全部权限', async () => {
+    routeState.query = { ...routeState.query, scope: 'profile' }
+    getCurrentUserMock.mockResolvedValue({ data: { email: 'a@example.com' } })
+    oauthAuthorizeMock.mockResolvedValue({ data: { redirectUrl: 'http://app.test/cb?code=c1&state=st1' } })
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.findAll('li')).toHaveLength(1)
+    await wrapper.get('button.btn-primary').trigger('click')
+    await flushPromises()
+    expect(oauthAuthorizeMock).toHaveBeenCalledWith(expect.objectContaining({ scope: 'profile' }))
+  })
+
+  it('不支持的权限不展示授权按钮或发起请求', async () => {
+    routeState.query = { ...routeState.query, scope: 'profile administrator' }
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('auth.consent.invalidScope')
+    expect(wrapper.findAll('button')).toHaveLength(0)
+    expect(getCurrentUserMock).not.toHaveBeenCalled()
+    expect(oauthAuthorizeMock).not.toHaveBeenCalled()
+  })
 })
