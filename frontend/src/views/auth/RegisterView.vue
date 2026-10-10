@@ -407,6 +407,8 @@ const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 
 const router = useRouter()
 const route = useRoute()
+// OAuth 授权链路回跳：注册完成后必须回到授权页，而不是 dashboard（2026-10-10 修复新用户滞留中转站）
+const oauthRedirect = String(route.query.redirect ?? '')
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
@@ -1066,7 +1068,8 @@ async function handleRegister(): Promise<void> {
           tencent_captcha_randstr: tencentCaptchaEnabled.value ? tencentCaptchaRandstr.value : undefined,
           promo_code: formData.promo_code || undefined,
           invitation_code: formData.invitation_code || undefined,
-          ...(affCode ? { aff_code: affCode } : {})
+          ...(affCode ? { aff_code: affCode } : {}),
+          pending_redirect: oauthRedirect || undefined
         })
       )
 
@@ -1092,8 +1095,12 @@ async function handleRegister(): Promise<void> {
     // Show success toast
     appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
 
-    // Redirect to dashboard
-    await router.push('/dashboard')
+    // Redirect: OAuth 链路回授权页，其余回 dashboard
+    if (oauthRedirect.startsWith('/oauth/')) {
+      window.location.href = oauthRedirect
+      return
+    }
+    await router.push(oauthRedirect || '/dashboard')
   } catch (error: unknown) {
     // Handle registration error
     errorMessage.value = buildRegistrationErrorMessage(error, t('auth.registrationFailed'))
