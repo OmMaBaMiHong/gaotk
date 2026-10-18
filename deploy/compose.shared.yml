@@ -1,0 +1,12 @@
+services:
+  sub2api:
+    extends: {file: docker-compose.standalone.yml, service: sub2api}
+    environment:
+      DATABASE_HOST: local-postgres
+      REDIS_HOST: local-redis
+    networks: [shared]
+volumes:
+  sub2api_data:
+
+networks:
+  shared: {external: true, name: local-infra}
