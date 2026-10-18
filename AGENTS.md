@@ -17,3 +17,5 @@
 - 原卷及迁移备份必须保留；禁止 `down -v`、全局 prune 或以空库替代原账号和数据。共享卷是 external，不随业务项目删除。切换完成必须核对数据、扩展和真实连接，不能以 Compose 校验代替业务验收。
 - 本地与线上复用业务代码，只区分部署配置。线上原单机/独立部署文件不受本地共享配置影响。Neo4j、FalkorDB、路由引擎等不同能力的服务按需使用，不当作普通 PG/Redis 数据删除；非当前使用的服务保持停止。
 - Skoob 开发与真实回归只使用 master 的同一个 9002 统一应用容器，不另起预览端口或账号测试环境。
+- 2026-10-18 用户选择保留 Skoob 原本地账号与作品。当前 `sub2api` 应用容器的 `127.0.0.1:8080` 连接共享 PG 的 `skoob_accounts` 和 Redis DB 5，为 Skoob 9002 提供原账号服务；原 `sub2api` / `sub2apipay` 数据库另行保留，两批账号不能混同。当前部署使用 `/Users/wade/work-space/local-infra/accounts.env`、`accounts.compose.yml` 覆盖本项目 `deploy/compose.shared.yml`，不能按默认配置自动将运行服务改绑到另一账号库或新建账号替代验证。
+- Skoob 容器内部访问账号服务别名 `accounts.localhost:8080`，浏览器使用公开 IPv4 地址 `127.0.0.1:8080`，避免命中本机 WeKnora 已有 IPv6 8080。原 JWT、加密密钥和 OAuth 客户端继续保留；启动或更新前核对实际 Compose 标签、数据库名称与 Redis DB，不输出凭据。恢复和回退记录见 `/Users/wade/work-space/skoob/deploy/local-shared/README.md`。
