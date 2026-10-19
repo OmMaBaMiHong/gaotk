@@ -3398,7 +3398,8 @@ func convertClaudeMessagesToGeminiGenerateContent(body []byte) ([]byte, error) {
 }
 
 func stripGeminiFunctionIDs(req map[string]any) {
-	// Defensive cleanup: some upstreams reject unexpected `id` fields in functionCall/functionResponse.
+	// Defensive cleanup: some upstreams reject unexpected `id` fields in functionCall/functionResponse,
+	// and some reject a missing `name` with REQUIRED_FIELD_MISSING.
 	contents, ok := req["contents"].([]any)
 	if !ok {
 		return
@@ -3419,9 +3420,15 @@ func stripGeminiFunctionIDs(req map[string]any) {
 			}
 			if fc, ok := pm["functionCall"].(map[string]any); ok && fc != nil {
 				delete(fc, "id")
+				if name, _ := fc["name"].(string); strings.TrimSpace(name) == "" {
+					fc["name"] = "tool"
+				}
 			}
 			if fr, ok := pm["functionResponse"].(map[string]any); ok && fr != nil {
 				delete(fr, "id")
+				if name, _ := fr["name"].(string); strings.TrimSpace(name) == "" {
+					fr["name"] = "tool"
+				}
 			}
 		}
 	}
@@ -3771,18 +3778,36 @@ func cleanToolSchema(schema any) any {
 
 	switch v := schema.(type) {
 	case map[string]any:
+		normalizeGeminiSchemaKeywords(v)
 		cleaned := make(map[string]any)
 		for key, value := range v {
-			// 跳过不支持的字段
-			if key == "$schema" || key == "$id" || key == "$ref" ||
-				key == "$defs" || key == "definitions" ||
-				key == "additionalProperties" || key == "patternProperties" || key == "minLength" ||
-				key == "maxLength" || key == "minItems" || key == "maxItems" || key == "exclusiveMinimum" ||
-				key == "deprecated" {
+			// Gemini 的 Schema proto 是严格校验：白名单外的关键字会直接
+			// 400 "Unknown name"。这里按白名单放行，其余（examples、
+			// $comment、uniqueItems、已转换的 const/oneOf/allOf/prefixItems 等）丢弃。
+			if !isGeminiSchemaKey(key) {
 				continue
 			}
-			// 递归清理嵌套对象
-			cleaned[key] = cleanToolSchema(value)
+			switch key {
+			case "properties":
+				// properties 是 名称→schema 的容器，键是属性名不是 schema
+				// 关键字，必须全部保留，只递归清理每个属性自己的 schema。
+				if props, ok := value.(map[string]any); ok {
+					cleanedProps := make(map[string]any, len(props))
+					for name, propSchema := range props {
+						cleanedProps[name] = cleanToolSchema(propSchema)
+					}
+					cleaned[key] = cleanedProps
+				} else {
+					cleaned[key] = cleanToolSchema(value)
+				}
+			case "items", "anyOf":
+				cleaned[key] = cleanToolSchema(value)
+			case "default", "example":
+				// 字面值不是 schema，原样保留
+				cleaned[key] = value
+			default:
+				cleaned[key] = cleanToolSchema(value)
+			}
 		}
 		if enum, ok := cleaned["enum"].([]any); ok {
 			if normalized, ok := normalizeGeminiEnum(enum); ok {
@@ -3795,14 +3820,27 @@ func cleanToolSchema(schema any) any {
 		if typeVal, ok := cleaned["type"].(string); ok {
 			cleaned["type"] = strings.ToUpper(typeVal)
 		} else if typeValues, ok := cleaned["type"].([]any); ok {
+			hasNull := false
+			selected := ""
 			for _, typeValue := range typeValues {
 				typeName, ok := typeValue.(string)
-				if ok && !strings.EqualFold(typeName, "null") {
-					cleaned["type"] = strings.ToUpper(typeName)
-					break
+				if !ok {
+					continue
+				}
+				if strings.EqualFold(typeName, "null") {
+					hasNull = true
+					continue
+				}
+				if selected == "" {
+					selected = strings.ToUpper(typeName)
 				}
 			}
-			if _, ok := cleaned["type"].([]any); ok {
+			if selected != "" {
+				cleaned["type"] = selected
+				if hasNull {
+					cleaned["nullable"] = true
+				}
+			} else {
 				delete(cleaned, "type")
 			}
 		}
@@ -3810,6 +3848,11 @@ func cleanToolSchema(schema any) any {
 			if minimum, ok := incrementIntegralSchemaBound(v["exclusiveMinimum"]); ok {
 				if existing, exists := cleaned["minimum"]; !exists || schemaNumberLess(existing, minimum) {
 					cleaned["minimum"] = minimum
+				}
+			}
+			if maximum, ok := incrementIntegralSchemaBound(v["exclusiveMaximum"]); ok {
+				if existing, exists := cleaned["maximum"]; !exists || schemaNumberLess(maximum, existing) {
+					cleaned["maximum"] = maximum
 				}
 			}
 		}
@@ -3822,6 +3865,128 @@ func cleanToolSchema(schema any) any {
 		return cleaned
 	default:
 		return v
+	}
+}
+
+// normalizeGeminiSchemaKeywords 在白名单过滤前，把 JSON Schema 里 Gemini
+// Schema proto 不认识的结构关键字转换为等价形态（原地修改）。不转换的话
+// 这些关键字会被上游以 "Unknown name" 400 拒单。
+func normalizeGeminiSchemaKeywords(schema map[string]any) {
+	// const → 单值 enum（Gemini Schema 没有 const）
+	if constVal, exists := schema["const"]; exists {
+		if _, hasEnum := schema["enum"]; !hasEnum {
+			schema["enum"] = []any{constVal}
+		}
+		if _, hasType := schema["type"]; !hasType {
+			schema["type"] = jsonSchemaScalarTypeOf(constVal)
+		}
+	}
+	// oneOf → anyOf（Gemini Schema 只有 anyOf）
+	if oneOf, exists := schema["oneOf"]; exists {
+		if _, hasAnyOf := schema["anyOf"]; !hasAnyOf {
+			schema["anyOf"] = oneOf
+		}
+	}
+	// prefixItems（元组）→ items（Gemini 只认单一 items）
+	if prefixItems, ok := schema["prefixItems"].([]any); ok {
+		if _, hasItems := schema["items"]; !hasItems {
+			fallback := any(map[string]any{"type": "string"})
+			if len(prefixItems) > 0 {
+				fallback = prefixItems[0]
+			}
+			schema["items"] = fallback
+		}
+	}
+	// allOf 合并进当前层：properties 合并、required 取并集，其余字段缺了才补
+	if allOf, ok := schema["allOf"].([]any); ok {
+		for _, entry := range allOf {
+			entryMap, ok := entry.(map[string]any)
+			if !ok {
+				continue
+			}
+			for key, value := range entryMap {
+				switch key {
+				case "properties":
+					props, _ := schema["properties"].(map[string]any)
+					if props == nil {
+						props = map[string]any{}
+						schema["properties"] = props
+					}
+					if addProps, ok := value.(map[string]any); ok {
+						for pk, pv := range addProps {
+							if _, exists := props[pk]; !exists {
+								props[pk] = pv
+							}
+						}
+					}
+				case "required":
+					req, _ := schema["required"].([]any)
+					if addReq, ok := value.([]any); ok {
+						for _, rv := range addReq {
+							dup := false
+							for _, existing := range req {
+								if existing == rv {
+									dup = true
+									break
+								}
+							}
+							if !dup {
+								req = append(req, rv)
+							}
+						}
+						schema["required"] = req
+					}
+				default:
+					if _, exists := schema[key]; !exists {
+						schema[key] = value
+					}
+				}
+			}
+		}
+	}
+}
+
+// jsonSchemaScalarTypeOf 根据 const/标量值推断 JSON Schema 类型名（小写）。
+func jsonSchemaScalarTypeOf(value any) string {
+	switch v := value.(type) {
+	case string:
+		return "string"
+	case bool:
+		return "boolean"
+	case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64:
+		return "integer"
+	case json.Number:
+		if _, err := v.Int64(); err == nil {
+			return "integer"
+		}
+		return "number"
+	case float32:
+		if float64(v) == math.Trunc(float64(v)) {
+			return "integer"
+		}
+		return "number"
+	case float64:
+		if v == math.Trunc(v) {
+			return "integer"
+		}
+		return "number"
+	default:
+		return "string"
+	}
+}
+
+// isGeminiSchemaKey 判断 JSON Schema 关键字是否在 Gemini Schema proto 的
+// 支持范围内。
+func isGeminiSchemaKey(key string) bool {
+	switch key {
+	case "type", "format", "title", "description", "nullable", "default",
+		"enum", "items", "anyOf",
+		"properties", "required",
+		"minimum", "maximum", "minLength", "maxLength", "minItems", "maxItems",
+		"minProperties", "maxProperties", "pattern", "example", "propertyOrdering":
+		return true
+	default:
+		return false
 	}
 }
 

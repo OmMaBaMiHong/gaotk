@@ -509,6 +509,268 @@ func TestCleanToolSchema_DropsEnumWithNonScalarValue(t *testing.T) {
 	require.NotContains(t, cleaned, "enum")
 }
 
+func TestCleanToolSchema_ConvertsConstToEnum(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			// 线上事故形态：const 藏在 anyOf 分支里，Google 上游直接 400 Unknown name "const"
+			"mode": map[string]any{
+				"anyOf": []any{
+					map[string]any{"const": "managed_file", "type": "string"},
+					map[string]any{"const": "artifact", "type": "string"},
+				},
+			},
+			"level": map[string]any{"const": float64(3)},
+			"flag":  map[string]any{"const": true},
+		},
+	}
+
+	cleaned, ok := cleanToolSchema(schema).(map[string]any)
+	require.True(t, ok)
+
+	properties, ok := cleaned["properties"].(map[string]any)
+	require.True(t, ok)
+
+	modeSchema, ok := properties["mode"].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, modeSchema, "const")
+	anyOf, ok := modeSchema["anyOf"].([]any)
+	require.True(t, ok)
+	require.Len(t, anyOf, 2)
+	firstBranch, ok := anyOf[0].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, firstBranch, "const")
+	require.Equal(t, []any{"managed_file"}, firstBranch["enum"])
+	require.Equal(t, "STRING", firstBranch["type"])
+
+	levelSchema, ok := properties["level"].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, levelSchema, "const")
+	// 数字枚举走 normalizeGeminiEnum 的既有行为（Google 枚举为字符串形态）
+	require.Equal(t, []any{"3"}, levelSchema["enum"])
+	require.Equal(t, "INTEGER", levelSchema["type"])
+
+	flagSchema, ok := properties["flag"].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, flagSchema, "const")
+	require.Equal(t, []any{"true"}, flagSchema["enum"])
+	require.Equal(t, "BOOLEAN", flagSchema["type"])
+}
+
+func TestCleanToolSchema_KeepsExistingEnumWhenConstPresent(t *testing.T) {
+	schema := map[string]any{
+		"type":  "string",
+		"const": "a",
+		"enum":  []any{"a", "b"},
+	}
+
+	cleaned, ok := cleanToolSchema(schema).(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{"a", "b"}, cleaned["enum"])
+	require.NotContains(t, cleaned, "const")
+}
+
+func TestCleanToolSchema_RenamesOneOfToAnyOf(t *testing.T) {
+	schema := map[string]any{
+		"oneOf": []any{
+			map[string]any{"type": "string"},
+			map[string]any{"type": "integer"},
+		},
+	}
+
+	cleaned, ok := cleanToolSchema(schema).(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, cleaned, "oneOf")
+	anyOf, ok := cleaned["anyOf"].([]any)
+	require.True(t, ok)
+	require.Len(t, anyOf, 2)
+}
+
+func TestCleanToolSchema_MergesAllOf(t *testing.T) {
+	schema := map[string]any{
+		"type":     "object",
+		"required": []any{"name"},
+		"allOf": []any{
+			map[string]any{
+				"type": "object",
+				"properties": map[string]any{
+					"name": map[string]any{"type": "string"},
+				},
+				"required": []any{"name", "extra"},
+			},
+			map[string]any{
+				"properties": map[string]any{
+					"count": map[string]any{"type": "integer"},
+				},
+			},
+		},
+	}
+
+	cleaned, ok := cleanToolSchema(schema).(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, cleaned, "allOf")
+
+	properties, ok := cleaned["properties"].(map[string]any)
+	require.True(t, ok)
+	require.Contains(t, properties, "name")
+	require.Contains(t, properties, "count")
+	require.Equal(t, []any{"name", "extra"}, cleaned["required"])
+}
+
+func TestCleanToolSchema_ConvertsPrefixItemsToItems(t *testing.T) {
+	schema := map[string]any{
+		"type":        "array",
+		"prefixItems": []any{map[string]any{"type": "string"}, map[string]any{"type": "integer"}},
+	}
+
+	cleaned, ok := cleanToolSchema(schema).(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, cleaned, "prefixItems")
+	items, ok := cleaned["items"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "STRING", items["type"])
+
+	withItems := map[string]any{
+		"type":        "array",
+		"items":       map[string]any{"type": "number"},
+		"prefixItems": []any{map[string]any{"type": "string"}},
+	}
+	cleanedWithItems, ok := cleanToolSchema(withItems).(map[string]any)
+	require.True(t, ok)
+	itemsKept, ok := cleanedWithItems["items"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "NUMBER", itemsKept["type"])
+}
+
+func TestCleanToolSchema_DropsUnknownKeywordsGoogleWouldReject(t *testing.T) {
+	schema := map[string]any{
+		"type":             "object",
+		"examples":         []any{"demo"},
+		"$comment":         "note",
+		"uniqueItems":      true,
+		"multipleOf":       float64(2),
+		"format":           "date-time",
+		"minLength":        float64(1),
+		"propertyOrdering": []any{"a"},
+	}
+
+	cleaned, ok := cleanToolSchema(schema).(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, cleaned, "examples")
+	require.NotContains(t, cleaned, "$comment")
+	require.NotContains(t, cleaned, "uniqueItems")
+	require.NotContains(t, cleaned, "multipleOf")
+	require.Equal(t, "date-time", cleaned["format"])
+	require.Equal(t, float64(1), cleaned["minLength"])
+	require.Equal(t, []any{"a"}, cleaned["propertyOrdering"])
+}
+
+func TestCleanToolSchema_MarksNullableForNullUnionType(t *testing.T) {
+	schema := map[string]any{
+		"type": []any{"string", "null"},
+	}
+
+	cleaned, ok := cleanToolSchema(schema).(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "STRING", cleaned["type"])
+	require.Equal(t, true, cleaned["nullable"])
+}
+
+func TestStripGeminiFunctionIDs_BackfillsMissingNames(t *testing.T) {
+	req := map[string]any{
+		"contents": []any{
+			map[string]any{
+				"role": "model",
+				"parts": []any{
+					map[string]any{"functionCall": map[string]any{"id": "call-1", "args": map[string]any{}}},
+				},
+			},
+			map[string]any{
+				"role": "user",
+				"parts": []any{
+					map[string]any{"functionResponse": map[string]any{"id": "call-1", "response": map[string]any{"content": "ok"}}},
+					map[string]any{"functionResponse": map[string]any{"name": "", "response": map[string]any{"content": "empty"}}},
+				},
+			},
+		},
+	}
+
+	stripGeminiFunctionIDs(req)
+
+	contents, ok := req["contents"].([]any)
+	require.True(t, ok)
+	modelParts, ok := contents[0].(map[string]any)["parts"].([]any)
+	require.True(t, ok)
+	call, ok := modelParts[0].(map[string]any)["functionCall"].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, call, "id")
+	require.Equal(t, "tool", call["name"])
+
+	userParts, ok := contents[1].(map[string]any)["parts"].([]any)
+	require.True(t, ok)
+	response, ok := userParts[0].(map[string]any)["functionResponse"].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, response, "id")
+	require.Equal(t, "tool", response["name"])
+	emptyNamed, ok := userParts[1].(map[string]any)["functionResponse"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "tool", emptyNamed["name"])
+}
+
+func TestConvertClaudeMessagesToGeminiGenerateContent_CleansZodConstAndUnionSchemas(t *testing.T) {
+	body := map[string]any{
+		"model": "gemini-3.8-flash",
+		"tools": []any{
+			map[string]any{
+				"name":        "write_truth_file",
+				"description": "write a truth file",
+				"input_schema": map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"kind": map[string]any{
+							"anyOf": []any{
+								map[string]any{"const": "managed_file", "type": "string"},
+								map[string]any{"const": "artifact", "type": "string"},
+							},
+						},
+						"key": map[string]any{"type": "string"},
+					},
+					"required": []any{"kind"},
+				},
+			},
+		},
+		"messages": []any{
+			map[string]any{"role": "user", "content": "hi"},
+		},
+	}
+	raw, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	out, err := convertClaudeMessagesToGeminiGenerateContent(raw)
+	require.NoError(t, err)
+
+	var converted map[string]any
+	require.NoError(t, json.Unmarshal(out, &converted))
+	require.NotContains(t, string(out), `"const"`)
+	require.Contains(t, string(out), `"enum"`)
+
+	tools, ok := converted["tools"].([]any)
+	require.True(t, ok)
+	decls, ok := tools[0].(map[string]any)["functionDeclarations"].([]any)
+	require.True(t, ok)
+	params, ok := decls[0].(map[string]any)["parameters"].(map[string]any)
+	require.True(t, ok)
+	props, ok := params["properties"].(map[string]any)
+	require.True(t, ok)
+	kind, ok := props["kind"].(map[string]any)
+	require.True(t, ok)
+	branches, ok := kind["anyOf"].([]any)
+	require.True(t, ok)
+	first, ok := branches[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, []any{"managed_file"}, first["enum"])
+}
+
 func TestConvertClaudeToolsToGeminiTools_PreservesWebSearchAlongsideFunctions(t *testing.T) {
 	tools := []any{
 		map[string]any{
