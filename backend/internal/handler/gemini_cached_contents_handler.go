@@ -198,7 +198,7 @@ func (h *GatewayHandler) GeminiCachedContentsCreate(c *gin.Context) {
 			return
 		}
 		admissionCtx := service.ContextWithSelectionProfitGate(c.Request.Context(), selection)
-		latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account)
+		latest, vetoed, reason := h.gatewayService.GatewayProfitControlVetoLatest(admissionCtx, account, selection.SchedulingGroupID)
 		if vetoed {
 			accountReleaseFunc()
 			reqLog.Debug("gemini.cached_content.account_profit_vetoed", zap.Int64("account_id", account.ID), zap.String("reason", reason))
