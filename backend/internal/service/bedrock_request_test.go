@@ -850,11 +850,11 @@ func TestSanitizeBedrockThinking(t *testing.T) {
 		assert.Equal(t, "adaptive", gjson.GetBytes(result, "thinking.type").String())
 	})
 
-	t.Run("opus 4.6 enabled without budget_tokens gets default", func(t *testing.T) {
+	t.Run("opus 4.6 bare enabled uses adaptive without guessing a budget", func(t *testing.T) {
 		input := `{"thinking":{"type":"enabled"},"messages":[]}`
 		result := sanitizeBedrockThinking([]byte(input), "us.anthropic.claude-opus-4-6-v1")
-		assert.Equal(t, "enabled", gjson.GetBytes(result, "thinking.type").String())
-		assert.Equal(t, int64(defaultThinkingBudgetTokens), gjson.GetBytes(result, "thinking.budget_tokens").Int())
+		assert.Equal(t, "adaptive", gjson.GetBytes(result, "thinking.type").String())
+		assert.False(t, gjson.GetBytes(result, "thinking.budget_tokens").Exists())
 	})
 
 	t.Run("opus 4.6 enabled with budget_tokens unchanged", func(t *testing.T) {
@@ -870,11 +870,11 @@ func TestSanitizeBedrockThinking(t *testing.T) {
 		assert.JSONEq(t, input, string(result))
 	})
 
-	t.Run("sonnet 4.6 enabled without budget_tokens gets default", func(t *testing.T) {
+	t.Run("sonnet 4.6 bare enabled uses adaptive without guessing a budget", func(t *testing.T) {
 		input := `{"thinking":{"type":"enabled"},"messages":[]}`
 		result := sanitizeBedrockThinking([]byte(input), "us.anthropic.claude-sonnet-4-6")
-		assert.Equal(t, "enabled", gjson.GetBytes(result, "thinking.type").String())
-		assert.Equal(t, int64(defaultThinkingBudgetTokens), gjson.GetBytes(result, "thinking.budget_tokens").Int())
+		assert.Equal(t, "adaptive", gjson.GetBytes(result, "thinking.type").String())
+		assert.False(t, gjson.GetBytes(result, "thinking.budget_tokens").Exists())
 	})
 }
 
@@ -1029,8 +1029,8 @@ func TestPrepareBedrockRequestBodyWithTokens_CCCompat(t *testing.T) {
 	t.Run("ccCompat=true applies thinking fix and toolUseID sanitization (opus 4.6)", func(t *testing.T) {
 		result, err := PrepareBedrockRequestBodyWithTokens([]byte(input), "us.anthropic.claude-opus-4-6-v1", nil, true)
 		require.NoError(t, err)
-		assert.Equal(t, "enabled", gjson.GetBytes(result, "thinking.type").String())
-		assert.Equal(t, int64(defaultThinkingBudgetTokens), gjson.GetBytes(result, "thinking.budget_tokens").Int())
+		assert.Equal(t, "adaptive", gjson.GetBytes(result, "thinking.type").String())
+		assert.False(t, gjson.GetBytes(result, "thinking.budget_tokens").Exists())
 		assert.Equal(t, "toolu_01_Ab", gjson.GetBytes(result, "messages.0.content.0.id").String())
 		assert.Equal(t, "toolu_01_Ab", gjson.GetBytes(result, "messages.1.content.0.tool_use_id").String())
 	})
@@ -1074,10 +1074,10 @@ func TestSanitizeBedrockCCFields(t *testing.T) {
 		assert.True(t, gjson.GetBytes(result, "messages").Exists())
 	})
 
-	t.Run("injects max_tokens when missing", func(t *testing.T) {
+	t.Run("does not guess max_tokens when missing", func(t *testing.T) {
 		body := []byte(`{"model":"claude-opus-4-6","messages":[]}`)
 		result := sanitizeBedrockCCFields(body)
-		assert.Equal(t, int64(defaultCCMaxTokens), gjson.GetBytes(result, "max_tokens").Int())
+		assert.False(t, gjson.GetBytes(result, "max_tokens").Exists())
 	})
 
 	t.Run("preserves existing max_tokens", func(t *testing.T) {
@@ -1101,7 +1101,7 @@ func TestSanitizeBedrockCCFields(t *testing.T) {
 	t.Run("no-op when fields already clean", func(t *testing.T) {
 		body := []byte(`{"model":"claude-opus-4-6","max_tokens":81920,"anthropic_version":"bedrock-2023-05-31","messages":[]}`)
 		result := sanitizeBedrockCCFields(body)
-		assert.Equal(t, int64(defaultCCMaxTokens), gjson.GetBytes(result, "max_tokens").Int())
+		assert.Equal(t, int64(81920), gjson.GetBytes(result, "max_tokens").Int())
 		assert.Equal(t, "bedrock-2023-05-31", gjson.GetBytes(result, "anthropic_version").String())
 		assert.False(t, gjson.GetBytes(result, "service_tier").Exists())
 		assert.False(t, gjson.GetBytes(result, "interface_geo").Exists())
@@ -1121,7 +1121,7 @@ func TestSanitizeBedrockCCFields(t *testing.T) {
 		assert.False(t, gjson.GetBytes(result, "service_tier").Exists())
 		assert.False(t, gjson.GetBytes(result, "interface_geo").Exists())
 		assert.False(t, gjson.GetBytes(result, "context_management").Exists())
-		assert.Equal(t, int64(defaultCCMaxTokens), gjson.GetBytes(result, "max_tokens").Int())
+		assert.False(t, gjson.GetBytes(result, "max_tokens").Exists())
 		assert.Equal(t, "bedrock-2023-05-31", gjson.GetBytes(result, "anthropic_version").String())
 		assert.Equal(t, "enabled", gjson.GetBytes(result, "thinking.type").String())
 	})

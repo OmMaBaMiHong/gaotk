@@ -25,10 +25,16 @@ func (s *GatewayService) ApplyBedrockCCCompat(c *gin.Context, body []byte, model
 	if !s.isBedrockCCCompatEnabled(c.Request.Context(), account, groupID) {
 		return body
 	}
+	requestedModel := model
 	if resolved, ok := ResolveBedrockModelID(account, model); ok {
 		model = resolved
 	}
 	body = sanitizeBedrockCCFields(body)
+	// Unknown capability stays absent here; forwardBedrock returns the existing
+	// request error before an upstream call instead of guessing a CC default.
+	if prepared, err := applyBedrockOutputCapability(body, account, requestedModel, model); err == nil {
+		body = prepared
+	}
 	body = sanitizeBedrockThinking(body, model)
 	body = sanitizeBedrockToolUseIDs(body)
 	body = sanitizeBedrockCCBetaTokens(body, model)
@@ -74,6 +80,13 @@ func (s *GatewayService) forwardBedrock(
 	}
 	if mappedModel != reqModel {
 		logger.LegacyPrintf("service.gateway", "[Bedrock] Model mapping: %s -> %s (account: %s)", reqModel, mappedModel, account.Name)
+	}
+	body, err := applyBedrockOutputCapability(body, account, reqModel, mappedModel)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateBedrockThinkingBudget(body, mappedModel); err != nil {
+		return nil, err
 	}
 
 	betaHeader := ""

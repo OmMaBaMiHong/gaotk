@@ -450,7 +450,7 @@ func TestAnthropicFailoverEntries_ExplicitModelScopeOnlyCoolsModel(t *testing.T)
 		account.Schedulable = true
 		account.Credentials["auth_mode"] = "apikey"
 		account.Credentials["api_key"] = "bedrock-key"
-		body := []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello"}]}`)
+		body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":1024,"messages":[{"role":"user","content":"hello"}]}`)
 		rec := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(rec)
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))

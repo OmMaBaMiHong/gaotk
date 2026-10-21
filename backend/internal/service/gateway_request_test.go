@@ -350,7 +350,7 @@ func TestFilterThinkingBlocks(t *testing.T) {
 	}
 }
 
-func TestFilterThinkingBlocksForRetry_DisablesThinkingAndPreservesAsText(t *testing.T) {
+func TestFilterThinkingBlocksForRetry_PreservesThinkingAndSignedHistory(t *testing.T) {
 	input := []byte(`{
 		"model":"claude-3-5-sonnet-20241022",
 		"thinking":{"type":"enabled","budget_tokens":1024},
@@ -368,7 +368,7 @@ func TestFilterThinkingBlocksForRetry_DisablesThinkingAndPreservesAsText(t *test
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking)
+	require.True(t, hasThinking)
 
 	msgs, ok := req["messages"].([]any)
 	require.True(t, ok)
@@ -382,8 +382,8 @@ func TestFilterThinkingBlocksForRetry_DisablesThinkingAndPreservesAsText(t *test
 
 	first, ok := content[0].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "text", first["type"])
-	require.Equal(t, "Let me think...", first["text"])
+	require.Equal(t, "thinking", first["type"])
+	require.Equal(t, "Let me think...", first["thinking"])
 }
 
 func TestClaude55FilterThinkingBlocksRemovesSignedChainAfterInvalidBlock(t *testing.T) {
@@ -413,7 +413,7 @@ func TestSonnet55RetryKeepsBetweenToolsMode(t *testing.T) {
 	}
 }
 
-func TestFilterThinkingBlocksForRetry_DisablesThinkingEvenWithoutThinkingBlocks(t *testing.T) {
+func TestFilterThinkingBlocksForRetry_KeepsThinkingWithoutHistoricalBlocks(t *testing.T) {
 	input := []byte(`{
 		"model":"claude-3-5-sonnet-20241022",
 		"thinking":{"type":"enabled","budget_tokens":1024},
@@ -428,10 +428,10 @@ func TestFilterThinkingBlocksForRetry_DisablesThinkingEvenWithoutThinkingBlocks(
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking)
+	require.True(t, hasThinking)
 }
 
-func TestFilterThinkingBlocksForRetry_RemovesRedactedThinkingAndKeepsValidContent(t *testing.T) {
+func TestFilterThinkingBlocksForRetry_KeepsRedactedThinkingAndValidContent(t *testing.T) {
 	input := []byte(`{
 		"thinking":{"type":"enabled","budget_tokens":1024},
 		"messages":[
@@ -447,7 +447,7 @@ func TestFilterThinkingBlocksForRetry_RemovesRedactedThinkingAndKeepsValidConten
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking)
+	require.True(t, hasThinking)
 
 	msgs, ok := req["messages"].([]any)
 	require.True(t, ok)
@@ -455,11 +455,11 @@ func TestFilterThinkingBlocksForRetry_RemovesRedactedThinkingAndKeepsValidConten
 	require.True(t, ok)
 	content, ok := msg0["content"].([]any)
 	require.True(t, ok)
-	require.Len(t, content, 1)
+	require.Len(t, content, 2)
 	content0, ok := content[0].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "text", content0["type"])
-	require.Equal(t, "Visible", content0["text"])
+	require.Equal(t, "redacted_thinking", content0["type"])
+	require.Equal(t, "...", content0["data"])
 }
 
 func TestFilterThinkingBlocksForRetry_DropsThinkingBlockWithEmptyContent(t *testing.T) {
@@ -483,7 +483,7 @@ func TestFilterThinkingBlocksForRetry_DropsThinkingBlockWithEmptyContent(t *test
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking, "top-level thinking should be removed")
+	require.True(t, hasThinking, "top-level thinking must be preserved")
 
 	msgs := req["messages"].([]any)
 	assistant := msgs[1].(map[string]any)
@@ -493,7 +493,7 @@ func TestFilterThinkingBlocksForRetry_DropsThinkingBlockWithEmptyContent(t *test
 	require.Equal(t, "Answer", content[0].(map[string]any)["text"])
 }
 
-func TestFilterThinkingBlocksForRetry_EmptyContentGetsPlaceholder(t *testing.T) {
+func TestFilterThinkingBlocksForRetry_PreservesEncryptedThinking(t *testing.T) {
 	input := []byte(`{
 		"thinking":{"type":"enabled"},
 		"messages":[
@@ -514,8 +514,8 @@ func TestFilterThinkingBlocksForRetry_EmptyContentGetsPlaceholder(t *testing.T) 
 	require.Len(t, content, 1)
 	content0, ok := content[0].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "text", content0["type"])
-	require.NotEmpty(t, content0["text"])
+	require.Equal(t, "redacted_thinking", content0["type"])
+	require.NotEmpty(t, content0["data"])
 }
 
 func TestFilterThinkingBlocksForRetry_StripsEmptyTextBlocks(t *testing.T) {
@@ -679,7 +679,7 @@ func TestFilterThinkingBlocksForRetry_PreservesNonEmptyTextBlocks(t *testing.T) 
 	require.Equal(t, input, out)
 }
 
-func TestFilterSignatureSensitiveBlocksForRetry_DowngradesTools(t *testing.T) {
+func TestFilterSignatureSensitiveBlocksForRetry_PreservesTools(t *testing.T) {
 	input := []byte(`{
 		"thinking":{"type":"enabled","budget_tokens":1024},
 		"messages":[
@@ -695,7 +695,7 @@ func TestFilterSignatureSensitiveBlocksForRetry_DowngradesTools(t *testing.T) {
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking)
+	require.True(t, hasThinking)
 
 	msgs, ok := req["messages"].([]any)
 	require.True(t, ok)
@@ -708,10 +708,10 @@ func TestFilterSignatureSensitiveBlocksForRetry_DowngradesTools(t *testing.T) {
 	require.True(t, ok)
 	content1, ok := content[1].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "text", content0["type"])
-	require.Equal(t, "text", content1["type"])
-	require.Contains(t, content0["text"], "tool_use")
-	require.Contains(t, content1["text"], "tool_result")
+	require.Equal(t, "tool_use", content0["type"])
+	require.Equal(t, "tool_result", content1["type"])
+	require.Equal(t, "t1", content0["id"])
+	require.Equal(t, "t1", content1["tool_use_id"])
 }
 
 // ============ Group 6b: context_management.edits 清理测试 ============
@@ -766,7 +766,7 @@ func TestRemoveThinkingDependentContextStrategies_MixedEntries(t *testing.T) {
 
 // FilterThinkingBlocksForRetry — 包含 context_management 的场景
 
-func TestFilterThinkingBlocksForRetry_RemovesClearThinkingStrategy_FastPath(t *testing.T) {
+func TestFilterThinkingBlocksForRetry_PreservesClearThinkingStrategy_WithoutHistoricalBlocks(t *testing.T) {
 	// 快速路径：messages 中无 thinking 块，仅有顶层 thinking 字段
 	// 这条路径曾因提前 return 跳过 removeThinkingDependentContextStrategies 而存在 bug
 	input := []byte(`{
@@ -782,15 +782,15 @@ func TestFilterThinkingBlocksForRetry_RemovesClearThinkingStrategy_FastPath(t *t
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking, "顶层 thinking 应被移除")
+	require.True(t, hasThinking, "顶层 thinking 必须保留")
 
 	cm, ok := req["context_management"].(map[string]any)
 	require.True(t, ok)
 	_, hasEdits := cm["edits"]
-	require.False(t, hasEdits, "fast path 下 clear_thinking_20251015 应被移除，edits 键应被删除")
+	require.True(t, hasEdits, "当前思考模式未改变，context策略保持")
 }
 
-func TestFilterThinkingBlocksForRetry_RemovesClearThinkingStrategy_WithThinkingBlocks(t *testing.T) {
+func TestFilterThinkingBlocksForRetry_PreservesClearThinkingStrategy_WithThinkingBlocks(t *testing.T) {
 	// 完整路径：messages 中有 thinking 块（非 fast path）
 	input := []byte(`{
 		"thinking":{"type":"enabled","budget_tokens":1024},
@@ -808,16 +808,16 @@ func TestFilterThinkingBlocksForRetry_RemovesClearThinkingStrategy_WithThinkingB
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking, "顶层 thinking 应被移除")
+	require.True(t, hasThinking, "顶层 thinking 必须保留")
 
 	cm, ok := req["context_management"].(map[string]any)
 	require.True(t, ok)
 	edits, ok := cm["edits"].([]any)
 	require.True(t, ok)
-	require.Len(t, edits, 1, "仅移除 clear_thinking_20251015，保留 keep_this")
+	require.Len(t, edits, 2, "思考和上下文策略均保持")
 	edit0, ok := edits[0].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "keep_this", edit0["type"])
+	require.Equal(t, "clear_thinking_20251015", edit0["type"])
 }
 
 func TestFilterThinkingBlocksForRetry_NoContextManagement_Unaffected(t *testing.T) {
@@ -832,14 +832,14 @@ func TestFilterThinkingBlocksForRetry_NoContextManagement_Unaffected(t *testing.
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking)
+	require.True(t, hasThinking)
 	_, hasCM := req["context_management"]
 	require.False(t, hasCM)
 }
 
 // FilterSignatureSensitiveBlocksForRetry — 包含 context_management 的场景
 
-func TestFilterSignatureSensitiveBlocksForRetry_RemovesClearThinkingStrategy(t *testing.T) {
+func TestFilterSignatureSensitiveBlocksForRetry_PreservesClearThinkingStrategy(t *testing.T) {
 	input := []byte(`{
 		"thinking":{"type":"enabled","budget_tokens":1024},
 		"context_management":{"edits":[{"type":"clear_thinking_20251015"}]},
@@ -855,7 +855,7 @@ func TestFilterSignatureSensitiveBlocksForRetry_RemovesClearThinkingStrategy(t *
 	var req map[string]any
 	require.NoError(t, json.Unmarshal(out, &req))
 	_, hasThinking := req["thinking"]
-	require.False(t, hasThinking, "顶层 thinking 应被移除")
+	require.True(t, hasThinking, "顶层 thinking 必须保留")
 
 	cm, ok := req["context_management"].(map[string]any)
 	require.True(t, ok)
@@ -865,7 +865,7 @@ func TestFilterSignatureSensitiveBlocksForRetry_RemovesClearThinkingStrategy(t *
 		for _, e := range edits {
 			em, ok := e.(map[string]any)
 			require.True(t, ok)
-			require.NotEqual(t, "clear_thinking_20251015", em["type"], "clear_thinking_20251015 应被移除")
+			require.Equal(t, "clear_thinking_20251015", em["type"], "思考未关闭，保留清理策略")
 		}
 	}
 }
@@ -890,10 +890,10 @@ func TestFilterSignatureSensitiveBlocksForRetry_PreservesNonThinkingStrategies(t
 	require.True(t, ok)
 	edits, ok := cm["edits"].([]any)
 	require.True(t, ok)
-	require.Len(t, edits, 1, "仅移除 clear_thinking_20251015，保留 other_edit")
+	require.Len(t, edits, 2, "所有上下文策略保持")
 	edit0, ok := edits[0].(map[string]any)
 	require.True(t, ok)
-	require.Equal(t, "other_edit", edit0["type"])
+	require.Equal(t, "clear_thinking_20251015", edit0["type"])
 }
 
 func TestFilterSignatureSensitiveBlocksForRetry_NoThinkingField_ContextManagementUntouched(t *testing.T) {

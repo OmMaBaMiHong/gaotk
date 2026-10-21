@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -13,11 +14,35 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
+
+// Anthropic requires max_tokens; use the upstream's model capability, never a task budget.
+func applyAnthropicOutputCapability(req *apicompat.AnthropicRequest, account *Account) error {
+	originalProtocol := false
+	if account != nil {
+		endpoint, _ := url.Parse(account.GetBaseURL())
+		originalProtocol = account.Platform == PlatformAnthropic && (account.IsOAuth() || (endpoint != nil && endpoint.Hostname() == "api.anthropic.com"))
+	}
+	if originalProtocol && req.Thinking != nil && req.Thinking.Type == "enabled" && req.Thinking.BudgetTokens <= 0 {
+		return fmt.Errorf("Anthropic model %q requires explicit thinking.budget_tokens for manual thinking; configure it or use a model supporting adaptive thinking", req.Model)
+	}
+	if req.MaxTokens > 0 {
+		return nil
+	}
+	if metadata, ok := account.GetUpstreamModelMetadata(req.Model); ok && metadata.MaxOutputTokens > 0 {
+		req.MaxTokens = int(metadata.MaxOutputTokens)
+		return nil
+	}
+	if originalProtocol {
+		return fmt.Errorf("Anthropic model %q requires max_tokens: configure its upstream max_output_tokens capability or provide an explicit request value", req.Model)
+	}
+	return nil
+}
 
 var (
 	// 这些字节模式用于 fast-path 判断，避免每次 []byte("...") 产生临时分配。
@@ -573,6 +598,34 @@ func isClaude55SignedThinkingModel(model string) bool {
 	return claude.IsOpus55(model) || claude.IsSonnet55(model) || claude.IsHaiku55(model)
 }
 
+// Normalize on/off requests to the confirmed model's supported modes.
+// Conversion callers retain the original body so disabled still maps to OpenAI effort none.
+func normalizeAndValidateClaude55Request(body []byte, model string) ([]byte, error) {
+	if isClaude55SignedThinkingModel(model) && gjson.GetBytes(body, "thinking.type").String() == "enabled" && !gjson.GetBytes(body, "thinking.budget_tokens").Exists() {
+		next, err := sjson.SetBytes(body, "thinking.type", "adaptive")
+		if err != nil {
+			return body, err
+		}
+		body = next
+	}
+	if gjson.GetBytes(body, "thinking.type").String() == "disabled" && (claude.IsOpus55(model) || claude.IsSonnet55(model)) {
+		mode := "adaptive"
+		if claude.IsSonnet55(model) {
+			mode = "between_tools"
+		}
+		next, err := sjson.SetBytes(body, "thinking", map[string]string{"type": mode})
+		if err != nil {
+			return body, err
+		}
+		next, err = sjson.SetBytes(next, "output_config.effort", "low")
+		if err != nil {
+			return body, err
+		}
+		body = next
+	}
+	return body, validateClaude55Request(body, model)
+}
+
 // validateClaude55Request rejects settings that the upstream cannot honor.
 // Call before OAuth mimicry can remove tool_choice or alter thinking defaults.
 func validateClaude55Request(body []byte, model string) error {
@@ -675,259 +728,82 @@ func FilterThinkingBlocks(body []byte, mappedModel string) []byte {
 	return filterThinkingBlocksInternal(body, isClaude55SignedThinkingModel(mappedModel))
 }
 
-// FilterThinkingBlocksForRetry strips thinking-related constructs for retry scenarios.
-//
-// Why:
-//   - Upstreams may reject historical `thinking`/`redacted_thinking` blocks due to invalid/missing signatures.
-//   - Anthropic extended thinking has a structural constraint: when top-level `thinking` is enabled and the
-//     final message is an assistant prefill, the assistant content must start with a thinking block.
-//   - If we remove thinking blocks but keep top-level `thinking` enabled, we can trigger:
-//     "Expected `thinking` or `redacted_thinking`, but found `text`"
-//
-// Strategy (B: preserve content as text):
-//   - Disable top-level `thinking` (remove `thinking` field).
-//   - Convert `thinking` blocks to `text` blocks (preserve the thinking content).
-//   - Remove `redacted_thinking` blocks (cannot be converted to text).
-//   - Ensure no message ends up with empty content.
-//
-// mappedModel 用于按协议族分流：仅 anthropic-strict 执行上述变形；
-// passback-required (DeepSeek/Kimi/GLM 等) 与 unknown 一律返回原 body，
-// 因为这类上游的契约就是「thinking block 原样回传」（或我们不了解），
-// retry 任何变形都不会修好 400，反而破坏契约。详见 thinking_protocol.go。
+// FilterThinkingBlocksForRetry repairs malformed historical blocks without changing
+// the current request's thinking choice or converting protocol data into prose.
 func FilterThinkingBlocksForRetry(body []byte, mappedModel string) []byte {
-	// 仅 anthropic-strict 走整流；passback-required 与 unknown 都返回原 body。
 	if !ShouldApplyRetryFilters(mappedModel) {
 		return body
 	}
-
-	hasThinkingContent := bytes.Contains(body, patternTypeThinking) ||
-		bytes.Contains(body, patternTypeThinkingSpaced) ||
-		bytes.Contains(body, patternTypeRedactedThinking) ||
-		bytes.Contains(body, patternTypeRedactedSpaced) ||
-		bytes.Contains(body, patternThinkingField) ||
-		bytes.Contains(body, patternThinkingFieldSpaced)
-
-	// Also check for empty content arrays and empty text blocks that need fixing.
-	// Note: This is a heuristic check; the actual empty content handling is done below.
-	hasEmptyContent := bytes.Contains(body, patternEmptyContent) ||
-		bytes.Contains(body, patternEmptyContentSpaced) ||
-		bytes.Contains(body, patternEmptyContentSp1) ||
-		bytes.Contains(body, patternEmptyContentSp2)
-
-	// Check for empty text blocks: {"type":"text","text":""}
-	// These cause upstream 400: "text content blocks must be non-empty"
-	hasEmptyTextBlock := bytes.Contains(body, patternEmptyText) ||
-		bytes.Contains(body, patternEmptyTextSpaced) ||
-		bytes.Contains(body, patternEmptyTextSp1) ||
-		bytes.Contains(body, patternEmptyTextSp2)
-
-	// Fast path: nothing to process
-	if !hasThinkingContent && !hasEmptyContent && !hasEmptyTextBlock {
+	var req map[string]any
+	if json.Unmarshal(body, &req) != nil {
 		return body
 	}
-
-	// 尽量避免把整个 body Unmarshal 成 map（会产生大量 map/接口分配）。
-	// 这里先用 gjson 把 messages 子树摘出来，后续只对 messages 做 Unmarshal/Marshal。
-	jsonStr := *(*string)(unsafe.Pointer(&body))
-	msgsRes := gjson.Get(jsonStr, "messages")
-	if !msgsRes.Exists() || !msgsRes.IsArray() {
+	messages, ok := req["messages"].([]any)
+	if !ok {
 		return body
 	}
-
-	// Fast path：只需要删除顶层 thinking，不需要改 messages。
-	// 注意：patternThinkingField 可能来自嵌套字段（如 tool_use.input.thinking），因此必须用 gjson 判断顶层字段是否存在。
-	containsThinkingBlocks := bytes.Contains(body, patternTypeThinking) ||
-		bytes.Contains(body, patternTypeThinkingSpaced) ||
-		bytes.Contains(body, patternTypeRedactedThinking) ||
-		bytes.Contains(body, patternTypeRedactedSpaced) ||
-		bytes.Contains(body, patternThinkingFieldSpaced)
-	if !hasEmptyContent && !hasEmptyTextBlock && !containsThinkingBlocks {
-		if topThinking := gjson.Get(jsonStr, "thinking"); topThinking.Exists() {
-			if claude.IsSonnet55(mappedModel) && topThinking.Get("type").String() == "between_tools" {
-				return body
-			}
-			if out, err := sjson.DeleteBytes(body, "thinking"); err == nil {
-				out = removeThinkingDependentContextStrategies(out)
-				return out
-			}
-			return body
-		}
-		return body
-	}
-
-	var messages []any
-	if err := json.Unmarshal(sliceRawFromBody(body, msgsRes), &messages); err != nil {
-		return body
-	}
-
-	modified := false
-
-	// Disable top-level thinking mode for retry to avoid structural/signature constraints upstream.
-	thinkingMode := gjson.Get(jsonStr, "thinking.type").String()
-	deleteTopLevelThinking := gjson.Get(jsonStr, "thinking").Exists() &&
-		(!claude.IsSonnet55(mappedModel) || thinkingMode != "between_tools")
-
-	for i := 0; i < len(messages); i++ {
-		msgMap, ok := messages[i].(map[string]any)
+	mode := gjson.GetBytes(body, "thinking.type").String()
+	thinkingEnabled := mode == "enabled" || mode == "adaptive" || mode == "between_tools" || (mode == "" && isClaude55SignedThinkingModel(mappedModel))
+	changed := false
+	for _, message := range messages {
+		msg, ok := message.(map[string]any)
 		if !ok {
 			continue
 		}
-
-		role, _ := msgMap["role"].(string)
-		content, ok := msgMap["content"].([]any)
+		content, ok := msg["content"].([]any)
 		if !ok {
-			// String content or other format - keep as is
 			continue
 		}
-
-		// 延迟分配：只有检测到需要修改的块，才构建新 slice。
-		var newContent []any
-		modifiedThisMsg := false
-
-		ensureNewContent := func(prefixLen int) {
-			if newContent != nil {
-				return
-			}
-			newContent = make([]any, 0, len(content))
-			if prefixLen > 0 {
-				newContent = append(newContent, content[:prefixLen]...)
-			}
-		}
-
-		for bi := 0; bi < len(content); bi++ {
-			block := content[bi]
-			blockMap, ok := block.(map[string]any)
+		cleaned, emptyChanged := stripEmptyTextBlocksFromSlice(content)
+		kept := make([]any, 0, len(cleaned))
+		for _, block := range cleaned {
+			value, ok := block.(map[string]any)
 			if !ok {
-				if newContent != nil {
-					newContent = append(newContent, block)
-				}
+				kept = append(kept, block)
 				continue
 			}
-
-			blockType, _ := blockMap["type"].(string)
-
-			// Strip empty text blocks: {"type":"text","text":""}
-			// Upstream rejects these with 400: "text content blocks must be non-empty"
-			if blockType == "text" {
-				if txt, _ := blockMap["text"].(string); txt == "" {
-					modifiedThisMsg = true
-					ensureNewContent(bi)
-					continue
-				}
-			}
-
-			// Convert thinking blocks to text (preserve content) and drop redacted_thinking.
-			switch blockType {
+			typ, _ := value["type"].(string)
+			invalid := false
+			switch typ {
 			case "thinking":
-				modifiedThisMsg = true
-				ensureNewContent(bi)
-				thinkingText, _ := blockMap["thinking"].(string)
-				if thinkingText != "" {
-					newContent = append(newContent, map[string]any{"type": "text", "text": thinkingText})
-				}
-				continue
+				signature, _ := value["signature"].(string)
+				thought, _ := value["thinking"].(string)
+				invalid = !thinkingEnabled || thought == "" || signature == "" || signature == antigravity.DummyThoughtSignature
 			case "redacted_thinking":
-				modifiedThisMsg = true
-				ensureNewContent(bi)
+				data, _ := value["data"].(string)
+				invalid = !thinkingEnabled || data == ""
+			case "":
+				_, invalid = value["thinking"]
+			}
+			if invalid {
+				emptyChanged = true
 				continue
 			}
-
-			// Handle blocks without type discriminator but with a "thinking" field.
-			if blockType == "" {
-				if rawThinking, hasThinking := blockMap["thinking"]; hasThinking {
-					modifiedThisMsg = true
-					ensureNewContent(bi)
-					switch v := rawThinking.(type) {
-					case string:
-						if v != "" {
-							newContent = append(newContent, map[string]any{"type": "text", "text": v})
-						}
-					default:
-						if b, err := json.Marshal(v); err == nil && len(b) > 0 {
-							newContent = append(newContent, map[string]any{"type": "text", "text": string(b)})
-						}
-					}
-					continue
-				}
-			}
-
-			// Recursively strip empty text blocks from tool_result nested content.
-			if blockType == "tool_result" {
-				if nestedContent, ok := blockMap["content"].([]any); ok {
-					if cleaned, changed := stripEmptyTextBlocksFromSlice(nestedContent); changed {
-						modifiedThisMsg = true
-						ensureNewContent(bi)
-						blockCopy := make(map[string]any, len(blockMap))
-						for k, v := range blockMap {
-							blockCopy[k] = v
-						}
-						blockCopy["content"] = cleaned
-						newContent = append(newContent, blockCopy)
-						continue
-					}
-				}
-			}
-
-			if newContent != nil {
-				newContent = append(newContent, block)
-			}
+			kept = append(kept, block)
 		}
-
-		// Handle empty content: either from filtering or originally empty
-		if newContent == nil {
-			if len(content) == 0 {
-				modified = true
-				placeholder := "(content removed)"
-				if role == "assistant" {
-					placeholder = "(assistant content removed)"
-				}
-				msgMap["content"] = []any{map[string]any{"type": "text", "text": placeholder}}
-			}
-			continue
-		}
-
-		if len(newContent) == 0 {
-			modified = true
+		if len(kept) == 0 {
 			placeholder := "(content removed)"
-			if role == "assistant" {
+			if msg["role"] == "assistant" {
 				placeholder = "(assistant content removed)"
 			}
-			msgMap["content"] = []any{map[string]any{"type": "text", "text": placeholder}}
-			continue
+			kept = append(kept, map[string]any{"type": "text", "text": placeholder})
+			emptyChanged = true
 		}
-
-		if modifiedThisMsg {
-			modified = true
-			msgMap["content"] = newContent
+		if emptyChanged {
+			msg["content"] = kept
+			changed = true
 		}
 	}
-
-	if !modified && !deleteTopLevelThinking {
-		// Avoid rewriting JSON when no changes are needed.
+	if !changed {
 		return body
 	}
-
-	out := body
-	if deleteTopLevelThinking {
-		if b, err := sjson.DeleteBytes(out, "thinking"); err == nil {
-			out = b
-		} else {
-			return body
-		}
-		// Removing "thinking" makes any context_management strategy that requires it invalid
-		// (e.g. clear_thinking_20251015).  Strip those entries so the retry request does not
-		// receive a 400 "strategy requires thinking to be enabled or adaptive".
-		out = removeThinkingDependentContextStrategies(out)
+	encoded, err := json.Marshal(messages)
+	if err != nil {
+		return body
 	}
-	if modified {
-		msgsBytes, err := json.Marshal(messages)
-		if err != nil {
-			return body
-		}
-		out, err = sjson.SetRawBytes(out, "messages", msgsBytes)
-		if err != nil {
-			return body
-		}
+	out, err := sjson.SetRawBytes(body, "messages", encoded)
+	if err != nil {
+		return body
 	}
 	return out
 }
@@ -1215,207 +1091,12 @@ func anthropicMessageContentHasBody(content gjson.Result) bool {
 	}
 }
 
-// FilterSignatureSensitiveBlocksForRetry is a stronger retry filter for cases where upstream errors indicate
-// signature/thought_signature validation issues involving tool blocks.
-//
-// This performs everything in FilterThinkingBlocksForRetry, plus:
-//   - Convert `tool_use` blocks to text (name/id/input) so we stop sending structured tool calls.
-//   - Convert `tool_result` blocks to text so we keep tool results visible without tool semantics.
-//
-// Use this only when needed: converting tool blocks to text changes model behaviour and can increase the
-// risk of prompt injection (tool output becomes plain conversation text).
-//
-// mappedModel 同 FilterThinkingBlocksForRetry：仅 anthropic-strict 执行变形；
-// passback-required 与 unknown 都返回原 body，避免在不熟悉的上游上盲目变形。
+// FilterSignatureSensitiveBlocksForRetry keeps tool arguments and results typed;
+// a signature error cannot authorize replaying them as ordinary conversation text.
 func FilterSignatureSensitiveBlocksForRetry(body []byte, mappedModel string) []byte {
-	if !ShouldApplyRetryFilters(mappedModel) {
-		return body
-	}
-
-	// Fast path: only run when we see likely relevant constructs.
-	if !bytes.Contains(body, []byte(`"type":"thinking"`)) &&
-		!bytes.Contains(body, []byte(`"type": "thinking"`)) &&
-		!bytes.Contains(body, []byte(`"type":"redacted_thinking"`)) &&
-		!bytes.Contains(body, []byte(`"type": "redacted_thinking"`)) &&
-		!bytes.Contains(body, []byte(`"type":"tool_use"`)) &&
-		!bytes.Contains(body, []byte(`"type": "tool_use"`)) &&
-		!bytes.Contains(body, []byte(`"type":"tool_result"`)) &&
-		!bytes.Contains(body, []byte(`"type": "tool_result"`)) &&
-		!bytes.Contains(body, []byte(`"thinking":`)) &&
-		!bytes.Contains(body, []byte(`"thinking" :`)) {
-		return body
-	}
-
-	var req map[string]any
-	if err := json.Unmarshal(body, &req); err != nil {
-		return body
-	}
-
-	modified := false
-
-	// Disable top-level thinking for retry to avoid structural/signature constraints upstream.
-	if _, exists := req["thinking"]; exists {
-		delete(req, "thinking")
-		modified = true
-		// Remove context_management strategies that require thinking to be enabled
-		// (e.g. clear_thinking_20251015), otherwise upstream returns 400.
-		if cm, ok := req["context_management"].(map[string]any); ok {
-			if edits, ok := cm["edits"].([]any); ok {
-				filtered := make([]any, 0, len(edits))
-				for _, edit := range edits {
-					if editMap, ok := edit.(map[string]any); ok {
-						if editMap["type"] == "clear_thinking_20251015" {
-							continue
-						}
-					}
-					filtered = append(filtered, edit)
-				}
-				if len(filtered) != len(edits) {
-					if len(filtered) == 0 {
-						delete(cm, "edits")
-					} else {
-						cm["edits"] = filtered
-					}
-				}
-			}
-		}
-	}
-
-	messages, ok := req["messages"].([]any)
-	if !ok {
-		return body
-	}
-
-	newMessages := make([]any, 0, len(messages))
-
-	for _, msg := range messages {
-		msgMap, ok := msg.(map[string]any)
-		if !ok {
-			newMessages = append(newMessages, msg)
-			continue
-		}
-
-		role, _ := msgMap["role"].(string)
-		content, ok := msgMap["content"].([]any)
-		if !ok {
-			newMessages = append(newMessages, msg)
-			continue
-		}
-
-		newContent := make([]any, 0, len(content))
-		modifiedThisMsg := false
-
-		for _, block := range content {
-			blockMap, ok := block.(map[string]any)
-			if !ok {
-				newContent = append(newContent, block)
-				continue
-			}
-
-			blockType, _ := blockMap["type"].(string)
-			switch blockType {
-			case "thinking":
-				modifiedThisMsg = true
-				thinkingText, _ := blockMap["thinking"].(string)
-				if thinkingText == "" {
-					continue
-				}
-				newContent = append(newContent, map[string]any{"type": "text", "text": thinkingText})
-				continue
-			case "redacted_thinking":
-				modifiedThisMsg = true
-				continue
-			case "tool_use":
-				modifiedThisMsg = true
-				name, _ := blockMap["name"].(string)
-				id, _ := blockMap["id"].(string)
-				input := blockMap["input"]
-				inputJSON, _ := json.Marshal(input)
-				text := "(tool_use)"
-				if name != "" {
-					text += " name=" + name
-				}
-				if id != "" {
-					text += " id=" + id
-				}
-				if len(inputJSON) > 0 && string(inputJSON) != "null" {
-					text += " input=" + string(inputJSON)
-				}
-				newContent = append(newContent, map[string]any{"type": "text", "text": text})
-				continue
-			case "tool_result":
-				modifiedThisMsg = true
-				toolUseID, _ := blockMap["tool_use_id"].(string)
-				isError, _ := blockMap["is_error"].(bool)
-				content := blockMap["content"]
-				contentJSON, _ := json.Marshal(content)
-				text := "(tool_result)"
-				if toolUseID != "" {
-					text += " tool_use_id=" + toolUseID
-				}
-				if isError {
-					text += " is_error=true"
-				}
-				if len(contentJSON) > 0 && string(contentJSON) != "null" {
-					text += "\n" + string(contentJSON)
-				}
-				newContent = append(newContent, map[string]any{"type": "text", "text": text})
-				continue
-			}
-
-			if blockType == "" {
-				if rawThinking, hasThinking := blockMap["thinking"]; hasThinking {
-					modifiedThisMsg = true
-					switch v := rawThinking.(type) {
-					case string:
-						if v != "" {
-							newContent = append(newContent, map[string]any{"type": "text", "text": v})
-						}
-					default:
-						if b, err := json.Marshal(v); err == nil && len(b) > 0 {
-							newContent = append(newContent, map[string]any{"type": "text", "text": string(b)})
-						}
-					}
-					continue
-				}
-			}
-
-			newContent = append(newContent, block)
-		}
-
-		if modifiedThisMsg {
-			modified = true
-			if len(newContent) == 0 {
-				placeholder := "(content removed)"
-				if role == "assistant" {
-					placeholder = "(assistant content removed)"
-				}
-				newContent = append(newContent, map[string]any{"type": "text", "text": placeholder})
-			}
-			msgMap["content"] = newContent
-		}
-
-		newMessages = append(newMessages, msgMap)
-	}
-
-	if !modified {
-		return body
-	}
-
-	req["messages"] = newMessages
-	newBody, err := json.Marshal(req)
-	if err != nil {
-		return body
-	}
-	return newBody
+	return FilterThinkingBlocksForRetry(body, mappedModel)
 }
 
-// filterThinkingBlocksInternal removes invalid thinking blocks from request
-// 策略：
-//   - 当 thinking.type 不是 "enabled"/"adaptive"：移除所有 thinking 相关块
-//   - 当 thinking.type 是 "enabled"/"adaptive"：移除缺失/无效 signature 的 thinking 块
-//   - 对 5.5 模型，只要历史中有无效 thinking，就移除所有 thinking/redacted_thinking，
-//     避免留下不连续的签名历史
 func filterThinkingBlocksInternal(body []byte, alwaysThinking bool) []byte {
 	// Fast path: if body doesn't contain "thinking", skip parsing
 	if !bytes.Contains(body, []byte(`"type":"thinking"`)) &&
@@ -1731,19 +1412,6 @@ func NormalizeGLM53AnthropicThinking(body []byte, mappedModel string) ([]byte, b
 	return modified, true
 }
 
-// =========================
-// Thinking Budget Rectifier
-// =========================
-
-const (
-	// BudgetRectifyBudgetTokens is the budget_tokens value to set when rectifying.
-	BudgetRectifyBudgetTokens = 32000
-	// BudgetRectifyMaxTokens is the max_tokens value to set when rectifying.
-	BudgetRectifyMaxTokens = 64000
-	// BudgetRectifyMinMaxTokens is the minimum max_tokens that must exceed budget_tokens.
-	BudgetRectifyMinMaxTokens = 32001
-)
-
 // isThinkingBudgetConstraintError detects whether an upstream error message indicates
 // a budget_tokens constraint violation (e.g. "budget_tokens >= 1024").
 // Also recognizes Baseten's final-answer reserve constraint.
@@ -1785,49 +1453,6 @@ func isFinalAnswerReserveError(errMsg string) bool {
 	m := strings.ToLower(errMsg)
 	return strings.Contains(m, "must be greater than 1024 to reserve tokens for a final answer") &&
 		strings.Contains(m, "baseten reasoning is enabled")
-}
-
-// RectifyThinkingBudget modifies the request body to fix budget_tokens constraint errors.
-// It sets thinking.budget_tokens = 32000, thinking.type = "enabled" (unless adaptive),
-// and ensures max_tokens >= 32001.
-// Returns (modified body, true) if changes were applied, or (original body, false) if not.
-func RectifyThinkingBudget(body []byte) ([]byte, bool) {
-	// If thinking type is "adaptive", skip rectification entirely
-	thinkingType := gjson.GetBytes(body, "thinking.type").String()
-	if thinkingType == "adaptive" {
-		return body, false
-	}
-
-	modified := body
-	changed := false
-
-	// Set thinking.type = "enabled"
-	if thinkingType != "enabled" {
-		if result, err := sjson.SetBytes(modified, "thinking.type", "enabled"); err == nil {
-			modified = result
-			changed = true
-		}
-	}
-
-	// Set thinking.budget_tokens = 32000
-	currentBudget := gjson.GetBytes(modified, "thinking.budget_tokens").Int()
-	if currentBudget != BudgetRectifyBudgetTokens {
-		if result, err := sjson.SetBytes(modified, "thinking.budget_tokens", BudgetRectifyBudgetTokens); err == nil {
-			modified = result
-			changed = true
-		}
-	}
-
-	// Ensure max_tokens >= BudgetRectifyMinMaxTokens
-	maxTokens := gjson.GetBytes(modified, "max_tokens").Int()
-	if maxTokens < int64(BudgetRectifyMinMaxTokens) {
-		if result, err := sjson.SetBytes(modified, "max_tokens", BudgetRectifyMaxTokens); err == nil {
-			modified = result
-			changed = true
-		}
-	}
-
-	return modified, changed
 }
 
 // NormalizeChineseLLMThinking rewrites the top-level `thinking` object for Chinese

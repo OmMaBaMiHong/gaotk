@@ -961,15 +961,6 @@ func (s *SettingService) IsSignatureRectifierEnabled(ctx context.Context) bool {
 	return settings.Enabled && settings.ThinkingSignatureEnabled
 }
 
-// IsBudgetRectifierEnabled 判断 Budget 整流是否启用（总开关 && Budget 子开关）
-func (s *SettingService) IsBudgetRectifierEnabled(ctx context.Context) bool {
-	settings, err := s.GetRectifierSettings(ctx)
-	if err != nil {
-		return true // fail-open: 查询失败时默认启用
-	}
-	return settings.Enabled && settings.ThinkingBudgetEnabled
-}
-
 // GetBetaPolicySettings 获取 Beta 策略配置
 func (s *SettingService) GetBetaPolicySettings(ctx context.Context) (*BetaPolicySettings, error) {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyBetaPolicySettings)

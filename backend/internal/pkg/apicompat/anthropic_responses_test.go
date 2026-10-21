@@ -197,16 +197,16 @@ func TestAnthropicToResponses_ThinkingSignatureBecomesReasoning(t *testing.T) {
 	assert.Equal(t, "function_call", items[3].Type)
 }
 
-func TestAnthropicToResponses_MaxTokensFloor(t *testing.T) {
+func TestAnthropicToResponses_PreservesExplicitMaxTokens(t *testing.T) {
 	req := &AnthropicRequest{
 		Model:     "gpt-5.2",
-		MaxTokens: 10, // below minMaxOutputTokens (128)
+		MaxTokens: 10,
 		Messages:  []AnthropicMessage{{Role: "user", Content: json.RawMessage(`"Hi"`)}},
 	}
 
 	resp, err := AnthropicToResponses(req)
 	require.NoError(t, err)
-	assert.Equal(t, 128, *resp.MaxOutputTokens)
+	assert.Equal(t, 10, *resp.MaxOutputTokens)
 }
 
 // ---------------------------------------------------------------------------
@@ -1850,12 +1850,13 @@ func TestOpus55ResponsesAdaptiveThinkingAndToolChoice(t *testing.T) {
 		_, err := ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-opus-5-5", Input: json.RawMessage(`"hello"`), ToolChoice: json.RawMessage(choice)})
 		require.ErrorContains(t, err, "forced tool_choice")
 	}
-	_, err := ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-opus-5-5", Input: json.RawMessage(`"hello"`), Reasoning: &ResponsesReasoning{Effort: "none"}})
-	require.ErrorContains(t, err, "reasoning effort")
+	off, err := ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-opus-5-5", Input: json.RawMessage(`"hello"`), Reasoning: &ResponsesReasoning{Effort: "none"}})
+	require.NoError(t, err)
+	require.Equal(t, "low", off.OutputConfig.Effort)
 	old, err := ResponsesToAnthropicRequest(&ResponsesRequest{Model: "claude-opus-5", Input: json.RawMessage(`"hello"`), Reasoning: &ResponsesReasoning{Effort: "xhigh"}})
 	require.NoError(t, err)
 	require.Equal(t, "max", old.OutputConfig.Effort)
-	require.Equal(t, "enabled", old.Thinking.Type)
+	require.Equal(t, "adaptive", old.Thinking.Type)
 }
 
 func TestOpus55SignedThinkingResponsesRoundTrip(t *testing.T) {

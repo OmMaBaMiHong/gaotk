@@ -529,12 +529,12 @@ func DefaultStreamTimeoutSettings() *StreamTimeoutSettings {
 type RectifierSettings struct {
 	Enabled                  bool     `json:"enabled"`                    // 总开关
 	ThinkingSignatureEnabled bool     `json:"thinking_signature_enabled"` // Thinking 签名整流
-	ThinkingBudgetEnabled    bool     `json:"thinking_budget_enabled"`    // Thinking Budget 整流
+	ThinkingBudgetEnabled    bool     `json:"thinking_budget_enabled"`    // Legacy JSON field; generation budgets are never rewritten.
 	APIKeySignatureEnabled   bool     `json:"apikey_signature_enabled"`   // API Key 签名整流开关
 	APIKeySignaturePatterns  []string `json:"apikey_signature_patterns"`  // API Key 自定义匹配关键词
 }
 
-// DefaultRectifierSettings 返回默认的整流器配置（全部启用）
+// DefaultRectifierSettings 返回整流器兼容配置；thinking_budget_enabled仅保留旧JSON。
 func DefaultRectifierSettings() *RectifierSettings {
 	return &RectifierSettings{
 		Enabled:                  true,

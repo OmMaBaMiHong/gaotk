@@ -16,9 +16,9 @@ func AnthropicToResponses(req *AnthropicRequest) (*ResponsesRequest, error) {
 	return AnthropicToResponsesWithMinOutputTokens(req, DefaultMinMaxOutputTokens)
 }
 
-// AnthropicToResponsesWithMinOutputTokens converts an Anthropic request using
-// the supplied max_output_tokens floor.
-func AnthropicToResponsesWithMinOutputTokens(req *AnthropicRequest, minOutputTokens int) (*ResponsesRequest, error) {
+// AnthropicToResponsesWithMinOutputTokens preserves an explicit output limit;
+// the legacy floor argument is ignored.
+func AnthropicToResponsesWithMinOutputTokens(req *AnthropicRequest, _ int) (*ResponsesRequest, error) {
 	if err := openai.ValidateGPT61SolReasoningEffort(req.Model, anthropicReasoningEffort(req)); err != nil {
 		return nil, err
 	}
@@ -33,10 +33,11 @@ func AnthropicToResponsesWithMinOutputTokens(req *AnthropicRequest, minOutputTok
 	}
 
 	out := &ResponsesRequest{
-		Model:   req.Model,
-		Input:   inputJSON,
-		Stream:  req.Stream,
-		Include: []string{"reasoning.encrypted_content"},
+		Model:             req.Model,
+		AnthropicThinking: req.Thinking,
+		Input:             inputJSON,
+		Stream:            req.Stream,
+		Include:           []string{"reasoning.encrypted_content"},
 	}
 
 	// Reasoning models (gpt-5.x) served via the Responses API do not accept
@@ -56,9 +57,6 @@ func AnthropicToResponsesWithMinOutputTokens(req *AnthropicRequest, minOutputTok
 
 	if req.MaxTokens > 0 {
 		v := req.MaxTokens
-		if v < minOutputTokens {
-			v = minOutputTokens
-		}
 		out.MaxOutputTokens = &v
 	}
 

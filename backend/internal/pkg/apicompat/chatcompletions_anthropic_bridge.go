@@ -44,8 +44,8 @@ func AnthropicToChatCompletionsRequest(req *AnthropicRequest) (*ChatCompletionsR
 }
 
 // AnthropicToChatCompletionsRequestWithMinOutputTokens converts an Anthropic
-// Messages request using the supplied max_completion_tokens floor.
-func AnthropicToChatCompletionsRequestWithMinOutputTokens(req *AnthropicRequest, minOutputTokens int) (*ChatCompletionsRequest, error) {
+// Messages request without changing its explicit token limit; the legacy floor is ignored.
+func AnthropicToChatCompletionsRequestWithMinOutputTokens(req *AnthropicRequest, _ int) (*ChatCompletionsRequest, error) {
 	if req == nil {
 		return nil, fmt.Errorf("anthropic request is nil")
 	}
@@ -69,9 +69,6 @@ func AnthropicToChatCompletionsRequestWithMinOutputTokens(req *AnthropicRequest,
 
 	if req.MaxTokens > 0 {
 		v := req.MaxTokens
-		if v < minOutputTokens {
-			v = minOutputTokens
-		}
 		out.MaxCompletionTokens = &v
 	}
 

@@ -291,7 +291,7 @@ func mustMarshalJSON(t *testing.T, value any) []byte {
 }
 
 func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
-	t.Run("default floor", func(t *testing.T) {
+	t.Run("preserves small explicit limit", func(t *testing.T) {
 		maxTokens := 1
 		req := &ChatCompletionsRequest{
 			Model:     "gpt-4o",
@@ -301,10 +301,10 @@ func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
 		resp, err := ChatCompletionsToResponses(req)
 		require.NoError(t, err)
 		require.NotNil(t, resp.MaxOutputTokens)
-		assert.Equal(t, DefaultMinMaxOutputTokens, *resp.MaxOutputTokens)
+		assert.Equal(t, 1, *resp.MaxOutputTokens)
 	})
 
-	t.Run("configured floor", func(t *testing.T) {
+	t.Run("ignores legacy configured floor", func(t *testing.T) {
 		for _, input := range []int{16, 64, 127, 128} {
 			input := input
 			t.Run(fmt.Sprintf("input_%d", input), func(t *testing.T) {
@@ -328,7 +328,7 @@ func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
 		resp, err := ChatCompletionsToResponsesWithMinOutputTokens(req, 16)
 		require.NoError(t, err)
 		require.NotNil(t, resp.MaxOutputTokens)
-		assert.Equal(t, 16, *resp.MaxOutputTokens)
+		assert.Equal(t, 1, *resp.MaxOutputTokens)
 	})
 
 	t.Run("max_tokens", func(t *testing.T) {
@@ -341,8 +341,7 @@ func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
 		resp, err := ChatCompletionsToResponses(req)
 		require.NoError(t, err)
 		require.NotNil(t, resp.MaxOutputTokens)
-		// Below minMaxOutputTokens (128), should be clamped
-		assert.Equal(t, minMaxOutputTokens, *resp.MaxOutputTokens)
+		assert.Equal(t, 100, *resp.MaxOutputTokens)
 	})
 
 	t.Run("max_completion_tokens_preferred", func(t *testing.T) {
@@ -360,7 +359,7 @@ func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
 		assert.Equal(t, 500, *resp.MaxOutputTokens)
 	})
 
-	t.Run("max_completion_tokens_preferred before configured floor", func(t *testing.T) {
+	t.Run("max_completion_tokens_preferred without floor", func(t *testing.T) {
 		maxTokens := 500
 		maxCompletion := 1
 		req := &ChatCompletionsRequest{
@@ -372,7 +371,7 @@ func TestChatCompletionsToResponses_MaxTokens(t *testing.T) {
 		resp, err := ChatCompletionsToResponsesWithMinOutputTokens(req, 16)
 		require.NoError(t, err)
 		require.NotNil(t, resp.MaxOutputTokens)
-		assert.Equal(t, 16, *resp.MaxOutputTokens)
+		assert.Equal(t, 1, *resp.MaxOutputTokens)
 	})
 }
 

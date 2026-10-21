@@ -254,20 +254,20 @@ func TestAnthropicToChatCompletionsRequest_TemperaturePreservedForNonReasoningMo
 	require.Equal(t, 0.9, *out.TopP)
 }
 
-func TestAnthropicToChatCompletionsRequest_MaxTokensFloor(t *testing.T) {
+func TestAnthropicToChatCompletionsRequest_PreservesExplicitMaxTokens(t *testing.T) {
 	req := &AnthropicRequest{
 		Model:     "claude-sonnet-4-20250514",
-		MaxTokens: 10, // below minMaxOutputTokens (128)
+		MaxTokens: 10,
 		Messages:  []AnthropicMessage{{Role: "user", Content: json.RawMessage(`"hi"`)}},
 	}
 
 	out, err := AnthropicToChatCompletionsRequest(req)
 	require.NoError(t, err)
 	require.NotNil(t, out.MaxCompletionTokens)
-	require.Equal(t, minMaxOutputTokens, *out.MaxCompletionTokens)
+	require.Equal(t, 10, *out.MaxCompletionTokens)
 }
 
-func TestAnthropicToChatCompletionsRequestWithMinOutputTokens_ConfiguredFloor(t *testing.T) {
+func TestAnthropicToChatCompletionsRequestWithMinOutputTokens_IgnoresLegacyFloor(t *testing.T) {
 	req := &AnthropicRequest{
 		Model:     "claude-sonnet-4-20250514",
 		MaxTokens: 16,
@@ -277,10 +277,10 @@ func TestAnthropicToChatCompletionsRequestWithMinOutputTokens_ConfiguredFloor(t 
 	out, err := AnthropicToChatCompletionsRequestWithMinOutputTokens(req, 64)
 	require.NoError(t, err)
 	require.NotNil(t, out.MaxCompletionTokens)
-	require.Equal(t, 64, *out.MaxCompletionTokens)
+	require.Equal(t, 16, *out.MaxCompletionTokens)
 }
 
-func TestAnthropicToResponses_ConfiguredMaxTokensFloor(t *testing.T) {
+func TestAnthropicToResponses_IgnoresLegacyMaxTokensFloor(t *testing.T) {
 	for _, input := range []int{16, 64, 127} {
 		req := &AnthropicRequest{
 			Model:     "claude-sonnet-4-20250514",
@@ -301,7 +301,7 @@ func TestAnthropicToResponses_ConfiguredMaxTokensFloor(t *testing.T) {
 	out, err := AnthropicToResponsesWithMinOutputTokens(req, 16)
 	require.NoError(t, err)
 	require.NotNil(t, out.MaxOutputTokens)
-	require.Equal(t, 16, *out.MaxOutputTokens)
+	require.Equal(t, 1, *out.MaxOutputTokens)
 }
 
 func TestAnthropicToChatCompletionsRequest_ReasoningEffortMapping(t *testing.T) {

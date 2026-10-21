@@ -389,19 +389,19 @@ func TestAntigravityCompatPreservesChatTokenLimit(t *testing.T) {
 			want: 13,
 		},
 		{
-			name: "max_tokens at safe ceiling is preserved",
+			name: "explicit max_tokens at former ceiling is preserved",
 			body: `{"model":"gemini-3.1-pro-high","messages":[{"role":"user","content":"ok"}],"max_tokens":64000}`,
 			want: 64000,
 		},
 		{
-			name: "max_tokens above safe ceiling is clamped",
+			name: "explicit max_tokens above former ceiling is preserved",
 			body: `{"model":"gemini-3.1-pro-high","messages":[{"role":"user","content":"ok"}],"max_tokens":64001}`,
-			want: 64000,
+			want: 64001,
 		},
 		{
-			name: "precedence applies before clamping",
+			name: "explicit completion limit takes precedence without clamping",
 			body: `{"model":"gemini-3.1-pro-high","messages":[{"role":"user","content":"ok"}],"max_tokens":8,"max_completion_tokens":64001}`,
-			want: 64000,
+			want: 64001,
 		},
 	}
 

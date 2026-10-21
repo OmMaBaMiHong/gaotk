@@ -16,7 +16,7 @@ import (
 // AnthropicRequest is the request body for POST /v1/messages.
 type AnthropicRequest struct {
 	Model       string             `json:"model"`
-	MaxTokens   int                `json:"max_tokens"`
+	MaxTokens   int                `json:"max_tokens,omitempty"`
 	System      json.RawMessage    `json:"system,omitempty"` // string or []AnthropicContentBlock
 	Messages    []AnthropicMessage `json:"messages"`
 	Tools       []AnthropicTool    `json:"tools,omitempty"`
@@ -231,6 +231,8 @@ type AnthropicDelta struct {
 
 // ResponsesRequest is the request body for POST /v1/responses.
 type ResponsesRequest struct {
+	// Kept only for in-process Anthropic round trips, never sent to Responses upstreams.
+	AnthropicThinking  *AnthropicThinking  `json:"-"`
 	PromptCacheOptions json.RawMessage     `json:"prompt_cache_options,omitempty"`
 	Model              string              `json:"model"`
 	Instructions       string              `json:"instructions,omitempty"`
@@ -861,9 +863,8 @@ func (d ChatDelta) reasoningText() *string {
 // Shared constants
 // ---------------------------------------------------------------------------
 
-// DefaultMinMaxOutputTokens is the default floor for max_output_tokens in a
-// Responses request. Very small values may cause upstream API errors, so we
-// enforce a minimum.
+// DefaultMinMaxOutputTokens is retained for legacy configuration compatibility.
+// Request converters no longer apply an output floor.
 const DefaultMinMaxOutputTokens = 128
 
 const minMaxOutputTokens = DefaultMinMaxOutputTokens

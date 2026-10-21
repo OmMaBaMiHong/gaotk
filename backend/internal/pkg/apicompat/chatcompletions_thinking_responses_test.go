@@ -16,7 +16,7 @@ func TestChatCompletionsToResponses_ThinkingMapping(t *testing.T) {
 	}{
 		{name: "disabled", request: `{"thinking":{"type":"disabled"}}`, wantReasoning: true, wantEffort: "none"},
 		{name: "disabled overrides positive effort", request: `{"thinking":{"type":"disabled"},"reasoning_effort":"high"}`, wantReasoning: true, wantEffort: "none"},
-		{name: "enabled defaults high", request: `{"thinking":{"type":"enabled"}}`, wantReasoning: true, wantEffort: "high"},
+		{name: "enabled uses upstream default", request: `{"thinking":{"type":"enabled"}}`, wantReasoning: false},
 		{name: "enabled preserves explicit effort", request: `{"thinking":{"type":"enabled"},"reasoning_effort":"low"}`, wantReasoning: true, wantEffort: "low"},
 		{name: "explicit none stays none", request: `{"thinking":{"type":"enabled"},"reasoning_effort":"none"}`, wantReasoning: true, wantEffort: "none"},
 		{name: "effort without thinking", request: `{"reasoning_effort":"medium"}`, wantReasoning: true, wantEffort: "medium"},

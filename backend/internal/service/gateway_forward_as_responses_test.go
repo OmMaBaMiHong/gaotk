@@ -603,9 +603,9 @@ func TestClaude55BridgeUsesMappedModelBeforeThinkingConversion(t *testing.T) {
 			for _, forced := range []bool{false, true} {
 				rec := httptest.NewRecorder()
 				c, _ := gin.CreateTestContext(rec)
-				body := `{"model":"public-claude","input":"hello","reasoning":{"effort":"xhigh"}}`
+				body := `{"model":"public-claude","max_output_tokens":1024,"input":"hello","reasoning":{"effort":"xhigh"}}`
 				if chat {
-					body = `{"model":"public-claude","messages":[{"role":"user","content":"hello"}],"reasoning_effort":"xhigh"}`
+					body = `{"model":"public-claude","max_tokens":1024,"messages":[{"role":"user","content":"hello"}],"reasoning_effort":"xhigh"}`
 				}
 				if forced {
 					body = body[:len(body)-1] + `,"tool_choice":"required","tools":[{"type":"function","name":"lookup","function":{"name":"lookup"}}]}`

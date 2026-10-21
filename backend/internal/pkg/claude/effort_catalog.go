@@ -42,6 +42,22 @@ func EffortLevelsForModel(model string) []string {
 	return nil
 }
 
+// SupportsAdaptiveThinking is separate from effort support: Opus 4.5 supports
+// effort but accepts only manual extended thinking. Keep unconfirmed IDs false.
+// Source: https://platform.claude.com/docs/en/build-with-claude/thinking-troubleshooting
+func SupportsAdaptiveThinking(model string) bool {
+	id := normalizeEffortModelID(model)
+	id = strings.TrimSuffix(strings.TrimSuffix(id, "-v1:0"), "-v1")
+	switch id {
+	case "claude-opus-4-6", "claude-sonnet-4-6", "claude-opus-4-7", "claude-opus-4-8",
+		"claude-opus-5", "claude-sonnet-5", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5",
+		"claude-fable-5", "claude-fable-5-1", "claude-mythos-5", "claude-mythos-5-1", "claude-mythos-preview":
+		return true
+	default:
+		return false
+	}
+}
+
 // IsOpus55 identifies the fixed Opus 5.5 ID after provider/local suffix normalization.
 func IsOpus55(model string) bool {
 	return normalizeEffortModelID(model) == "claude-opus-5-5"

@@ -28,6 +28,7 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
 		Temperature: req.Temperature,
 		TopP:        req.TopP,
 		Stream:      req.Stream,
+		Thinking:    req.AnthropicThinking,
 	}
 
 	if len(system) > 0 {
@@ -37,10 +38,6 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
 	// max_output_tokens → max_tokens
 	if req.MaxOutputTokens != nil && *req.MaxOutputTokens > 0 {
 		out.MaxTokens = *req.MaxOutputTokens
-	}
-	if out.MaxTokens == 0 {
-		// Anthropic requires max_tokens; default to a sensible value.
-		out.MaxTokens = 8192
 	}
 
 	// Convert tools
@@ -99,6 +96,9 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
 		if req.Reasoning != nil && req.Reasoning.Effort != "" {
 			effort = req.Reasoning.Effort
 		}
+		if isOpus55 && effort == "none" {
+			effort = "low"
+		}
 		if isSonnet55 && effort == "none" {
 			// OpenAI's no-reasoning request maps to Sonnet 5.5's lowest
 			// thinking mode. between_tools still preserves signed progress
@@ -130,36 +130,23 @@ func ResponsesToAnthropicRequest(req *ResponsesRequest) (*AnthropicRequest, erro
 		return out, nil
 	}
 
-	// reasoning.effort → output_config.effort + thinking
 	if req.Reasoning != nil && req.Reasoning.Effort != "" {
-		effort := mapResponsesEffortToAnthropic(req.Reasoning.Effort)
-		out.OutputConfig = &AnthropicOutputConfig{Effort: effort}
-		// Enable thinking for non-low efforts
-		if effort != "low" {
-			out.Thinking = &AnthropicThinking{
-				Type:         "enabled",
-				BudgetTokens: defaultThinkingBudget(effort),
+		if req.Reasoning.Effort == "none" {
+			if out.Thinking == nil || out.Thinking.Type != "disabled" {
+				out.Thinking = &AnthropicThinking{Type: "disabled"}
+			}
+		} else {
+			out.OutputConfig = &AnthropicOutputConfig{Effort: mapResponsesEffortToAnthropic(req.Reasoning.Effort)}
+			if out.Thinking == nil {
+				mode := "enabled"
+				if claude.SupportsAdaptiveThinking(req.Model) {
+					mode = "adaptive"
+				}
+				out.Thinking = &AnthropicThinking{Type: mode}
 			}
 		}
 	}
-
 	return out, nil
-}
-
-// defaultThinkingBudget returns a sensible thinking budget based on effort level.
-func defaultThinkingBudget(effort string) int {
-	switch effort {
-	case "low":
-		return 1024
-	case "medium":
-		return 4096
-	case "high":
-		return 10240
-	case "max":
-		return 32768
-	default:
-		return 10240
-	}
 }
 
 // mapResponsesEffortToAnthropic converts OpenAI Responses reasoning effort to

@@ -283,10 +283,10 @@ func (s *AntigravityGatewayService) Forward(ctx context.Context, c *gin.Context,
 			}
 		}
 
-		// Budget 整流：检测 budget_tokens 约束错误并自动修正重试
+		// Preserve the upstream budget error without changing the caller's parameters.
 		if resp.StatusCode == http.StatusBadRequest && respBody != nil && !isSignatureRelatedError(respBody) {
 			errMsg := strings.TrimSpace(extractAntigravityErrorMessage(respBody))
-			if isThinkingBudgetConstraintError(errMsg) && s.settingService.IsBudgetRectifierEnabled(ctx) {
+			if isThinkingBudgetConstraintError(errMsg) {
 				appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 					ProxyID:            opsUpstreamProxyID(account),
 					ProxyName:          opsUpstreamProxyName(account),
@@ -300,62 +300,6 @@ func (s *AntigravityGatewayService) Forward(ctx context.Context, c *gin.Context,
 					Detail:             s.getUpstreamErrorDetail(respBody),
 				})
 
-				// 修正 claudeReq 的 thinking 参数（adaptive 模式不修正）
-				if claudeReq.Thinking == nil || claudeReq.Thinking.Type != "adaptive" {
-					retryClaudeReq := claudeReq
-					retryClaudeReq.Messages = append([]antigravity.ClaudeMessage(nil), claudeReq.Messages...)
-					// 创建新的 ThinkingConfig 避免修改原始 claudeReq.Thinking 指针
-					retryClaudeReq.Thinking = &antigravity.ThinkingConfig{
-						Type:         "enabled",
-						BudgetTokens: BudgetRectifyBudgetTokens,
-					}
-					if retryClaudeReq.MaxTokens < BudgetRectifyMinMaxTokens {
-						retryClaudeReq.MaxTokens = BudgetRectifyMaxTokens
-					}
-
-					logger.LegacyPrintf("service.antigravity_gateway", "Antigravity account %d: detected budget_tokens constraint error, retrying with rectified budget (budget_tokens=%d, max_tokens=%d)", account.ID, BudgetRectifyBudgetTokens, BudgetRectifyMaxTokens)
-
-					retryGeminiBody, txErr := antigravity.TransformClaudeToGeminiWithOptions(&retryClaudeReq, projectID, mappedModel, transformOpts)
-					if txErr == nil {
-						retryResult, retryErr := s.antigravityRetryLoop(antigravityRetryLoopParams{
-							ctx:             ctx,
-							prefix:          prefix,
-							account:         account,
-							proxyURL:        proxyURL,
-							accessToken:     accessToken,
-							action:          action,
-							body:            retryGeminiBody,
-							c:               c,
-							httpUpstream:    s.httpUpstream,
-							settingService:  s.settingService,
-							accountRepo:     s.accountRepo,
-							handleError:     s.handleUpstreamError,
-							requestedModel:  originalModel,
-							isStickySession: isStickySession,
-							groupID:         0,
-							sessionHash:     "",
-						})
-						if retryErr == nil {
-							retryResp := retryResult.resp
-							if retryResp.StatusCode < 400 {
-								_ = resp.Body.Close()
-								resp = retryResp
-								respBody = nil
-							} else {
-								retryBody := s.readUpstreamErrorBody(retryResp)
-								_ = retryResp.Body.Close()
-								respBody = retryBody
-								resp = &http.Response{
-									StatusCode: retryResp.StatusCode,
-									Header:     retryResp.Header.Clone(),
-									Body:       io.NopCloser(bytes.NewReader(retryBody)),
-								}
-							}
-						} else {
-							logger.LegacyPrintf("service.antigravity_gateway", "Antigravity account %d: budget rectifier retry failed: %v", account.ID, retryErr)
-						}
-					}
-				}
 			}
 		}
 

@@ -1435,6 +1435,7 @@ export async function updateStreamTimeoutSettings(
 export interface RectifierSettings {
   enabled: boolean;
   thinking_signature_enabled: boolean;
+  /** Legacy persisted setting; generation parameters are no longer rectified. */
   thinking_budget_enabled: boolean;
   apikey_signature_enabled: boolean;
   apikey_signature_patterns: string[];

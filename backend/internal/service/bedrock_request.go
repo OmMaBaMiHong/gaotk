@@ -276,6 +276,9 @@ func PrepareBedrockRequestBodyWithTokens(body []byte, modelID string, betaTokens
 	// CC 兼容模式：修复 CC 发送的 Bedrock 不兼容字段
 	if ccCompat {
 		body = sanitizeBedrockThinking(body, modelID)
+		if err := validateBedrockThinkingBudget(body, modelID); err != nil {
+			return nil, err
+		}
 		body = sanitizeBedrockToolUseIDs(body)
 	}
 
@@ -727,13 +730,12 @@ func isBedrockFable5(modelID string) bool {
 	return strings.Contains(strings.ToLower(modelID), "claude-fable-5")
 }
 
-const defaultThinkingBudgetTokens = 10000
-
 // sanitizeBedrockThinking 修复 thinking 字段的 Bedrock 兼容性问题：
 //   - Sonnet 5.5: enabled 改为 adaptive；disabled 改为 between_tools
 //   - Fable 5: 仅使用 always-on adaptive thinking，不支持手动 budget_tokens
 //   - Opus 4.7+: 仅支持 "adaptive"，将 "enabled" 转换为 "adaptive" 并移除 budget_tokens
-//   - 其他模型: "enabled" 必须带 budget_tokens，缺失时补充默认值
+//   - 已确认支持 adaptive 的模型: 裸 enabled 使用 adaptive，不猜预算
+//   - 仍支持 manual 的模型: 显式 budget_tokens 原样保留；缺失由请求边界报配置错误
 func sanitizeBedrockThinking(body []byte, modelID string) []byte {
 	thinking := gjson.GetBytes(body, "thinking")
 	if !thinking.Exists() || !thinking.IsObject() {
@@ -774,11 +776,18 @@ func sanitizeBedrockThinking(body []byte, modelID string) []byte {
 		return body
 	}
 
-	if thinkingType == "enabled" && !thinking.Get("budget_tokens").Exists() {
-		body, _ = sjson.SetBytes(body, "thinking.budget_tokens", defaultThinkingBudgetTokens)
+	if thinkingType == "enabled" && !thinking.Get("budget_tokens").Exists() && claude.SupportsAdaptiveThinking(modelID) {
+		body, _ = sjson.SetBytes(body, "thinking.type", "adaptive")
 	}
 
 	return body
+}
+
+func validateBedrockThinkingBudget(body []byte, modelID string) error {
+	if gjson.GetBytes(body, "thinking.type").String() == "enabled" && gjson.GetBytes(body, "thinking.budget_tokens").Int() <= 0 {
+		return fmt.Errorf("Bedrock model %q requires explicit thinking.budget_tokens for manual thinking; configure it or use adaptive thinking on a supported model", modelID)
+	}
+	return nil
 }
 
 // sanitizeBedrockToolUseIDs 清理 messages 中 tool_use.id 和 tool_result.tool_use_id
@@ -816,7 +825,21 @@ func sanitizeIDField(body []byte, id, path string) []byte {
 	return body
 }
 
-const defaultCCMaxTokens = 81920
+// Bedrock Invoke requires max_tokens. Fill only a missing field from the actual
+// account model capability; explicit values belong to the caller and are preserved.
+func applyBedrockOutputCapability(body []byte, account *Account, requestedModel, resolvedModel string) ([]byte, error) {
+	if gjson.GetBytes(body, "max_tokens").Exists() {
+		return body, nil
+	}
+	if account != nil {
+		for _, model := range []string{resolvedModel, account.GetMappedModel(requestedModel)} {
+			if metadata, ok := account.GetUpstreamModelMetadata(model); ok && metadata.MaxOutputTokens > 0 {
+				return sjson.SetBytes(body, "max_tokens", metadata.MaxOutputTokens)
+			}
+		}
+	}
+	return nil, fmt.Errorf("Bedrock model %q requires max_tokens: configure its upstream max_output_tokens capability or provide an explicit request value", requestedModel)
+}
 
 // sanitizeBedrockCCFields 处理 Claude Code 发送的 Bedrock 不兼容字段：
 //   - 移除 service_tier（Anthropic API 专有，Bedrock 不支持）
@@ -824,7 +847,6 @@ const defaultCCMaxTokens = 81920
 //   - 移除 context_management（Anthropic API 专有，Bedrock 不支持，CC v2.1.87+ 默认携带）
 //   - 无条件移除 fallbacks / fallback_credit_token（server-side refusal fallback，
 //     Anthropic 直连 beta API 专有；Bedrock Invoke 无对应 beta，永不支持）
-//   - 注入 max_tokens 默认值 81920（CC 可能省略，Bedrock 要求必须提供）
 //   - 注入 anthropic_version（CC 通过 HTTP 头发送，Bedrock 需要放在请求体中）
 func sanitizeBedrockCCFields(body []byte) []byte {
 	if gjson.GetBytes(body, "service_tier").Exists() {
@@ -841,9 +863,6 @@ func sanitizeBedrockCCFields(body []byte) []byte {
 	}
 	if gjson.GetBytes(body, "fallback_credit_token").Exists() {
 		body, _ = sjson.DeleteBytes(body, "fallback_credit_token")
-	}
-	if !gjson.GetBytes(body, "max_tokens").Exists() {
-		body, _ = sjson.SetBytes(body, "max_tokens", defaultCCMaxTokens)
 	}
 	if !gjson.GetBytes(body, "anthropic_version").Exists() {
 		body, _ = sjson.SetBytes(body, "anthropic_version", "bedrock-2023-05-31")

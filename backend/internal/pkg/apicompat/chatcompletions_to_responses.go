@@ -22,8 +22,8 @@ func ChatCompletionsToResponses(req *ChatCompletionsRequest) (*ResponsesRequest,
 }
 
 // ChatCompletionsToResponsesWithMinOutputTokens converts a Chat Completions
-// request using the supplied max_output_tokens floor.
-func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, minOutputTokens int) (*ResponsesRequest, error) {
+// request without changing an explicit token limit. The legacy floor argument is ignored.
+func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, _ int) (*ResponsesRequest, error) {
 	reasoningEffort := chatCompletionsReasoningEffort(req)
 	if err := openai.ValidateGPT61SolReasoningEffort(req.Model, reasoningEffort); err != nil {
 		return nil, err
@@ -49,6 +49,13 @@ func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, 
 		ParallelToolCalls:  req.ParallelToolCalls,
 	}
 
+	if len(req.Thinking) > 0 {
+		var thinking AnthropicThinking
+		if json.Unmarshal(req.Thinking, &thinking) == nil {
+			out.AnthropicThinking = &thinking
+		}
+	}
+
 	// Reasoning models (gpt-5.x) do not accept sampling parameters.
 	// See isReasoningModel in anthropic_to_responses.go.
 	if !isReasoningModel(req.Model) || (openai.IsGPT6SolOrLunaModelSpelling(req.Model) && reasoningEffort == "none") {
@@ -69,9 +76,6 @@ func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, 
 	}
 	if maxTokens > 0 {
 		v := maxTokens
-		if v < minOutputTokens {
-			v = minOutputTokens
-		}
 		out.MaxOutputTokens = &v
 	}
 
@@ -124,9 +128,14 @@ func chatCompletionsReasoningEffort(req *ChatCompletionsRequest) string {
 	switch thinking.Type {
 	case "disabled":
 		return "none"
-	case "enabled":
-		if effort == "" {
-			return "high"
+	case "enabled", "adaptive":
+		model := strings.ToLower(req.Model)
+		if slash := strings.LastIndexByte(model, '/'); slash >= 0 {
+			model = model[slash+1:]
+		}
+		// Pi's Responses adapter uses medium to enable GPT-5.4; its upstream default is none.
+		if effort == "" && (model == "gpt-5.4" || strings.HasPrefix(model, "gpt-5.4-")) {
+			return "medium"
 		}
 	}
 	return effort
