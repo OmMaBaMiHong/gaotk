@@ -24,7 +24,8 @@ func ChatCompletionsToResponses(req *ChatCompletionsRequest) (*ResponsesRequest,
 // ChatCompletionsToResponsesWithMinOutputTokens converts a Chat Completions
 // request using the supplied max_output_tokens floor.
 func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, minOutputTokens int) (*ResponsesRequest, error) {
-	if err := openai.ValidateGPT61SolReasoningEffort(req.Model, req.ReasoningEffort); err != nil {
+	reasoningEffort := chatCompletionsReasoningEffort(req)
+	if err := openai.ValidateGPT61SolReasoningEffort(req.Model, reasoningEffort); err != nil {
 		return nil, err
 	}
 	input, err := convertChatMessagesToResponsesInput(req.Messages)
@@ -50,7 +51,7 @@ func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, 
 
 	// Reasoning models (gpt-5.x) do not accept sampling parameters.
 	// See isReasoningModel in anthropic_to_responses.go.
-	if !isReasoningModel(req.Model) || (openai.IsGPT6SolOrLunaModelSpelling(req.Model) && req.ReasoningEffort == "none") {
+	if !isReasoningModel(req.Model) || (openai.IsGPT6SolOrLunaModelSpelling(req.Model) && reasoningEffort == "none") {
 		out.Temperature = req.Temperature
 		out.TopP = req.TopP
 	}
@@ -75,9 +76,9 @@ func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, 
 	}
 
 	// reasoning_effort → reasoning.effort + reasoning.summary="auto"
-	if req.ReasoningEffort != "" {
+	if reasoningEffort != "" {
 		out.Reasoning = &ResponsesReasoning{
-			Effort:  req.ReasoningEffort,
+			Effort:  reasoningEffort,
 			Summary: "auto",
 		}
 	}
@@ -108,6 +109,27 @@ func ChatCompletionsToResponsesWithMinOutputTokens(req *ChatCompletionsRequest, 
 	}
 
 	return out, nil
+}
+
+// Preserve an explicit off choice across Chat Completions → Responses conversion.
+func chatCompletionsReasoningEffort(req *ChatCompletionsRequest) string {
+	effort := req.ReasoningEffort
+	if len(req.Thinking) == 0 {
+		return effort
+	}
+	var thinking AnthropicThinking
+	if err := json.Unmarshal(req.Thinking, &thinking); err != nil {
+		return effort
+	}
+	switch thinking.Type {
+	case "disabled":
+		return "none"
+	case "enabled":
+		if effort == "" {
+			return "high"
+		}
+	}
+	return effort
 }
 
 // convertChatMessagesToResponsesInput converts the Chat Completions messages

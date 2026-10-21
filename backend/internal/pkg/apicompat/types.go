@@ -676,7 +676,8 @@ type ChatCompletionsRequest struct {
 	Tools               []ChatTool         `json:"tools,omitempty"`
 	ParallelToolCalls   *bool              `json:"parallel_tool_calls,omitempty"`
 	ToolChoice          json.RawMessage    `json:"tool_choice,omitempty"`
-	ReasoningEffort     string             `json:"reasoning_effort,omitempty"` // "low" | "medium" | "high" | "xhigh"
+	ReasoningEffort     string             `json:"reasoning_effort,omitempty"` // "none" | "low" | "medium" | "high" | "xhigh"
+	Thinking            json.RawMessage    `json:"thinking,omitempty"`         // Anthropic-compatible {"type":"enabled"|"disabled"}; other shapes are ignored.
 	ServiceTier         string             `json:"service_tier,omitempty"`
 	Stop                json.RawMessage    `json:"stop,omitempty"` // string or []string
 	ResponseFormat      json.RawMessage    `json:"response_format,omitempty"`
