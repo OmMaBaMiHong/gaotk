@@ -213,3 +213,19 @@ func TestNativeAnthropicPassthroughLeavesOtherThinkingUntouched(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeAnthropicGLM53FlashMappingsForwardMinimumEffort(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, model := range []string{"glm-5.3-flash", "z-ai/glm-5.3-flash"} {
+		t.Run(model, func(t *testing.T) {
+			body := []byte(fmt.Sprintf(`{"model":%q,"max_tokens":32,"stream":false,"thinking":{"type":"disabled"},"messages":[{"role":"user","content":"hi"}]}`, model))
+			upstream := &httpUpstreamRecorder{resp: nativeAnthropicBufferedResponse()}
+			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+			_, err := svc.ForwardAsAnthropic(context.Background(), adaptiveProtocolTestContext("/v1/messages", body), nativeAnthropicGLMTestAccount(), body, "", "")
+			require.NoError(t, err)
+			require.Equal(t, model, gjson.GetBytes(upstream.lastBody, "model").String())
+			require.Equal(t, "enabled", gjson.GetBytes(upstream.lastBody, "thinking.type").String())
+			require.Equal(t, "low", gjson.GetBytes(upstream.lastBody, "output_config.effort").String())
+		})
+	}
+}

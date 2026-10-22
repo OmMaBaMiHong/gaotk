@@ -1697,3 +1697,32 @@ func TestNormalizeGLMOpenAIReasoningEffort(t *testing.T) {
 		})
 	}
 }
+
+func TestGLM53MappedVariantsKeepLowAcrossProtocols(t *testing.T) {
+	for _, model := range []string{"glm-5.3", "glm-5.3-flash", "z-ai/glm-5.3", "z-ai/glm-5.3-flash", " Z-AI/GLM-5.3-FLASH "} {
+		t.Run(model, func(t *testing.T) {
+			for _, body := range []string{`{"reasoning_effort":"low"}`, `{"reasoning":{"effort":"low"}}`} {
+				got, applied := NormalizeGLMOpenAIReasoningEffort([]byte(body), model)
+				require.False(t, applied)
+				require.JSONEq(t, body, string(got))
+			}
+			got, applied := NormalizeGLM53AnthropicThinking([]byte(`{"thinking":{"type":"disabled"}}`), model)
+			require.True(t, applied)
+			require.Equal(t, "low", gjson.GetBytes(got, "output_config.effort").String())
+			require.Equal(t, "enabled", gjson.GetBytes(got, "thinking.type").String())
+			for _, normalize := range []func([]byte, string) ([]byte, bool){NormalizeGLMOpenAIReasoningEffort, NormalizeGLM53AnthropicThinking} {
+				got, applied := normalize([]byte(`{"messages":[]}`), model)
+				require.False(t, applied)
+				require.JSONEq(t, `{"messages":[]}`, string(got))
+			}
+		})
+	}
+	for _, model := range []string{"glm-5.4", "z-ai/glm-5.4", "other/glm-5.3", "glm-5.3-unknown"} {
+		t.Run("unverified-"+model, func(t *testing.T) {
+			body := []byte(`{"thinking":{"type":"disabled"}}`)
+			got, applied := NormalizeGLM53AnthropicThinking(body, model)
+			require.False(t, applied)
+			require.Equal(t, body, got)
+		})
+	}
+}
