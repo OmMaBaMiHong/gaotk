@@ -20,6 +20,7 @@ var ErrEmpty = errors.New("catalog has not been imported")
 var ErrNoSource = errors.New("TOKENCENTER_SOURCE_URL is not configured")
 
 type Catalog struct {
+	Admission             *AdmissionContract     `json:"admission,omitempty"`
 	Version               string                 `json:"version"`
 	UpdatedAt             string                 `json:"updatedAt"`
 	Source                string                 `json:"source"`
@@ -34,6 +35,7 @@ type Catalog struct {
 	SubscriptionMerchants []MerchantOffer        `json:"subscriptionMerchants,omitempty"`
 }
 type Model struct {
+	SubjectGovernance
 	ID               string             `json:"id"`
 	EntityID         string             `json:"entityId,omitempty"`
 	CanonicalModelID string             `json:"canonicalModelId,omitempty"`
@@ -68,6 +70,7 @@ type Model struct {
 	Evaluations      []Evaluation       `json:"evaluations,omitempty"`
 }
 type Site struct {
+	SubjectGovernance
 	ID              string   `json:"id"`
 	Name            string   `json:"name"`
 	Initials        string   `json:"initials"`
@@ -91,6 +94,7 @@ type Site struct {
 	ObservedAt      *string  `json:"observedAt"`
 }
 type Offer struct {
+	SubjectGovernance
 	ID              string          `json:"id"`
 	ModelID         string          `json:"modelId"`
 	SiteID          string          `json:"siteId"`
@@ -157,6 +161,7 @@ type ArtificialAnalysis struct {
 }
 
 type Evaluation struct {
+	SubjectGovernance
 	EntityID               string                `json:"entityId"`
 	Source                 string                `json:"source"`
 	BenchmarkID            string                `json:"benchmarkId"`
@@ -198,6 +203,7 @@ type SourceLicense struct {
 }
 
 type OfficialSubscription struct {
+	SubjectGovernance
 	EntityID          string               `json:"entityId"`
 	Vendor            string               `json:"vendor"`
 	PlanID            string               `json:"planId"`

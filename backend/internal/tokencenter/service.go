@@ -20,12 +20,13 @@ import (
 var demoJSON []byte
 
 type Config struct {
-	SourceURL    string
-	SourceToken  string
-	SourceFormat string
-	Interval     time.Duration
-	Timeout      time.Duration
-	SeedDemo     bool
+	RequireAdmission bool
+	SourceURL        string
+	SourceToken      string
+	SourceFormat     string
+	Interval         time.Duration
+	Timeout          time.Duration
+	SeedDemo         bool
 }
 
 func ConfigFromEnv() (Config, error) {
@@ -33,6 +34,7 @@ func ConfigFromEnv() (Config, error) {
 	if c.SourceFormat == "" {
 		c.SourceFormat = "catalog"
 	}
+	c.RequireAdmission = c.SourceFormat == "chaos"
 	for key, dest := range map[string]*time.Duration{"TOKENCENTER_SYNC_INTERVAL": &c.Interval, "TOKENCENTER_SYNC_TIMEOUT": &c.Timeout} {
 		if value := os.Getenv(key); value != "" {
 			parsed, err := time.ParseDuration(value)
@@ -103,9 +105,21 @@ func (s *Service) Seed(ctx context.Context) error {
 }
 func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
 	snapshot, err := s.store.Load(ctx)
+	if err == nil && snapshot.AccessStatus != 0 {
+		if snapshot.AccessStatus == 409 {
+			return Catalog{}, ErrAdmissionPending
+		}
+		return Catalog{}, ErrSourceRevoked
+	}
+	if err == nil && s.cfg.RequireAdmission && (snapshot.SourceURL != s.cfg.SourceURL || !qualifiedContract(snapshot.Catalog.Admission)) {
+		return Catalog{}, ErrAdmissionPending
+	}
 	return snapshot.Catalog, err
 }
 func (s *Service) Import(ctx context.Context, catalog Catalog) (Catalog, error) {
+	if s.cfg.RequireAdmission {
+		return Catalog{}, ErrAdmissionPending
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	c, err := Normalize(catalog)
@@ -199,7 +213,7 @@ func (s *Service) Start(parent context.Context) {
 			catalog, err := s.Sync(ctx)
 			if err != nil {
 				if ctx.Err() == nil {
-					log.Printf("[TokenCenter] sync failed; keeping last successful catalog: %v", err)
+					log.Printf("[TokenCenter] sync failed: %v", err)
 				}
 				return interval
 			}

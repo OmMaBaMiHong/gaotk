@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -94,5 +95,28 @@ func TestPostgresPersistenceAcrossReopen(t *testing.T) {
 	encoded, _ := json.Marshal(after)
 	if string(before) != string(encoded) {
 		t.Fatal("seed/invalid import changed prior snapshot")
+	}
+	if err := NewSQLStore(db).SetAccessStatus(ctx, "https://source.example/snapshot", 403); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	db = open()
+	defer db.Close()
+	setPath(db)
+	restarted = testService(t, NewSQLStore(db), "")
+	if _, err = restarted.Catalog(ctx); !errors.Is(err, ErrSourceRevoked) {
+		t.Fatalf("revoked directory revived after reopening SQL: %v", err)
+	}
+	if err = NewSQLStore(db).SetAccessStatus(ctx, "https://source.example/snapshot", 409); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = restarted.Catalog(ctx); !errors.Is(err, ErrAdmissionPending) {
+		t.Fatalf("stronger contract kept old SQL catalog public: %v", err)
+	}
+	if err = NewSQLStore(db).Save(ctx, Snapshot{Catalog: after, SourceURL: "https://source.example/snapshot"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = restarted.Catalog(ctx); err != nil {
+		t.Fatalf("complete authorized import could not restore visibility: %v", err)
 	}
 }

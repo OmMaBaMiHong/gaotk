@@ -13,6 +13,7 @@ import (
 )
 
 type memoryStore struct {
+	accessStatus           int
 	mu                     sync.Mutex
 	data                   []byte
 	source, etag, modified string
@@ -28,7 +29,7 @@ func (s *memoryStore) Load(_ context.Context) (Snapshot, error) {
 	if err := json.Unmarshal(s.data, &c); err != nil {
 		return Snapshot{}, err
 	}
-	return Snapshot{Catalog: c, SourceURL: s.source, ETag: s.etag, LastModified: s.modified}, nil
+	return Snapshot{Catalog: c, SourceURL: s.source, ETag: s.etag, LastModified: s.modified, AccessStatus: s.accessStatus}, nil
 }
 func (s *memoryStore) Save(_ context.Context, snap Snapshot, seed bool) error {
 	s.mu.Lock()
@@ -39,7 +40,16 @@ func (s *memoryStore) Save(_ context.Context, snap Snapshot, seed bool) error {
 	var err error
 	s.data, err = json.Marshal(snap.Catalog)
 	s.source, s.etag, s.modified = snap.SourceURL, snap.ETag, snap.LastModified
+	s.accessStatus = 0
 	return err
+}
+
+func (s *memoryStore) SetAccessStatus(_ context.Context, source string, status int) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.source = source
+	s.accessStatus = status
+	return nil
 }
 func fixture(t *testing.T) Catalog {
 	t.Helper()

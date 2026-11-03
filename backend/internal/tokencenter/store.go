@@ -13,6 +13,7 @@ import (
 var catalogSchema string
 
 type Snapshot struct {
+	AccessStatus int
 	Catalog      Catalog
 	SourceURL    string
 	ETag         string
@@ -21,6 +22,7 @@ type Snapshot struct {
 type Store interface {
 	Load(context.Context) (Snapshot, error)
 	Save(context.Context, Snapshot, bool) error
+	SetAccessStatus(context.Context, string, int) error
 }
 type SQLStore struct{ db *sql.DB }
 
@@ -35,12 +37,15 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 func (s *SQLStore) Load(ctx context.Context) (Snapshot, error) {
 	var result Snapshot
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT catalog, source_url, etag, last_modified FROM tokencenter_catalog WHERE id = 1`).Scan(&data, &result.SourceURL, &result.ETag, &result.LastModified)
+	err := s.db.QueryRowContext(ctx, `SELECT catalog, source_url, etag, last_modified, access_status FROM tokencenter_catalog WHERE id = 1`).Scan(&data, &result.SourceURL, &result.ETag, &result.LastModified, &result.AccessStatus)
 	if errors.Is(err, sql.ErrNoRows) {
 		return result, ErrEmpty
 	}
 	if err != nil {
 		return result, err
+	}
+	if result.AccessStatus != 0 {
+		return result, nil
 	}
 	result.Catalog, err = DecodeStored(bytes.NewReader(data))
 	return result, err
@@ -61,8 +66,13 @@ func (s *SQLStore) Save(ctx context.Context, snapshot Snapshot, seedOnly bool) e
 	if seedOnly {
 		query += `DO NOTHING`
 	} else {
-		query += `DO UPDATE SET catalog = EXCLUDED.catalog, source_url = EXCLUDED.source_url, etag = EXCLUDED.etag, last_modified = EXCLUDED.last_modified, saved_at = NOW()`
+		query += `DO UPDATE SET catalog = EXCLUDED.catalog, source_url = EXCLUDED.source_url, etag = EXCLUDED.etag, last_modified = EXCLUDED.last_modified, access_status = 0, saved_at = NOW()`
 	}
 	_, err = s.db.ExecContext(ctx, query, string(data), snapshot.SourceURL, snapshot.ETag, snapshot.LastModified)
+	return err
+}
+
+func (s *SQLStore) SetAccessStatus(ctx context.Context, source string, status int) error {
+	_, err := s.db.ExecContext(ctx, `INSERT INTO tokencenter_catalog(id,catalog,source_url,access_status) VALUES(1,'{"version":"pending","models":[],"sites":[],"offers":[]}'::jsonb,$1,$2) ON CONFLICT(id) DO UPDATE SET access_status=EXCLUDED.access_status,source_url=EXCLUDED.source_url,etag='',last_modified=''`, source, status)
 	return err
 }

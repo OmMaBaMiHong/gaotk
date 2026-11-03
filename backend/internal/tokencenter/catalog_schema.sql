@@ -7,3 +7,4 @@ CREATE TABLE IF NOT EXISTS tokencenter_catalog (
     last_modified TEXT NOT NULL DEFAULT '',
     saved_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE tokencenter_catalog ADD COLUMN IF NOT EXISTS access_status SMALLINT NOT NULL DEFAULT 0;

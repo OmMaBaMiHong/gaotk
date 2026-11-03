@@ -79,7 +79,7 @@ func TestProvideServiceMigratesAndOwnsDedicatedDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT catalog, source_url, etag, last_modified FROM tokencenter_catalog WHERE id = 1`)).WillReturnRows(sqlmock.NewRows([]string{"catalog", "source_url", "etag", "last_modified"}).AddRow(data, "", "", ""))
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT catalog, source_url, etag, last_modified, access_status FROM tokencenter_catalog WHERE id = 1`)).WillReturnRows(sqlmock.NewRows([]string{"catalog", "source_url", "etag", "last_modified", "access_status"}).AddRow(data, "", "", "", 0))
 	got, err := service.Catalog(context.Background())
 	if err != nil || got.Version != demo.Version {
 		t.Fatalf("initialized service did not read its dedicated pool: %v", err)

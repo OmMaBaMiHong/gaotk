@@ -16,13 +16,14 @@ import (
 )
 
 type chaosPage struct {
-	SchemaVersion       int             `json:"schemaVersion"`
-	Product             string          `json:"product"`
-	Version             string          `json:"version"`
-	PublicationRevision string          `json:"publicationRevision"`
-	Config              json.RawMessage `json:"config"`
-	Domains             []chaosDomain   `json:"domains"`
-	NextCursor          *string         `json:"nextCursor"`
+	Admission           *AdmissionContract `json:"admission"`
+	SchemaVersion       int                `json:"schemaVersion"`
+	Product             string             `json:"product"`
+	Version             string             `json:"version"`
+	PublicationRevision string             `json:"publicationRevision"`
+	Config              json.RawMessage    `json:"config"`
+	Domains             []chaosDomain      `json:"domains"`
+	NextCursor          *string            `json:"nextCursor"`
 }
 
 type chaosDomain struct {
@@ -64,20 +65,23 @@ type chaosBoard struct {
 }
 
 type chaosAccumulator struct {
-	catalog       Catalog
-	config        []byte
-	topics        map[string]map[string]string
-	models        map[string]int
-	sites         map[string]int
-	offers        map[string]bool
-	boards        map[string]*chaosBoard
-	materialIDs   map[string]bool
-	materialTotal map[string]*int
-	materialCount map[string]int
+	requireAdmission bool
+	admissionJSON    []byte
+	catalog          Catalog
+	config           []byte
+	topics           map[string]map[string]string
+	models           map[string]int
+	sites            map[string]int
+	offers           map[string]bool
+	boards           map[string]*chaosBoard
+	materialIDs      map[string]bool
+	materialTotal    map[string]*int
+	materialCount    map[string]int
 }
 
 func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, error) {
 	var result chaosAccumulator
+	result.requireAdmission = s.cfg.RequireAdmission
 	var etag, modified string
 	seen := map[string]bool{}
 	cursor := ""
@@ -92,7 +96,7 @@ func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, er
 			target.RawQuery = q.Encode()
 		}
 		var validators *Snapshot
-		if cursor == "" && previous.SourceURL == s.cfg.SourceURL && previous.Catalog.RankingAuthority == "chaos" {
+		if cursor == "" && previous.AccessStatus == 0 && (!s.cfg.RequireAdmission || qualifiedContract(previous.Catalog.Admission)) && previous.SourceURL == s.cfg.SourceURL && previous.Catalog.RankingAuthority == "chaos" {
 			validators = &previous
 		}
 		response, err := s.sourceRequest(ctx, target.String(), validators)
@@ -108,6 +112,12 @@ func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, er
 		}
 		if response.StatusCode != http.StatusOK {
 			response.Body.Close()
+			if s.cfg.RequireAdmission && (response.StatusCode == http.StatusConflict || response.StatusCode == http.StatusAccepted) {
+				return Catalog{}, s.denySource(ctx, 409)
+			}
+			if response.StatusCode == 401 || response.StatusCode == 403 || response.StatusCode == 404 || response.StatusCode == 410 {
+				return Catalog{}, s.denySource(ctx, response.StatusCode)
+			}
 			return Catalog{}, fmt.Errorf("Chaos snapshot source returned HTTP %d", response.StatusCode)
 		}
 		// The public owner controls page size and cursor progress. There is no
@@ -121,7 +131,23 @@ func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, er
 		if err != nil {
 			return Catalog{}, err
 		}
+		if cursor != "" && s.cfg.RequireAdmission {
+			contractJSON, _ := json.Marshal(page.Admission)
+			if !bytes.Equal(contractJSON, result.admissionJSON) {
+				return Catalog{}, s.denySource(ctx, 409)
+			}
+		}
 		if cursor == "" {
+			if s.cfg.RequireAdmission {
+				if !qualifiedContract(page.Admission) {
+					return Catalog{}, s.denySource(ctx, 409)
+				}
+				if previous.Catalog.Admission != nil && previous.Catalog.Admission.Version != page.Admission.Version {
+					if err = s.store.SetAccessStatus(ctx, s.cfg.SourceURL, 409); err != nil {
+						return Catalog{}, err
+					}
+				}
+			}
 			etag, modified = response.Header.Get("ETag"), response.Header.Get("Last-Modified")
 			parts := strings.Split(strings.Trim(target.Path, "/"), "/")
 			if len(parts) >= 5 && parts[len(parts)-5] == "public" && parts[len(parts)-4] == "v1" && parts[len(parts)-3] == "products" && parts[len(parts)-1] == "snapshot" && parts[len(parts)-2] != page.Product {
@@ -194,8 +220,10 @@ func (a *chaosAccumulator) initialize(page chaosPage) error {
 		return err
 	}
 	a.config = config
+	a.admissionJSON, _ = json.Marshal(page.Admission)
 	a.catalog = Catalog{Version: page.Version, Source: "Chaos", RankingAuthority: "chaos", Models: []Model{}, Sites: []Site{}, Offers: []Offer{}, Rankings: map[string]Ranking{}, SourceSnapshot: &SourceSnapshot{Product: page.Product, Version: page.Version, PublicationRevision: page.PublicationRevision, ConfigRevision: parts[1], Config: page.Config}}
 	a.models, a.sites, a.offers = map[string]int{}, map[string]int{}, map[string]bool{}
+	a.catalog.Admission = page.Admission
 	a.boards, a.topics = map[string]*chaosBoard{}, map[string]map[string]string{}
 	a.materialIDs, a.materialTotal, a.materialCount = map[string]bool{}, map[string]*int{}, map[string]int{}
 	active := map[string]bool{}
@@ -222,6 +250,10 @@ func (a *chaosAccumulator) pin(page chaosPage) error {
 	if err != nil || page.Product != snapshot.Product || page.Version != snapshot.Version || page.PublicationRevision != snapshot.PublicationRevision || !bytes.Equal(config, a.config) {
 		return errors.New("Chaos publication or product configuration changed during pagination")
 	}
+	admissionJSON, _ := json.Marshal(page.Admission)
+	if !bytes.Equal(admissionJSON, a.admissionJSON) {
+		return errors.New("Chaos data admission contract changed during pagination")
+	}
 	return nil
 }
 
@@ -241,6 +273,11 @@ func (a *chaosAccumulator) append(page chaosPage) error {
 			}
 			a.materialTotal[domain.Key] = m.Total
 			for _, raw := range m.Items {
+				if a.requireAdmission {
+					if err := validateAdmittedMaterial(raw, a.catalog.Admission); err != nil {
+						return err
+					}
+				}
 				var material struct {
 					ID                   string          `json:"id"`
 					ModelCatalog         json.RawMessage `json:"modelCatalog"`
@@ -319,13 +356,21 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 		Source     string                            `json:"source"`
 		Unit       string                            `json:"unit"`
 		Total      *int                              `json:"total"`
-		Items      []json.RawMessage                 `json:"items"`
+		Admission  *struct {
+			SchemaVersion   int    `json:"schemaVersion"`
+			ContractVersion string `json:"contractVersion"`
+			Eligible        int    `json:"eligible"`
+		} `json:"admission"`
+		Items []json.RawMessage `json:"items"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return fmt.Errorf("invalid Chaos ranking: %w", err)
 	}
 	if body.SchemaVersion != 1 && body.SchemaVersion != 2 || body.List.Title == "" || body.List.Slug == "" || body.Source == "" || body.Items == nil {
 		return errors.New("Chaos ranking schema is missing/unsupported")
+	}
+	if a.requireAdmission && (body.Admission == nil || body.Admission.SchemaVersion != 1 || body.Admission.ContractVersion != a.catalog.Admission.Version || body.Total == nil || body.Admission.Eligible != *body.Total) {
+		return errors.New("Chaos ranking has no current admission qualification")
 	}
 	unit := body.Unit
 	if unit == "" {
@@ -393,12 +438,14 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 }
 
 type chaosProvider struct {
+	SubjectGovernance
 	EntityID, Key, Kind, Name, DocumentationURL, APIURL, SourceURL, SourceName, SourceAuthority string
 	ObservedAt                                                                                  *string  `json:"observedAt"`
 	Tags                                                                                        []string `json:"tags"`
 }
 
 type chaosSourceModel struct {
+	SubjectGovernance
 	EntityID, Key, ID, SourceKey, CanonicalModelID, Name, Description, Family, ReleaseDate, DeveloperID, DeveloperName, Status, LastUpdated string
 	Billing                                                                                                                                 json.RawMessage    `json:"billing"`
 	MaxInputTokens                                                                                                                          *float64           `json:"maxInputTokens"`
@@ -435,6 +482,7 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 		website = p.APIURL
 	}
 	site := Site{ID: p.EntityID, EntityID: p.EntityID, ProviderKey: p.Key, ProviderKind: p.Kind, Name: p.Name, Website: website, Models: len(data.Models), Tags: append([]string{}, p.Tags...), SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt}
+	site.SubjectGovernance = p.SubjectGovernance
 	if index, exists := a.sites[site.ID]; !exists {
 		a.sites[site.ID] = len(a.catalog.Sites)
 		a.catalog.Sites = append(a.catalog.Sites, site)
@@ -453,6 +501,7 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 		}
 		model := Model{ID: source.EntityID, EntityID: source.EntityID, CanonicalModelID: source.CanonicalModelID, SourceModelID: source.ID, SourceKey: source.SourceKey, DeveloperID: developerID, DeveloperName: developerName, Name: source.Name, Provider: developer, Family: family, Description: source.Description, Context: source.ContextWindow, MaxInputTokens: source.MaxInputTokens, MaxOutputTokens: source.MaxOutputTokens, Modalities: source.Modalities, Status: source.Status, LastUpdated: nonempty(source.LastUpdated), Input: source.Cost.Input, Output: source.Cost.Output, Tags: []string{}, Released: nonempty(source.ReleaseDate), SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt, Benchmarks: source.Benchmarks}
 		model.Billing = source.Billing
+		model.SubjectGovernance = source.SubjectGovernance
 		model.Capabilities = source.Capabilities
 		if index, exists := a.models[model.ID]; !exists {
 			a.models[model.ID] = len(a.catalog.Models)
@@ -464,6 +513,7 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 		}
 		base := Offer{ModelID: model.ID, SiteID: site.ID, SourceModelID: source.ID, Input: source.Cost.Input, Output: source.Cost.Output, CacheRead: source.Cost.CacheRead, CacheWrite: source.Cost.CacheWrite, Currency: "USD", Unit: "1M tokens", UpdatedAt: p.ObservedAt, Source: p.SourceName, SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority}
 		base.Billing = source.Billing
+		base.SubjectGovernance = SubjectGovernance{Admission: source.Admission}
 		if err := a.appendOffer(base, p, source, "base"); err != nil {
 			return err
 		}
@@ -513,9 +563,6 @@ func publishedModelDeveloper(provider chaosProvider, model chaosSourceModel) (id
 	if display == "" {
 		display = id
 	}
-	if display == "" {
-		display = provider.Name
-	}
 	return id, name, display
 }
 func nonempty(value string) *string {
@@ -548,6 +595,9 @@ func (a *chaosAccumulator) appendEvaluation(raw json.RawMessage) error {
 		a.catalog.Models = append(a.catalog.Models, Model{ID: evaluation.EntityID, EntityID: evaluation.EntityID, CanonicalModelID: evaluation.CanonicalModelID, ModelPermaslug: evaluation.ModelPermaslug, Name: evaluation.ModelName, DeveloperID: developerID, DeveloperName: developerName, Provider: developer, Family: developerID, Tags: []string{}, SourceURL: evaluation.SourceURL, SourceName: evaluation.Source, ObservedAt: evaluation.ObservedAt})
 	}
 	a.catalog.Models[index].Evaluations = append(a.catalog.Models[index].Evaluations, evaluation)
+	if len(a.catalog.Models[index].TagRefs) == 0 {
+		a.catalog.Models[index].SubjectGovernance = evaluation.SubjectGovernance
+	}
 	if a.catalog.Models[index].ModelPermaslug == "" {
 		a.catalog.Models[index].ModelPermaslug = evaluation.ModelPermaslug
 	}
@@ -612,6 +662,9 @@ func (a *chaosAccumulator) finish() (Catalog, error) {
 				model = a.catalog.Models[index]
 			} else {
 				model = Model{ID: entry.EntityID, EntityID: entry.EntityID, Name: entry.Name, Tags: []string{}}
+				if a.requireAdmission {
+					return Catalog{}, errors.New("qualified model ranking has an unresolved catalog reference")
+				}
 			}
 			model.Rank, model.Score = entry.Rank, entry.Score
 			ordered = append(ordered, model)
@@ -633,6 +686,9 @@ func (a *chaosAccumulator) finish() (Catalog, error) {
 				site = a.catalog.Sites[index]
 			} else {
 				site = Site{ID: entry.EntityID, EntityID: entry.EntityID, Name: entry.Name, Tags: []string{}}
+				if a.requireAdmission {
+					return Catalog{}, errors.New("qualified site ranking has an unresolved catalog reference")
+				}
 			}
 			site.Rank, site.Score = entry.Rank, entry.Score
 			if board.ranking.Unit == "models" && entry.Score != nil && *entry.Score >= 0 && *entry.Score == float64(int(*entry.Score)) {

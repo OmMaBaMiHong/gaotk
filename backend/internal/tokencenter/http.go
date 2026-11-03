@@ -23,8 +23,16 @@ type httpHandler struct{ service *Service }
 
 func (h *httpHandler) catalog(c *gin.Context) {
 	catalog, err := h.service.Catalog(c.Request.Context())
-	if errors.Is(err, ErrEmpty) {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
+	if errors.Is(err, ErrEmpty) || errors.Is(err, ErrSourceRevoked) || errors.Is(err, ErrAdmissionPending) {
+		code := "not_collected"
+		if errors.Is(err, ErrSourceRevoked) {
+			code = "source_revoked"
+		}
+		if errors.Is(err, ErrAdmissionPending) {
+			code = "admission_pending"
+		}
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error(), "code": code})
 		return
 	}
 	if err != nil {
@@ -42,6 +50,10 @@ func (h *httpHandler) importCatalog(c *gin.Context) {
 		return
 	}
 	catalog, err = h.service.Import(c.Request.Context(), catalog)
+	if errors.Is(err, ErrAdmissionPending) {
+		c.JSON(http.StatusUnprocessableEntity, gin.H{"code": "admission_pending", "error": err.Error()})
+		return
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "catalog could not be saved"})
 		return
@@ -50,6 +62,14 @@ func (h *httpHandler) importCatalog(c *gin.Context) {
 }
 func (h *httpHandler) syncCatalog(c *gin.Context) {
 	catalog, err := h.service.Sync(c.Request.Context())
+	if errors.Is(err, ErrSourceRevoked) || errors.Is(err, ErrAdmissionPending) {
+		code := "source_revoked"
+		if errors.Is(err, ErrAdmissionPending) {
+			code = "admission_pending"
+		}
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error(), "code": code})
+		return
+	}
 	if errors.Is(err, ErrNoSource) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 		return

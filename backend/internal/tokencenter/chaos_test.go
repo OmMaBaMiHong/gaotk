@@ -361,7 +361,7 @@ func TestChaosDeveloperFallbackUsesOnlyPublishedNameOrCanonicalNamespace(t *test
 	for _, tc := range []struct{ providerKey, name, canonical, developerID, developerName, wantID, wantName, wantProvider string }{
 		{"openrouter", "OpenAI: Legacy model", "openai/version-1", "", "", "openai", "OpenAI", "OpenAI"},
 		{"openrouter", "Plain source model", "anthropic/version-1", "", "", "anthropic", "", "anthropic"},
-		{"reseller", "Unrelated label: Source model", "", "", "", "", "", "Actual source provider"},
+		{"reseller", "Unrelated label: Source model", "", "", "", "", "", ""},
 		{"openrouter", "Different prefix: Model", "openai/version-1", "declared-id", "Declared developer", "declared-id", "Declared developer", "Declared developer"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 )
 
 type MerchantOffer struct {
+	SubjectGovernance
 	ID              string          `json:"id"`
 	MerchantID      string          `json:"merchantId"`
 	Name            string          `json:"name"`
@@ -34,10 +35,12 @@ func (a *chaosAccumulator) appendMerchant(raw json.RawMessage) error {
 	var data struct {
 		SchemaVersion int `json:"schemaVersion"`
 		Merchant      struct {
+			SubjectGovernance
 			EntityID, Name, Website, SourceURL string
 			ObservedAt                         *string `json:"observedAt"`
 		} `json:"merchant"`
 		Products []struct {
+			SubjectGovernance
 			EntityID, NativeID, Name, Description, Currency, Period, Aftercare, ProductURL string
 			Price                                                                          *float64               `json:"price"`
 			Stock                                                                          *bool                  `json:"stock"`
@@ -67,7 +70,7 @@ func (a *chaosAccumulator) appendMerchant(raw json.RawMessage) error {
 		if url == "" {
 			url = data.Merchant.SourceURL
 		}
-		a.catalog.SubscriptionMerchants = append(a.catalog.SubscriptionMerchants, MerchantOffer{ID: product.EntityID, MerchantID: data.Merchant.EntityID, Name: data.Merchant.Name, Initials: string(name[:1]), Family: "未分类", Plan: product.Name, Price: product.Price, Currency: product.Currency, Stock: product.Stock, StockQuantity: product.StockQuantity, Delivery: product.Delivery.Label, Type: "商家商品声明", Description: product.Description, Aftercare: product.Aftercare, Period: product.Period, SourceURL: url, MerchantURL: data.Merchant.Website, ObservedAt: data.Merchant.ObservedAt, NativeProductID: product.NativeID, SourceName: data.Merchant.Name, Conditions: product.Conditions, Evidence: data.Evidence})
+		a.catalog.SubscriptionMerchants = append(a.catalog.SubscriptionMerchants, MerchantOffer{SubjectGovernance: product.SubjectGovernance, ID: product.EntityID, MerchantID: data.Merchant.EntityID, Name: data.Merchant.Name, Initials: string(name[:1]), Family: "未分类", Plan: product.Name, Price: product.Price, Currency: product.Currency, Stock: product.Stock, StockQuantity: product.StockQuantity, Delivery: product.Delivery.Label, Type: "商家商品声明", Description: product.Description, Aftercare: product.Aftercare, Period: product.Period, SourceURL: url, MerchantURL: data.Merchant.Website, ObservedAt: data.Merchant.ObservedAt, NativeProductID: product.NativeID, SourceName: data.Merchant.Name, Conditions: product.Conditions, Evidence: data.Evidence})
 	}
 	a.observeOptional(data.Merchant.ObservedAt)
 	return nil
