@@ -33,7 +33,7 @@ func TestSQLStoreAtomicSnapshotAndRestartRead(t *testing.T) {
 	if err := NewSQLStore(db).Save(context.Background(), Snapshot{Catalog: c}, true); err != nil {
 		t.Fatal(err)
 	}
-	c.Offers[0].Output = -1
+	c.Offers[0].Output = ptr(-1.0)
 	if err := NewSQLStore(db).Save(context.Background(), Snapshot{Catalog: c}, false); err == nil {
 		t.Fatal("invalid catalog reached SQL")
 	}

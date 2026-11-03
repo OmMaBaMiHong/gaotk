@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -19,15 +20,19 @@ import (
 var demoJSON []byte
 
 type Config struct {
-	SourceURL   string
-	SourceToken string
-	Interval    time.Duration
-	Timeout     time.Duration
-	SeedDemo    bool
+	SourceURL    string
+	SourceToken  string
+	SourceFormat string
+	Interval     time.Duration
+	Timeout      time.Duration
+	SeedDemo     bool
 }
 
 func ConfigFromEnv() (Config, error) {
-	c := Config{SourceURL: strings.TrimSpace(os.Getenv("TOKENCENTER_SOURCE_URL")), SourceToken: os.Getenv("TOKENCENTER_SOURCE_TOKEN"), Interval: 15 * time.Minute, Timeout: 20 * time.Second}
+	c := Config{SourceURL: strings.TrimSpace(os.Getenv("TOKENCENTER_SOURCE_URL")), SourceToken: os.Getenv("TOKENCENTER_SOURCE_TOKEN"), SourceFormat: strings.TrimSpace(os.Getenv("TOKENCENTER_SOURCE_FORMAT")), Interval: 15 * time.Minute, Timeout: 20 * time.Second}
+	if c.SourceFormat == "" {
+		c.SourceFormat = "catalog"
+	}
 	for key, dest := range map[string]*time.Duration{"TOKENCENTER_SYNC_INTERVAL": &c.Interval, "TOKENCENTER_SYNC_TIMEOUT": &c.Timeout} {
 		if value := os.Getenv(key); value != "" {
 			parsed, err := time.ParseDuration(value)
@@ -50,6 +55,9 @@ func ConfigFromEnv() (Config, error) {
 	return c, nil
 }
 func (c Config) validate() error {
+	if c.SourceFormat != "" && c.SourceFormat != "catalog" && c.SourceFormat != "chaos" {
+		return errors.New("TOKENCENTER_SOURCE_FORMAT must be catalog or chaos")
+	}
 	if c.SourceURL != "" && !webURL(c.SourceURL) {
 		return errors.New("TOKENCENTER_SOURCE_URL must be an http(s) URL without credentials or fragment")
 	}
@@ -120,29 +128,20 @@ func (s *Service) Sync(ctx context.Context) (Catalog, error) {
 	if err != nil && !errors.Is(err, ErrEmpty) {
 		return Catalog{}, err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.cfg.SourceURL, nil)
+	if s.cfg.SourceFormat == "chaos" {
+		return s.syncChaos(ctx, previous)
+	}
+	var validators *Snapshot
+	if previous.SourceURL == s.cfg.SourceURL && previous.Catalog.RankingAuthority != "chaos" {
+		validators = &previous
+	}
+	response, err := s.sourceRequest(ctx, s.cfg.SourceURL, validators)
 	if err != nil {
-		return Catalog{}, errors.New("invalid configured catalog source")
-	}
-	req.Header.Set("Accept", "application/json")
-	if s.cfg.SourceToken != "" {
-		req.Header.Set("Authorization", "Bearer "+s.cfg.SourceToken)
-	}
-	if previous.SourceURL == s.cfg.SourceURL {
-		if previous.ETag != "" {
-			req.Header.Set("If-None-Match", previous.ETag)
-		}
-		if previous.LastModified != "" {
-			req.Header.Set("If-Modified-Since", previous.LastModified)
-		}
-	}
-	response, err := s.client.Do(req)
-	if err != nil {
-		return Catalog{}, errors.New("catalog source request failed (connection or timeout)")
+		return Catalog{}, err
 	}
 	defer response.Body.Close()
 	if response.StatusCode == http.StatusNotModified {
-		if previous.SourceURL != s.cfg.SourceURL || (previous.ETag == "" && previous.LastModified == "") {
+		if validators == nil || (previous.ETag == "" && previous.LastModified == "") {
 			return Catalog{}, errors.New("source returned 304 without a successful snapshot")
 		}
 		return previous.Catalog, nil
@@ -161,6 +160,30 @@ func (s *Service) Sync(ctx context.Context) (Catalog, error) {
 	return catalog, nil
 }
 
+func (s *Service) sourceRequest(ctx context.Context, target string, previous *Snapshot) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target, nil)
+	if err != nil {
+		return nil, errors.New("invalid configured catalog source")
+	}
+	req.Header.Set("Accept", "application/json")
+	if s.cfg.SourceToken != "" {
+		req.Header.Set("Authorization", "Bearer "+s.cfg.SourceToken)
+	}
+	if previous != nil {
+		if previous.ETag != "" {
+			req.Header.Set("If-None-Match", previous.ETag)
+		}
+		if previous.LastModified != "" {
+			req.Header.Set("If-Modified-Since", previous.LastModified)
+		}
+	}
+	response, err := s.client.Do(req)
+	if err != nil {
+		return nil, errors.New("catalog source request failed (connection or timeout)")
+	}
+	return response, nil
+}
+
 // Start performs an immediate fetch, then periodic refreshes. No source means no worker.
 func (s *Service) Start(parent context.Context) {
 	s.lifecycleMu.Lock()
@@ -172,23 +195,54 @@ func (s *Service) Start(parent context.Context) {
 	s.cancel, s.done = cancel, make(chan struct{})
 	go func() {
 		defer close(s.done)
-		run := func() {
-			if _, err := s.Sync(ctx); err != nil && ctx.Err() == nil {
-				log.Printf("[TokenCenter] sync failed; keeping last successful catalog: %v", err)
+		run := func(interval time.Duration) time.Duration {
+			catalog, err := s.Sync(ctx)
+			if err != nil {
+				if ctx.Err() == nil {
+					log.Printf("[TokenCenter] sync failed; keeping last successful catalog: %v", err)
+				}
+				return interval
 			}
+			if s.cfg.SourceFormat == "chaos" {
+				if published, ok := publishedPullInterval(catalog); ok {
+					return published
+				}
+			}
+			return interval
 		}
-		run()
-		ticker := time.NewTicker(s.cfg.Interval)
+		interval := run(s.cfg.Interval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				run()
+				if next := run(interval); next != interval {
+					interval = next
+					ticker.Reset(interval)
+				}
 			}
 		}
 	}()
+}
+
+func publishedPullInterval(catalog Catalog) (time.Duration, bool) {
+	if catalog.SourceSnapshot == nil {
+		return 0, false
+	}
+	var config struct {
+		Delivery struct {
+			PullIntervalSeconds int64 `json:"pullIntervalSeconds"`
+		} `json:"delivery"`
+	}
+	if json.Unmarshal(catalog.SourceSnapshot.Config, &config) != nil || config.Delivery.PullIntervalSeconds <= 0 {
+		return 0, false
+	}
+	// Native delivery configuration is integer seconds. ParseDuration checks the
+	// runtime representation without introducing a business min/max interval.
+	interval, err := time.ParseDuration(strconv.FormatInt(config.Delivery.PullIntervalSeconds, 10) + "s")
+	return interval, err == nil && interval > 0
 }
 func (s *Service) Stop() {
 	s.lifecycleMu.Lock()

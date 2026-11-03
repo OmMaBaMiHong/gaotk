@@ -345,7 +345,7 @@ func injectApplication(buildInfo handler.BuildInfo) (*Application, func(), error
 	apiKeyAuthMiddleware := middleware.NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, configConfig)
 	auditLogMiddleware := middleware.NewAuditLogMiddleware(auditLogService)
 	stepUpAuthMiddleware := middleware.NewStepUpAuthMiddleware(totpService, userService, settingService)
-	tokencenterService, cleanup, err := tokencenter.ProvideService(db)
+	tokencenterService, cleanup, err := tokencenter.ProvideService()
 	if err != nil {
 		return nil, nil, err
 	}

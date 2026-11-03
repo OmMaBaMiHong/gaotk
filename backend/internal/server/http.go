@@ -91,12 +91,27 @@ func ProvideRouter(
 	})
 
 	SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
+	registerTokenCenterRoutes(r, cfg, adminAuth, auditLog, settingService, redisClient, tokenCatalog)
+	return r
+}
+
+func registerTokenCenterRoutes(
+	r *gin.Engine,
+	cfg *config.Config,
+	adminAuth middleware2.AdminAuthMiddleware,
+	auditLog middleware2.AuditLogMiddleware,
+	settingService *service.SettingService,
+	redisClient *redis.Client,
+	tokenCatalog *tokencenter.Service,
+) {
+	if tokenCatalog == nil {
+		return
+	}
 	public := r.Group("/api/v1", middleware2.SessionBindingContext(cfg), middleware2.SecurityHeaders(cfg.Security.CSP, nil))
 	panelRateLimiter := middleware2.NewPanelRateLimiter(redisClient, settingService)
 	public.Use(panelRateLimiter.Global())
 	admin := r.Group("/api/v1/admin", gin.HandlerFunc(adminAuth), panelRateLimiter.Global(), gin.HandlerFunc(auditLog), middleware2.AdminComplianceGuard(settingService))
 	tokencenter.RegisterRoutes(public, admin, tokenCatalog)
-	return r
 }
 
 func configureTrustedProxies(r *gin.Engine, cfg config.ServerConfig) {

@@ -79,7 +79,7 @@ func TestPostgresPersistenceAcrossReopen(t *testing.T) {
 	}
 	before, _ := json.Marshal(got)
 	bad := fixture(t)
-	bad.Offers[0].Input = -10
+	bad.Offers[0].Input = ptr(-10.0)
 	if _, err := restarted.Import(ctx, bad); err == nil {
 		t.Fatal("invalid import accepted")
 	}

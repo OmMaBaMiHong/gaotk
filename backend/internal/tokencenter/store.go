@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	_ "embed"
 	"encoding/json"
 	"errors"
-
-	"github.com/Wei-Shaw/sub2api/migrations"
 )
+
+//go:embed catalog_schema.sql
+var catalogSchema string
 
 type Snapshot struct {
 	Catalog      Catalog
@@ -24,13 +26,10 @@ type SQLStore struct{ db *sql.DB }
 
 func NewSQLStore(db *sql.DB) *SQLStore { return &SQLStore{db: db} }
 
-// Migrate is for the independent launcher only. The main app uses its migration runner.
+// Migrate applies only TokenCenter's schema to its dedicated database.
+// Both launchers use it; account migrations never include this module's DDL.
 func (s *SQLStore) Migrate(ctx context.Context) error {
-	ddl, err := migrations.FS.ReadFile("247_tokencenter_catalog.sql")
-	if err != nil {
-		return err
-	}
-	_, err = s.db.ExecContext(ctx, string(ddl))
+	_, err := s.db.ExecContext(ctx, catalogSchema)
 	return err
 }
 func (s *SQLStore) Load(ctx context.Context) (Snapshot, error) {
@@ -43,7 +42,7 @@ func (s *SQLStore) Load(ctx context.Context) (Snapshot, error) {
 	if err != nil {
 		return result, err
 	}
-	result.Catalog, err = Decode(bytes.NewReader(data))
+	result.Catalog, err = DecodeStored(bytes.NewReader(data))
 	return result, err
 }
 
