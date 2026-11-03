@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/tokencenter"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -22,6 +23,7 @@ import (
 
 // ProviderSet 提供服务器层的依赖
 var ProviderSet = wire.NewSet(
+	tokencenter.ProvideService,
 	ProvideRouter,
 	ProvideHTTPServer,
 )
@@ -42,6 +44,7 @@ func ProvideRouter(
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
 	redisClient *redis.Client,
+	tokenCatalog *tokencenter.Service,
 ) *gin.Engine {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -87,7 +90,13 @@ func ProvideRouter(
 		service.SetWebSearchManager(websearch.NewManager(configs, redisClient))
 	})
 
-	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
+	SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
+	public := r.Group("/api/v1", middleware2.SessionBindingContext(cfg), middleware2.SecurityHeaders(cfg.Security.CSP, nil))
+	panelRateLimiter := middleware2.NewPanelRateLimiter(redisClient, settingService)
+	public.Use(panelRateLimiter.Global())
+	admin := r.Group("/api/v1/admin", gin.HandlerFunc(adminAuth), panelRateLimiter.Global(), gin.HandlerFunc(auditLog), middleware2.AdminComplianceGuard(settingService))
+	tokencenter.RegisterRoutes(public, admin, tokenCatalog)
+	return r
 }
 
 func configureTrustedProxies(r *gin.Engine, cfg config.ServerConfig) {

@@ -89,6 +89,10 @@ func ProvideAuthService(
 	)
 	svc.SetTencentCaptchaService(tencentCaptchaService)
 	svc.SetAliyunCaptchaService(aliyunCaptchaService)
+	// Keep the existing one-time OAuth code cache wiring in its provider so Wire regeneration preserves it.
+	if codeOnceCache, ok := refreshTokenCache.(OAuthCodeOnceCache); ok {
+		svc.SetOAuthCodeOnceCache(codeOnceCache)
+	}
 	return svc
 }
 

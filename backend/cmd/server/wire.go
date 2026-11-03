@@ -19,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/server"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/tokencenter"
 
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"
@@ -31,7 +32,7 @@ type Application struct {
 	Cleanup       func()
 }
 
-func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
+func injectApplication(buildInfo handler.BuildInfo) (*Application, func(), error) {
 	wire.Build(
 		// Infrastructure layer ProviderSets
 		config.ProviderSet,
@@ -60,7 +61,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		// Application struct
 		wire.Struct(new(Application), "Server", "PromptAudit", "PluginManager", "Cleanup"),
 	)
-	return nil, nil
+	return nil, nil, nil
 }
 
 func providePrivacyClientFactory() service.PrivacyClientFactory {
@@ -131,6 +132,7 @@ func provideCleanup(
 	openAIAutoReset *service.OpenAIQuotaAutoResetService,
 	promptAudit *securityaudit.PromptService,
 	pluginManager *service.PluginManager,
+	tokenCatalog *tokencenter.Service,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -143,6 +145,12 @@ func provideCleanup(
 
 		// 应用层清理步骤可并行执行，基础设施资源（Redis/Ent）最后按顺序关闭。
 		parallelSteps := []cleanupStep{
+			{"TokenCenter", func() error {
+				if tokenCatalog != nil {
+					tokenCatalog.Stop()
+				}
+				return nil
+			}},
 			{"PluginManager", func() error {
 				if pluginManager != nil {
 					pluginManager.Stop()

@@ -1,0 +1,22 @@
+{
+  "version": "demo-2026-10-19",
+  "updatedAt": "2026-10-19T00:00:00Z",
+  "source": "TokenCenter demo fixture — fictional sites and fixed example quotes; no live source connected",
+  "demo": true,
+  "models": [
+    {"id":"demo-chat","name":"Demo Chat","provider":"Example Labs","family":"Demo","description":"Fictional general-purpose model for interface demonstration.","context":128000,"input":2.5,"output":10,"tags":["demo","chat"],"released":"2026-01-01","rank":1,"score":92},
+    {"id":"demo-code","name":"Demo Code","provider":"Example Labs","family":"Demo","description":"Fictional coding model; these are example prices.","context":200000,"input":3,"output":15,"tags":["demo","code"],"released":"2026-02-01","rank":2,"score":89},
+    {"id":"demo-fast","name":"Demo Fast","provider":"Sample AI","family":"Sample","description":"Fictional fast model for directory testing.","context":64000,"input":0.3,"output":1.2,"tags":["demo","fast"],"released":"2026-03-01","rank":3,"score":85}
+  ],
+  "sites": [
+    {"id":"demo-north","name":"North Relay (Demo)","initials":"NR","description":"Fictional demonstration relay, no service offered.","color":"#4f46e5","ratio":0.8,"uptime":null,"latency":null,"models":0,"tags":["demo"],"region":"Global","website":"https://north.example.com","rank":1,"score":94},
+    {"id":"demo-south","name":"South Relay (Demo)","initials":"SR","description":"Fictional demonstration relay, no service offered.","color":"#059669","ratio":0.9,"uptime":null,"latency":null,"models":0,"tags":["demo"],"region":"Asia","website":"https://south.example.com","rank":2,"score":90}
+  ],
+  "offers": [
+    {"id":"demo-chat-north","modelId":"demo-chat","siteId":"demo-north","input":2,"output":8,"currency":"USD","unit":"1M tokens","updatedAt":"2026-10-19T00:00:00Z","source":"Fixed demo fixture; fictional quote"},
+    {"id":"demo-chat-south","modelId":"demo-chat","siteId":"demo-south","input":2.2,"output":9,"currency":"USD","unit":"1M tokens","updatedAt":"2026-10-19T00:00:00Z","source":"Fixed demo fixture; fictional quote"},
+    {"id":"demo-code-north","modelId":"demo-code","siteId":"demo-north","input":2.4,"output":12,"currency":"USD","unit":"1M tokens","updatedAt":"2026-10-19T00:00:00Z","source":"Fixed demo fixture; fictional quote"},
+    {"id":"demo-code-south","modelId":"demo-code","siteId":"demo-south","input":2.7,"output":13.5,"currency":"USD","unit":"1M tokens","updatedAt":"2026-10-19T00:00:00Z","source":"Fixed demo fixture; fictional quote"},
+    {"id":"demo-fast-north","modelId":"demo-fast","siteId":"demo-north","input":0.24,"output":0.96,"currency":"USD","unit":"1M tokens","updatedAt":"2026-10-19T00:00:00Z","source":"Fixed demo fixture; fictional quote"}
+  ]
+}
