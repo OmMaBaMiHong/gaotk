@@ -123,7 +123,7 @@ func TestSyncConditionalMetadataOnlyAfterSuccess(t *testing.T) {
 	if _, err := s.Sync(context.Background()); err == nil {
 		t.Fatal("accepted 304 after manual import")
 	}
-	_ = requests
+	_ = requests.Load()
 }
 func TestSyncTimeoutAndAutomaticWorker(t *testing.T) {
 	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-r.Context().Done() }))

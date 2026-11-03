@@ -17,6 +17,10 @@ func RegisterRoutes(public, admin *gin.RouterGroup, service *Service) {
 	admin.GET("/tokencenter/catalog", h.catalog)
 	admin.POST("/tokencenter/import", h.importCatalog)
 	admin.POST("/tokencenter/sync", h.syncCatalog)
+	public.POST("/tokencenter/applications", h.submitApplication)
+	public.POST("/tokencenter/applications/status", h.applicationStatus)
+	admin.GET("/tokencenter/applications", h.listApplications)
+	admin.POST("/tokencenter/applications/:id/review", h.reviewApplication)
 }
 
 type httpHandler struct{ service *Service }
