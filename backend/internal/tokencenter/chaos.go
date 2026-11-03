@@ -394,7 +394,8 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 
 type chaosProvider struct {
 	EntityID, Key, Kind, Name, DocumentationURL, APIURL, SourceURL, SourceName, SourceAuthority string
-	ObservedAt                                                                                  *string `json:"observedAt"`
+	ObservedAt                                                                                  *string  `json:"observedAt"`
+	Tags                                                                                        []string `json:"tags"`
 }
 
 type chaosSourceModel struct {
@@ -433,7 +434,7 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 	if website == "" {
 		website = p.APIURL
 	}
-	site := Site{ID: p.EntityID, EntityID: p.EntityID, ProviderKey: p.Key, ProviderKind: p.Kind, Name: p.Name, Website: website, Models: len(data.Models), Tags: []string{}, SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt}
+	site := Site{ID: p.EntityID, EntityID: p.EntityID, ProviderKey: p.Key, ProviderKind: p.Kind, Name: p.Name, Website: website, Models: len(data.Models), Tags: append([]string{}, p.Tags...), SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt}
 	if index, exists := a.sites[site.ID]; !exists {
 		a.sites[site.ID] = len(a.catalog.Sites)
 		a.catalog.Sites = append(a.catalog.Sites, site)
