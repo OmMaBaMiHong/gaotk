@@ -61,6 +61,46 @@ func TestHTTPImportAndPublicContract(t *testing.T) {
 		t.Fatal(got.Code)
 	}
 }
+
+func TestBrowseKeepsRecordsAndLoadsFullModelOnDemand(t *testing.T) {
+	store := &memoryStore{}
+	catalog := fixture(t)
+	catalog.Models[0].Evaluations = []Evaluation{{BenchmarkID: "published-history", Score: ptr(42.0)}}
+	catalog.Models[0].Billing = json.RawMessage(`{"source":"published billing"}`)
+	if err := store.Save(context.Background(), Snapshot{Catalog: catalog}, false); err != nil {
+		t.Fatal(err)
+	}
+	service := testService(t, store, "")
+	router := gin.New()
+	RegisterRoutes(router.Group("/api/v1"), router.Group("/api/v1/admin"), service)
+	read := func(path string) *httptest.ResponseRecorder {
+		out := httptest.NewRecorder()
+		router.ServeHTTP(out, httptest.NewRequest("GET", path, nil))
+		return out
+	}
+	response := read("/api/v1/tokencenter/catalog?view=browse")
+	var browse Catalog
+	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &browse) != nil {
+		t.Fatal(response.Code)
+	}
+	if len(browse.Models) != len(catalog.Models) || len(browse.Offers) != len(catalog.Offers) || len(browse.Models[0].Evaluations) != 0 || len(browse.Models[0].Billing) != 0 {
+		t.Fatal("browse lost records or eagerly loaded history")
+	}
+	response = read("/api/v1/tokencenter/models/" + catalog.Models[0].ID)
+	var full Model
+	if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), &full) != nil || len(full.Evaluations) != 1 || len(full.Billing) == 0 {
+		t.Fatal("detail lost source history")
+	}
+	if read("/api/v1/tokencenter/models/absent").Code != 404 {
+		t.Fatal("missing model was not 404")
+	}
+	store.SetAccessStatus(context.Background(), "", 403)
+	for _, path := range []string{"/api/v1/tokencenter/catalog?view=browse", "/api/v1/tokencenter/models/" + full.ID} {
+		if read(path).Code != 503 {
+			t.Fatal("read bypassed source withdrawal")
+		}
+	}
+}
 func TestSyncConditionalMetadataOnlyAfterSuccess(t *testing.T) {
 	var mode atomic.Int32
 	var conditional atomic.Bool

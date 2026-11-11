@@ -42,9 +42,10 @@ type chaosMaterials struct {
 type chaosPortal struct {
 	Product string `json:"product"`
 	Domains []struct {
-		Key     string `json:"key"`
-		Enabled bool   `json:"enabled"`
-		Topics  []struct {
+		Key       string `json:"key"`
+		HomeTopic string `json:"homeTopic"`
+		Enabled   bool   `json:"enabled"`
+		Topics    []struct {
 			Key  string `json:"key"`
 			Unit string `json:"unit"`
 		} `json:"topics"`
@@ -236,6 +237,9 @@ func (a *chaosAccumulator) initialize(page chaosPage) error {
 		if !domain.Enabled || !active[domain.Key] {
 			continue
 		}
+		if domain.Key == "models" {
+			a.catalog.DefaultRanking = domain.HomeTopic
+		}
 		a.topics[domain.Key] = map[string]string{}
 		for _, topic := range domain.Topics {
 			a.topics[domain.Key][topic.Key] = topic.Unit
@@ -284,6 +288,7 @@ func (a *chaosAccumulator) append(page chaosPage) error {
 					ModelBenchmark       json.RawMessage `json:"modelBenchmark"`
 					OfficialSubscription json.RawMessage `json:"officialSubscription"`
 					MerchantCatalog      json.RawMessage `json:"merchantCatalog"`
+					ResourceOffer        json.RawMessage `json:"resourceOffer"`
 				}
 				if err := json.Unmarshal(raw, &material); err != nil || material.ID == "" {
 					return errors.New("Chaos material identity is missing/invalid")
@@ -294,6 +299,11 @@ func (a *chaosAccumulator) append(page chaosPage) error {
 				}
 				a.materialIDs[key] = true
 				a.materialCount[domain.Key]++
+				if len(material.ResourceOffer) > 0 && !bytes.Equal(material.ResourceOffer, []byte("null")) {
+					if err := a.appendResource(material.ResourceOffer); err != nil {
+						return err
+					}
+				}
 				if len(material.MerchantCatalog) > 0 && !bytes.Equal(material.MerchantCatalog, []byte("null")) {
 					if err := a.appendMerchant(material.MerchantCatalog); err != nil {
 						return err
@@ -577,7 +587,7 @@ func (a *chaosAccumulator) appendEvaluation(raw json.RawMessage) error {
 		SchemaVersion int `json:"schemaVersion"`
 		Evaluation
 	}
-	if err := json.Unmarshal(raw, &data); err != nil || data.SchemaVersion != 1 || data.EntityID == "" || data.Source == "" || data.BenchmarkID == "" || data.ModelPermaslug == "" || data.ProviderName == "" || data.Score == nil || !finiteScore(data.Score, true) {
+	if err := json.Unmarshal(raw, &data); err != nil || data.SchemaVersion != 1 || data.EntityID == "" || data.Source == "" || data.BenchmarkID == "" || data.ModelPermaslug == "" || data.ProviderName == "" && data.BenchmarkID != "modeldial_five_axis" || data.Score == nil || !finiteScore(data.Score, true) {
 		return errors.New("Chaos model benchmark schema is missing/unsupported")
 	}
 	evaluation := data.Evaluation
@@ -590,9 +600,16 @@ func (a *chaosAccumulator) appendEvaluation(raw json.RawMessage) error {
 			return errors.New("Chaos benchmark-only model has no source name")
 		}
 		developerID, developerName, developer := publishedModelDeveloper(chaosProvider{Key: evaluation.Source}, chaosSourceModel{CanonicalModelID: evaluation.ModelPermaslug, Name: evaluation.ModelName})
+		if evaluation.BenchmarkID == "modeldial_five_axis" {
+			developerID, developerName, developer = "", "", ""
+		}
 		index = len(a.catalog.Models)
 		a.models[evaluation.EntityID] = index
 		a.catalog.Models = append(a.catalog.Models, Model{ID: evaluation.EntityID, EntityID: evaluation.EntityID, CanonicalModelID: evaluation.CanonicalModelID, ModelPermaslug: evaluation.ModelPermaslug, Name: evaluation.ModelName, DeveloperID: developerID, DeveloperName: developerName, Provider: developer, Family: developerID, Tags: []string{}, SourceURL: evaluation.SourceURL, SourceName: evaluation.Source, ObservedAt: evaluation.ObservedAt})
+	}
+	if evaluation.BenchmarkID == "modeldial_five_axis" {
+		a.catalog.Models[index].ModelDial = &evaluation
+		a.catalog.Models[index].Released = evaluation.Released
 	}
 	a.catalog.Models[index].Evaluations = append(a.catalog.Models[index].Evaluations, evaluation)
 	if len(a.catalog.Models[index].TagRefs) == 0 {
@@ -653,7 +670,11 @@ func (a *chaosAccumulator) finish() (Catalog, error) {
 		a.catalog.Rankings[key] = board.ranking
 	}
 	// These are copies of published order/ranks, never locally computed scores.
-	if board := a.boards["intelligence"]; board != nil {
+	key := a.catalog.DefaultRanking
+	if key == "" {
+		key = "intelligence"
+	}
+	if board := a.boards[key]; board != nil {
 		ordered, used := []Model{}, map[string]bool{}
 		for _, entry := range board.ranking.Entries {
 			index, exists := a.models[entry.EntityID]

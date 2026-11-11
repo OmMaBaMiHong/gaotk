@@ -98,6 +98,7 @@ type collectionContractRow struct {
 type publishedTag struct {
 	ID       string
 	Slug     string
+	Name     string
 	Revision string
 }
 
@@ -156,6 +157,9 @@ func projectContractData(data []byte, published map[string]publishedTag, publish
 		}
 		if tag, ok := published[entry.Slug]; ok && tag.ID != "" {
 			term.ID = tag.ID
+			if tag.Name != "" {
+				term.Name = tag.Name
+			}
 			if tag.Revision != "" {
 				term.Revision = tag.Revision
 			}
@@ -277,9 +281,9 @@ func collectionDictionaryURL(source string) string {
 	}
 	// Public published dictionary from Chaos docs/project/tokencenter-collection-vocabulary-2026-11-11.md.
 	// Active and legacy only. The admin list /api/v1/admin/tag-library is not used here.
-	parsed.Path = "/open/v1/tag-library"
+	parsed.Path = strings.TrimSuffix(parsed.Path, "/snapshot") + "/navigation"
 	parsed.RawPath = ""
-	parsed.RawQuery = "dimension=navigation"
+	parsed.RawQuery = ""
 	parsed.Fragment = ""
 	return parsed.String()
 }
@@ -293,6 +297,7 @@ func (s *Service) present(catalog Catalog) (Catalog, error) {
 		return Catalog{}, err
 	}
 	catalog.CollectionVocabulary = vocab
+	catalog.Summary = summarizeCatalog(catalog)
 	return catalog, nil
 }
 
@@ -307,34 +312,65 @@ func (s *Service) refreshCollectionDictionary(ctx context.Context) {
 		log.Printf("[TokenCenter] collection dictionary skipped: source token requires HTTPS")
 		return
 	}
-	ctx, cancel := context.WithTimeout(ctx, collectionDictionaryTimeout)
-	defer cancel()
-	response, err := s.sourceRequest(ctx, target, nil)
-	if err != nil {
-		log.Printf("[TokenCenter] collection dictionary request failed")
-		return
-	}
-	defer response.Body.Close()
-	if response.StatusCode == http.StatusNotFound || response.StatusCode == http.StatusGone {
-		s.publishedMu.Lock()
-		s.publishedTags, s.publishedRevision = nil, ""
-		s.publishedMu.Unlock()
-		log.Printf("[TokenCenter] collection dictionary HTTP %d; numeric tag ids omitted", response.StatusCode)
-		return
-	}
-	if response.StatusCode != http.StatusOK {
-		log.Printf("[TokenCenter] collection dictionary HTTP %d; previous tag ids kept", response.StatusCode)
-		return
-	}
-	data, err := io.ReadAll(io.LimitReader(response.Body, collectionDictionaryMaxBytes+1))
-	if err != nil || len(data) > collectionDictionaryMaxBytes {
-		log.Printf("[TokenCenter] collection dictionary body unreadable; previous tag ids kept")
-		return
-	}
-	revision, tags, recognized := parsePublishedDictionary(data)
-	if !recognized {
-		log.Printf("[TokenCenter] collection dictionary payload is not a navigation Tag dictionary; previous tag ids kept")
-		return
+	tags := map[string]publishedTag{}
+	revision := ""
+	seen := map[string]bool{}
+	for {
+		pageCtx, cancel := context.WithTimeout(ctx, collectionDictionaryTimeout)
+		response, err := s.sourceRequest(pageCtx, target, nil)
+		if err != nil {
+			cancel()
+			log.Printf("[TokenCenter] collection dictionary request failed")
+			return
+		}
+		if response.StatusCode == http.StatusNotFound || response.StatusCode == http.StatusGone {
+			response.Body.Close()
+			cancel()
+			s.publishedMu.Lock()
+			s.publishedTags, s.publishedRevision = nil, ""
+			s.publishedMu.Unlock()
+			return
+		}
+		if response.StatusCode != http.StatusOK {
+			response.Body.Close()
+			cancel()
+			log.Printf("[TokenCenter] collection dictionary HTTP %d; previous tag ids kept", response.StatusCode)
+			return
+		}
+		data, err := io.ReadAll(io.LimitReader(response.Body, collectionDictionaryMaxBytes+1))
+		response.Body.Close()
+		cancel()
+		if err != nil || len(data) > collectionDictionaryMaxBytes {
+			return
+		}
+		pageRevision, pageTags, recognized := parsePublishedDictionary(data)
+		if !recognized || revision != "" && pageRevision != revision {
+			return
+		}
+		revision = pageRevision
+		for slug, tag := range pageTags {
+			tags[slug] = tag
+		}
+		var page struct {
+			NextCursor json.RawMessage `json:"nextCursor"`
+		}
+		_ = json.Unmarshal(data, &page)
+		cursor := rawRevision(page.NextCursor)
+		if cursor == "" {
+			break
+		}
+		if seen[cursor] {
+			return
+		}
+		seen[cursor] = true
+		u, err := url.Parse(target)
+		if err != nil {
+			return
+		}
+		q := u.Query()
+		q.Set("after", cursor)
+		u.RawQuery = q.Encode()
+		target = u.String()
 	}
 	s.publishedMu.Lock()
 	s.publishedTags, s.publishedRevision = tags, revision
@@ -411,6 +447,7 @@ type publishedTagWire struct {
 	ID               json.RawMessage `json:"id"`
 	TagID            json.RawMessage `json:"tagId"`
 	Slug             string          `json:"slug"`
+	Name             string          `json:"name"`
 	Dimension        string          `json:"dimension"`
 	Revision         json.RawMessage `json:"revision"`
 	GovernanceStatus string          `json:"governanceStatus"`
@@ -445,7 +482,7 @@ func collectPublishedTags(list []publishedTagWire, parentDimension string, allow
 		if _, exists := tags[item.Slug]; exists {
 			continue
 		}
-		tags[item.Slug] = publishedTag{ID: id, Slug: item.Slug, Revision: cleanRevision(rawRevision(item.Revision))}
+		tags[item.Slug] = publishedTag{ID: id, Slug: item.Slug, Name: strings.TrimSpace(item.Name), Revision: cleanRevision(rawRevision(item.Revision))}
 	}
 	return tags
 }

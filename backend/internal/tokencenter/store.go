@@ -35,9 +35,30 @@ func (s *SQLStore) Migrate(ctx context.Context) error {
 	return err
 }
 func (s *SQLStore) Load(ctx context.Context) (Snapshot, error) {
+	return s.load(ctx, false, "")
+}
+
+// Browse retains every record and its published display fields. Full historical
+// evaluations and model billing are fetched only by the model detail request.
+// This is a read projection; the stored publication is never rewritten.
+func (s *SQLStore) LoadBrowse(ctx context.Context) (Snapshot, error) {
+	return s.load(ctx, true, "")
+}
+
+func (s *SQLStore) LoadForModel(ctx context.Context, modelID string) (Snapshot, error) {
+	return s.load(ctx, true, modelID)
+}
+
+func (s *SQLStore) load(ctx context.Context, browse bool, modelID string) (Snapshot, error) {
 	var result Snapshot
 	var data []byte
-	err := s.db.QueryRowContext(ctx, `SELECT catalog, source_url, etag, last_modified, access_status FROM tokencenter_catalog WHERE id = 1`).Scan(&data, &result.SourceURL, &result.ETag, &result.LastModified, &result.AccessStatus)
+	query := `SELECT catalog, source_url, etag, last_modified, access_status FROM tokencenter_catalog WHERE id = 1`
+	var args []any
+	if browse {
+		query = `SELECT jsonb_set(catalog, '{models}', COALESCE((SELECT jsonb_agg(CASE WHEN item->>'id'=$1 AND $1<>'' THEN item ELSE item - 'evaluations' - 'billing' END ORDER BY ordinal) FROM jsonb_array_elements(catalog->'models') WITH ORDINALITY AS entries(item, ordinal)), '[]'::jsonb)), source_url, etag, last_modified, access_status FROM tokencenter_catalog WHERE id = 1`
+		args = []any{modelID}
+	}
+	err := s.db.QueryRowContext(ctx, query, args...).Scan(&data, &result.SourceURL, &result.ETag, &result.LastModified, &result.AccessStatus)
 	if errors.Is(err, sql.ErrNoRows) {
 		return result, ErrEmpty
 	}

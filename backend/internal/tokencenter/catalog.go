@@ -27,15 +27,23 @@ type Catalog struct {
 	Demo                  bool                   `json:"demo"`
 	RankingAuthority      string                 `json:"rankingAuthority,omitempty"`
 	SourceSnapshot        *SourceSnapshot        `json:"sourceSnapshot,omitempty"`
+	DefaultRanking        string                 `json:"defaultRanking,omitempty"`
+	RankingKey            string                 `json:"rankingKey,omitempty"`
 	Rankings              map[string]Ranking     `json:"rankings,omitempty"`
 	Models                []Model                `json:"models"`
+	OfficialModels        []Model                `json:"officialModels,omitempty"`
 	Sites                 []Site                 `json:"sites"`
+	Relays                []Site                 `json:"relays,omitempty"`
+	Resources             []ResourceOffer        `json:"resources,omitempty"`
 	Offers                []Offer                `json:"offers"`
 	OfficialSubscriptions []OfficialSubscription `json:"officialSubscriptions,omitempty"`
 	SubscriptionMerchants []MerchantOffer        `json:"subscriptionMerchants,omitempty"`
 	// CollectionVocabulary is the Chaos navigation projection attached on read.
 	// Normalize drops any imported copy so the stored snapshot cannot replace the contract.
 	CollectionVocabulary *CollectionVocabulary `json:"collectionVocabulary,omitempty"`
+	// Summary is a read projection of this admitted snapshot, never imported claims.
+	Summary *CatalogSummary `json:"summary,omitempty"`
+	Home    *HomeProjection `json:"home,omitempty"`
 }
 type Model struct {
 	SubjectGovernance
@@ -70,7 +78,11 @@ type Model struct {
 	ObservedAt       *string            `json:"observedAt"`
 	Benchmarks       *ModelBenchmarks   `json:"benchmarks,omitempty"`
 	Billing          json.RawMessage    `json:"billing,omitempty"`
+	ModelDial        *Evaluation        `json:"modelDial,omitempty"`
 	Evaluations      []Evaluation       `json:"evaluations,omitempty"`
+	QuoteID          string             `json:"quoteId,omitempty"`
+	QuotePeriod      string             `json:"quotePeriod,omitempty"`
+	QuoteTimeZone    string             `json:"quoteTimeZone,omitempty"`
 }
 type Site struct {
 	SubjectGovernance
@@ -165,39 +177,45 @@ type ArtificialAnalysis struct {
 
 type Evaluation struct {
 	SubjectGovernance
-	EntityID               string                `json:"entityId"`
-	Source                 string                `json:"source"`
-	BenchmarkID            string                `json:"benchmarkId"`
-	CanonicalModelID       string                `json:"canonicalModelId,omitempty"`
-	ModelPermaslug         string                `json:"modelPermaslug"`
-	ModelName              string                `json:"modelName"`
-	ProviderName           string                `json:"providerName"`
-	Metric                 string                `json:"metric"`
-	Score                  *float64              `json:"score"`
-	ScoreUnit              string                `json:"scoreUnit"`
-	ScoreStdDev            *float64              `json:"scoreStdDev"`
-	RunCount               *int64                `json:"runCount"`
-	TotalTasks             *int64                `json:"totalTasks"`
-	MeasuredAt             *string               `json:"measuredAt"`
-	ObservedAt             *string               `json:"observedAt"`
-	SourceURL              string                `json:"sourceUrl"`
-	AvgCostPerTaskUSD      *float64              `json:"avgCostPerTaskUsd"`
-	AvgDurationPerTaskMS   *float64              `json:"avgDurationPerTaskMs"`
-	AvgOutputTokensPerTask *float64              `json:"avgOutputTokensPerTask"`
-	Publication            EvaluationPublication `json:"publication"`
+	EntityID               string                    `json:"entityId"`
+	Source                 string                    `json:"source"`
+	BenchmarkID            string                    `json:"benchmarkId"`
+	CanonicalModelID       string                    `json:"canonicalModelId,omitempty"`
+	ModelPermaslug         string                    `json:"modelPermaslug"`
+	ModelName              string                    `json:"modelName"`
+	ProviderName           string                    `json:"providerName"`
+	ConfigurationID        string                    `json:"configurationId,omitempty"`
+	ReasoningEffort        string                    `json:"reasoningEffort,omitempty"`
+	Dimensions             *EvaluationDimensions     `json:"dimensions,omitempty"`
+	Configurations         []EvaluationConfiguration `json:"configurations,omitempty"`
+	Released               *string                   `json:"released,omitempty"`
+	Metric                 string                    `json:"metric"`
+	Score                  *float64                  `json:"score"`
+	ScoreUnit              string                    `json:"scoreUnit"`
+	ScoreStdDev            *float64                  `json:"scoreStdDev"`
+	RunCount               *int64                    `json:"runCount"`
+	TotalTasks             *int64                    `json:"totalTasks"`
+	MeasuredAt             *string                   `json:"measuredAt"`
+	ObservedAt             *string                   `json:"observedAt"`
+	SourceURL              string                    `json:"sourceUrl"`
+	AvgCostPerTaskUSD      *float64                  `json:"avgCostPerTaskUsd"`
+	AvgDurationPerTaskMS   *float64                  `json:"avgDurationPerTaskMs"`
+	AvgOutputTokensPerTask *float64                  `json:"avgOutputTokensPerTask"`
+	Publication            EvaluationPublication     `json:"publication"`
 }
 
 type EvaluationPublication struct {
-	ManifestURL   string        `json:"manifestUrl"`
-	DataURL       string        `json:"dataUrl"`
-	Dataset       string        `json:"dataset"`
-	SchemaVersion string        `json:"schemaVersion"`
-	SnapshotDate  string        `json:"snapshotDate"`
-	RetrievedAt   *string       `json:"retrievedAt"`
-	SHA256        string        `json:"sha256"`
-	License       SourceLicense `json:"license"`
-	Attribution   string        `json:"attribution"`
-	Methodology   string        `json:"methodology"`
+	ManifestURL   string          `json:"manifestUrl"`
+	DataURL       string          `json:"dataUrl"`
+	Dataset       string          `json:"dataset"`
+	SchemaVersion string          `json:"schemaVersion"`
+	SnapshotDate  string          `json:"snapshotDate"`
+	RetrievedAt   *string         `json:"retrievedAt"`
+	SHA256        string          `json:"sha256"`
+	License       SourceLicense   `json:"license"`
+	Attribution   string          `json:"attribution"`
+	Methodology   string          `json:"methodology"`
+	Metadata      json.RawMessage `json:"metadata,omitempty"`
 }
 
 type SourceLicense struct {
@@ -322,6 +340,10 @@ func webURL(s string) bool {
 // authoritative Chaos publications retain their exact scores, ranks and order.
 func Normalize(c Catalog) (Catalog, error) {
 	c.CollectionVocabulary = nil
+	c.Summary = nil
+	c.Home = nil
+	c.Relays = nil
+	c.OfficialModels = nil
 	authoritative := c.RankingAuthority == "chaos"
 	if strings.TrimSpace(c.Version) == "" || strings.TrimSpace(c.Source) == "" || !(authoritative && c.UpdatedAt == "") && !timestamp(c.UpdatedAt) {
 		return c, errors.New("version, source and RFC3339 updatedAt are required")
@@ -333,6 +355,7 @@ func Normalize(c Catalog) (Catalog, error) {
 	coverage := map[string]int{}
 	for i := range c.Models {
 		m := &c.Models[i]
+		m.QuoteID, m.QuotePeriod, m.QuoteTimeZone = "", "", ""
 		if !identifier(m.ID) || models[m.ID] || strings.TrimSpace(m.Name) == "" || !authoritative && strings.TrimSpace(m.Provider) == "" {
 			return c, fmt.Errorf("invalid/duplicate model %q", m.ID)
 		}

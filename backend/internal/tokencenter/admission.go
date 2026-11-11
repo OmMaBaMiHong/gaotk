@@ -148,7 +148,7 @@ func validateAdmittedMaterial(raw json.RawMessage, contract *AdmissionContract) 
 		}
 		return nil
 	}
-	for key, expected := range map[string]string{"modelCatalog": "model-catalog", "modelBenchmark": "model-benchmark", "officialSubscription": "official-subscription", "merchantCatalog": "merchant-catalog"} {
+	for key, expected := range map[string]string{"resourceOffer": "resource-catalog", "modelCatalog": "model-catalog", "modelBenchmark": "model-benchmark", "officialSubscription": "official-subscription", "merchantCatalog": "merchant-catalog"} {
 		if value, ok := item[key]; ok && string(value) != "null" {
 			hashes := []string{}
 			for _, d := range candidates {

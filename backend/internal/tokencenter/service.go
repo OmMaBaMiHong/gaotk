@@ -117,7 +117,42 @@ func (s *Service) Seed(ctx context.Context) error {
 	return s.store.Save(ctx, Snapshot{Catalog: c}, true)
 }
 func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
-	snapshot, err := s.store.Load(ctx)
+	return s.catalog(ctx, false, "")
+}
+
+func (s *Service) BrowseCatalog(ctx context.Context) (Catalog, error) {
+	return s.catalog(ctx, true, "")
+}
+
+func (s *Service) ModelCatalog(ctx context.Context, modelID string) (Catalog, error) {
+	return s.catalog(ctx, true, modelID)
+}
+
+func (s *Service) catalog(ctx context.Context, browse bool, modelID string) (Catalog, error) {
+	var snapshot Snapshot
+	var err error
+	if store, ok := s.store.(interface {
+		LoadForModel(context.Context, string) (Snapshot, error)
+	}); modelID != "" && ok {
+		snapshot, err = store.LoadForModel(ctx, modelID)
+	} else if store, ok := s.store.(interface {
+		LoadBrowse(context.Context) (Snapshot, error)
+	}); browse && modelID == "" && ok {
+		snapshot, err = store.LoadBrowse(ctx)
+	} else {
+		snapshot, err = s.store.Load(ctx)
+		if browse {
+			models := append([]Model(nil), snapshot.Catalog.Models...)
+			for i := range models {
+				if models[i].ID == modelID {
+					continue
+				}
+				models[i].Evaluations = nil
+				models[i].Billing = nil
+			}
+			snapshot.Catalog.Models = models
+		}
+	}
 	if err == nil && snapshot.AccessStatus != 0 {
 		if snapshot.AccessStatus == 409 {
 			return Catalog{}, ErrAdmissionPending

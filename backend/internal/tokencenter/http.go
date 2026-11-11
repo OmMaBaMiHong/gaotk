@@ -14,6 +14,7 @@ import (
 func RegisterRoutes(public, admin *gin.RouterGroup, service *Service) {
 	h := &httpHandler{service: service}
 	public.GET("/tokencenter/catalog", h.catalog)
+	public.GET("/tokencenter/models/:id", h.model)
 	admin.GET("/tokencenter/catalog", h.catalog)
 	admin.POST("/tokencenter/import", h.importCatalog)
 	admin.POST("/tokencenter/sync", h.syncCatalog)
@@ -26,7 +27,37 @@ func RegisterRoutes(public, admin *gin.RouterGroup, service *Service) {
 type httpHandler struct{ service *Service }
 
 func (h *httpHandler) catalog(c *gin.Context) {
-	catalog, err := h.service.Catalog(c.Request.Context())
+	catalog, ok := h.readCatalog(c, c.Query("view") == "browse")
+	if !ok {
+		return
+	}
+	c.JSON(http.StatusOK, projectModelBoard(catalog, c.Query("ranking")))
+}
+
+func (h *httpHandler) model(c *gin.Context) {
+	catalog, ok := h.readCatalog(c, false)
+	if !ok {
+		return
+	}
+	for _, model := range projectModelBoard(catalog, c.Query("ranking")).Models {
+		if model.ID == c.Param("id") {
+			c.JSON(http.StatusOK, model)
+			return
+		}
+	}
+	c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
+}
+
+func (h *httpHandler) readCatalog(c *gin.Context, browse bool) (Catalog, bool) {
+	var catalog Catalog
+	var err error
+	if id := c.Param("id"); id != "" {
+		catalog, err = h.service.ModelCatalog(c.Request.Context(), id)
+	} else if browse {
+		catalog, err = h.service.BrowseCatalog(c.Request.Context())
+	} else {
+		catalog, err = h.service.Catalog(c.Request.Context())
+	}
 	if errors.Is(err, ErrEmpty) || errors.Is(err, ErrSourceRevoked) || errors.Is(err, ErrAdmissionPending) {
 		code := "not_collected"
 		if errors.Is(err, ErrSourceRevoked) {
@@ -37,14 +68,14 @@ func (h *httpHandler) catalog(c *gin.Context) {
 		}
 		c.Header("Cache-Control", "no-store")
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error(), "code": code})
-		return
+		return Catalog{}, false
 	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "catalog storage unavailable"})
-		return
+		return Catalog{}, false
 	}
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, catalog)
+	return catalog, true
 }
 func (h *httpHandler) importCatalog(c *gin.Context) {
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, MaxCatalogBytes)

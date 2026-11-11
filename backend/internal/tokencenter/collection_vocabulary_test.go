@@ -155,7 +155,7 @@ func TestLegacyGovernanceStaysPublicAndDraftsStayOut(t *testing.T) {
 	}
 }
 
-func TestPublishedDictionaryFillsDecimalIDsOnly(t *testing.T) {
+func TestPublishedDictionaryUsesGovernedNamesAndDecimalIDs(t *testing.T) {
 	revision, tags, ok := parsePublishedDictionary([]byte(`{
 		"dictionary":"Tag","dimension":"navigation","revision":"9",
 		"tags":[
@@ -187,12 +187,12 @@ func TestPublishedDictionaryFillsDecimalIDsOnly(t *testing.T) {
 	by := map[string]CollectionTerm{}
 	for _, term := range vocab.Entries {
 		by[term.Slug] = term
-		if term.Name == "不是首页" || term.Name == "模型榜被改写" || term.Name == "发明" || term.Slug == "not-in-contract" {
+		if term.Name == "发明" || term.Slug == "not-in-contract" {
 			t.Fatalf("published dictionary renamed or extended the contract: %+v", term)
 		}
 	}
-	if by["tc-nav-home"].ID != "42" || by["tc-nav-home"].Name != "首页" || by["tc-nav-home"].Revision != "7" || by["tc-nav-models"].ID != "8" || by["tc-nav-models"].Name != "模型榜" || by["tc-nav-models"].GovernanceStatus != "active" || by["tc-nav-guide"].ID != "15" || by["tc-nav-vpn"].ID != "" || by["tc-nav-relay"].Revision != "2026-11-11" || vocab.Revision != "9" || vocab.Version != "2026-11-11" {
-		t.Fatalf("id overlay changed contract words: home=%+v models=%+v guide=%+v vpn=%+v", by["tc-nav-home"], by["tc-nav-models"], by["tc-nav-guide"], by["tc-nav-vpn"])
+	if by["tc-nav-home"].ID != "42" || by["tc-nav-home"].Name != "不是首页" || by["tc-nav-home"].Revision != "7" || by["tc-nav-models"].ID != "8" || by["tc-nav-models"].Name != "模型榜被改写" || by["tc-nav-models"].GovernanceStatus != "active" || by["tc-nav-guide"].ID != "15" || by["tc-nav-vpn"].ID != "" || by["tc-nav-relay"].Revision != "2026-11-11" || vocab.Revision != "9" || vocab.Version != "2026-11-11" {
+		t.Fatalf("published name/id overlay mismatch: home=%+v models=%+v guide=%+v vpn=%+v", by["tc-nav-home"], by["tc-nav-models"], by["tc-nav-guide"], by["tc-nav-vpn"])
 	}
 }
 
@@ -314,8 +314,8 @@ func TestChaosSyncOverlaysPublishedIDsWithoutRewritingProviderFacts(t *testing.T
 			t.Fatal("sync added a slug outside the contract")
 		}
 	}
-	if home.ID != "42" || home.Name != "首页" || home.Revision != "7" || got.CollectionVocabulary.Revision != "9" {
-		t.Fatalf("published id overlay changed the contract name: %+v rev=%s", home, got.CollectionVocabulary.Revision)
+	if home.ID != "42" || home.Name != "不是首页" || home.Revision != "7" || got.CollectionVocabulary.Revision != "9" {
+		t.Fatalf("published navigation name was not projected: %+v rev=%s", home, got.CollectionVocabulary.Revision)
 	}
 	found := false
 	for _, site := range got.Sites {
@@ -427,7 +427,7 @@ func TestChaosSourceConfigDerivesNavigationDictionaryURL(t *testing.T) {
 	t.Setenv("TOKENCENTER_SOURCE_URL", "https://chaos.example/public/v1/products/tokencenter/snapshot?resource=materials&resource=rankings")
 	t.Setenv("TOKENCENTER_SOURCE_TOKEN", "")
 	cfg, err := ConfigFromEnv()
-	if err != nil || cfg.CollectionDictionaryURL != "https://chaos.example/open/v1/tag-library?dimension=navigation" {
+	if err != nil || cfg.CollectionDictionaryURL != "https://chaos.example/public/v1/products/tokencenter/navigation" {
 		t.Fatalf("dictionary URL = %q (%v)", cfg.CollectionDictionaryURL, err)
 	}
 	t.Setenv("TOKENCENTER_SOURCE_FORMAT", "catalog")
@@ -443,4 +443,31 @@ func sameStringPtr(left, right *string) bool {
 		return left == nil && right == nil
 	}
 	return *left == *right
+}
+
+func TestPublishedNavigationFollowsAllPagesAndKeepsLastConsistentRevision(t *testing.T) {
+	changed := false
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("after") == "100" {
+			revision := "v1"
+			if changed {
+				revision = "v2"
+			}
+			json.NewEncoder(w).Encode(map[string]any{"dictionary": "Tag", "dimension": "navigation", "tagRevision": revision, "items": []map[string]any{{"id": "101", "slug": "tc-nav-vpn"}}})
+		} else {
+			w.Write([]byte(`{"dictionary":"Tag","dimension":"navigation","tagRevision":"v1","items":[{"id":"42","slug":"tc-nav-home"}],"nextCursor":"100"}`))
+		}
+	}))
+	defer server.Close()
+	service := chaosService(t, &memoryStore{}, server)
+	service.cfg.CollectionDictionaryURL = server.URL + "/navigation"
+	service.refreshCollectionDictionary(context.Background())
+	if len(service.publishedTags) != 2 || service.publishedTags["tc-nav-vpn"].ID != "101" {
+		t.Fatal("later navigation page lost")
+	}
+	changed = true
+	service.refreshCollectionDictionary(context.Background())
+	if service.publishedRevision != "v1" || len(service.publishedTags) != 2 {
+		t.Fatal("mixed revision replaced last accepted vocabulary")
+	}
 }
