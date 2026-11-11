@@ -1,0 +1,554 @@
+{
+  "version": "2026-11-11",
+  "dictionary": "Tag",
+  "dimension": "navigation",
+  "stableIdentity": "slug",
+  "numericId": "Tag.id 的十进制字符串。发布前不存在；各环境由数据库分配，消费方读取已发布字典，不在仓库写死。",
+  "proposalFile": "docs/standards/tokencenter-collection-vocabulary-v1.json",
+  "applicableKinds": [
+    "product_surface"
+  ],
+  "billingUnits": [
+    "traffic",
+    "ip",
+    "gpu_hour"
+  ],
+  "purchaseSurfaces": [
+    "catalog",
+    "none",
+    "forbidden"
+  ],
+  "topNav": [
+    "tc-nav-home",
+    "tc-nav-models",
+    "tc-nav-relay",
+    "tc-nav-official",
+    "tc-nav-compute",
+    "tc-nav-hardware",
+    "tc-nav-vpn",
+    "tc-nav-guide"
+  ],
+  "entries": [
+    {
+      "slug": "tc-nav",
+      "name": "目录导航",
+      "parentSlug": null,
+      "governanceStatus": "active",
+      "surface": "group",
+      "navOrder": 0,
+      "boardRule": "group",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-home",
+      "name": "首页",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 1,
+      "boardRule": "route_only",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-models",
+      "name": "模型榜",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 2,
+      "boardRule": "model_board",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-modality-image",
+        "tc-modality-video",
+        "tc-modality-audio"
+      ],
+      "externalFilterSlugs": [
+        "text",
+        "multimodal"
+      ]
+    },
+    {
+      "slug": "tc-modality-image",
+      "name": "图片模型",
+      "parentSlug": "tc-nav-models",
+      "governanceStatus": "active",
+      "surface": "modality",
+      "navOrder": 0,
+      "boardRule": "modality_filter",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [
+        "tc-modality-image"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-modality-video",
+      "name": "视频模型",
+      "parentSlug": "tc-nav-models",
+      "governanceStatus": "active",
+      "surface": "modality",
+      "navOrder": 0,
+      "boardRule": "modality_filter",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [
+        "tc-modality-video"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-modality-audio",
+      "name": "音频模型",
+      "parentSlug": "tc-nav-models",
+      "governanceStatus": "active",
+      "surface": "modality",
+      "navOrder": 0,
+      "boardRule": "modality_filter",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [
+        "tc-modality-audio"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-relay",
+      "name": "中转站",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 3,
+      "boardRule": "relay_board",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-relay-plan",
+        "tc-relay-api"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-relay-plan",
+      "name": "套餐",
+      "parentSlug": "tc-nav-relay",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "relay_plan",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-relay-plan"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-relay-api",
+      "name": "API",
+      "parentSlug": "tc-nav-relay",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "relay_api",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-relay-api"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-official",
+      "name": "官方",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 4,
+      "boardRule": "official_board",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-official-subscription",
+        "tc-official-api"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-official-subscription",
+      "name": "订阅",
+      "parentSlug": "tc-nav-official",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "official_subscription",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-official-subscription"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-official-api",
+      "name": "API",
+      "parentSlug": "tc-nav-official",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "official_api",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-official-api"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-compute",
+      "name": "算力",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 5,
+      "boardRule": "compute_nav",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-compute-gpu-hour"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-compute-gpu-hour",
+      "name": "GPU小时租赁",
+      "parentSlug": "tc-nav-compute",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "compute_main_gpu_hour",
+      "billingUnit": "gpu_hour",
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-compute-gpu-hour"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-compute-machine-exit",
+      "name": "租机/出口",
+      "parentSlug": "tc-nav-compute",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "compute_sub_board",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-compute-machine-exit"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-compute-machine-plus-account",
+      "name": "机+号",
+      "parentSlug": "tc-nav-compute",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "compute_excluded_from_main",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-compute-account-only",
+      "name": "单独租号",
+      "parentSlug": "tc-nav-compute",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "compute_excluded_from_main",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-hardware",
+      "name": "硬件渠道",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 6,
+      "boardRule": "hardware_board",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-hardware-gpu-purchase",
+        "tc-hardware-server-channel"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-hardware-gpu-purchase",
+      "name": "显卡采购",
+      "parentSlug": "tc-nav-hardware",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "hardware_gpu_purchase",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-hardware-gpu-purchase"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-hardware-server-channel",
+      "name": "服务器渠道",
+      "parentSlug": "tc-nav-hardware",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "hardware_server_channel",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-hardware-server-channel"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-vpn",
+      "name": "VPN",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 7,
+      "boardRule": "vpn_board",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-vpn-rotating-residential",
+        "tc-vpn-static-isp",
+        "tc-vpn-static-residential",
+        "tc-vpn-datacenter"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-vpn-rotating-residential",
+      "name": "旋转住宅",
+      "parentSlug": "tc-nav-vpn",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "vpn_traffic",
+      "billingUnit": "traffic",
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-vpn-rotating-residential"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-vpn-static-isp",
+      "name": "静态 ISP",
+      "parentSlug": "tc-nav-vpn",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "vpn_ip",
+      "billingUnit": "ip",
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-vpn-static-isp"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-vpn-static-residential",
+      "name": "静态住宅",
+      "parentSlug": "tc-nav-vpn",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "vpn_ip",
+      "billingUnit": "ip",
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-vpn-static-residential"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-vpn-datacenter",
+      "name": "数据中心",
+      "parentSlug": "tc-nav-vpn",
+      "governanceStatus": "active",
+      "surface": "in_board",
+      "navOrder": 0,
+      "boardRule": "vpn_datacenter_separate",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-vpn-datacenter"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-nav-guide",
+      "name": "指南",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 8,
+      "boardRule": "guide",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-reserved",
+      "name": "保留域",
+      "parentSlug": null,
+      "governanceStatus": "draft",
+      "surface": "group",
+      "navOrder": 0,
+      "boardRule": "reserved_group",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-reserved-open-weights",
+      "name": "开源权重与镜像",
+      "parentSlug": "tc-reserved",
+      "governanceStatus": "draft",
+      "surface": "reserved",
+      "navOrder": 0,
+      "boardRule": "reserved_no_nav",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-reserved-training",
+      "name": "训练微调平台",
+      "parentSlug": "tc-reserved",
+      "governanceStatus": "draft",
+      "surface": "reserved",
+      "navOrder": 0,
+      "boardRule": "reserved_no_nav",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-reserved-dataset",
+      "name": "数据集",
+      "parentSlug": "tc-reserved",
+      "governanceStatus": "draft",
+      "surface": "reserved",
+      "navOrder": 0,
+      "boardRule": "reserved_no_nav",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-reserved-agent-deploy",
+      "name": "开发部署/Agent",
+      "parentSlug": "tc-reserved",
+      "governanceStatus": "draft",
+      "surface": "reserved",
+      "navOrder": 0,
+      "boardRule": "reserved_no_nav",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-excluded",
+      "name": "不可购买",
+      "parentSlug": null,
+      "governanceStatus": "active",
+      "surface": "group",
+      "navOrder": 0,
+      "boardRule": "excluded_group",
+      "billingUnit": null,
+      "purchaseSurface": "none",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-excluded-finished-account",
+      "name": "成品号",
+      "parentSlug": "tc-excluded",
+      "governanceStatus": "active",
+      "surface": "excluded",
+      "navOrder": 0,
+      "boardRule": "excluded_no_purchase",
+      "billingUnit": null,
+      "purchaseSurface": "forbidden",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-excluded-account-opening",
+      "name": "代开",
+      "parentSlug": "tc-excluded",
+      "governanceStatus": "active",
+      "surface": "excluded",
+      "navOrder": 0,
+      "boardRule": "excluded_no_purchase",
+      "billingUnit": null,
+      "purchaseSurface": "forbidden",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-excluded-sms-farming",
+      "name": "接码养号",
+      "parentSlug": "tc-excluded",
+      "governanceStatus": "active",
+      "surface": "excluded",
+      "navOrder": 0,
+      "boardRule": "excluded_no_purchase",
+      "billingUnit": null,
+      "purchaseSurface": "forbidden",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-excluded-social-account",
+      "name": "社媒账号",
+      "parentSlug": "tc-excluded",
+      "governanceStatus": "active",
+      "surface": "excluded",
+      "navOrder": 0,
+      "boardRule": "excluded_no_purchase",
+      "billingUnit": null,
+      "purchaseSurface": "forbidden",
+      "memberSlugs": [],
+      "externalFilterSlugs": []
+    }
+  ]
+}

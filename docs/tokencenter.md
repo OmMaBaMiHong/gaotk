@@ -15,6 +15,46 @@ Catalog 字段为 `version, updatedAt, source, demo, models[], sites[], offers[]
 
 当 `rankingAuthority:"chaos"` 时，`rankings` 保留中台的榜单版本、顺序、名次、结果与单位，本站不计算能力排名。价格、上下文、发布日期、观测时间可以为 null，明确的 0 保留为 0。`sourceSnapshot` 保留产品、配置与发布版本；`evaluations` 保留模型固定版本和每个供应商的真实测评；`officialSubscriptions` 保留官方订阅条件和原文证据；`subscriptionMerchants` 保留商家原始SKU、报价、币种/库存未知值与公开证据，不能作为官方套餐或本站交易担保。厂商、聚合渠道、二手目录由 `providerKind/sourceAuthority` 区分。遗留 Catalog 格式仍按原 score 排序，固定样例只用于显式 demo。报价不通过站点倍率推演。
 
+## 集合词表（Chaos Tag / navigation）
+
+公开目录在原有字段之外增加 `collectionVocabulary`。`GET /api/v1/tokencenter/catalog`、管理端读取，以及导入或同步成功后的响应都带这份投影。`models`、`sites`、`offers` 可以为空数组；硬件、VPN、算力清单尚未接入时，词表仍然返回。目录尚未导入时维持原来的 503，响应体仍是 `error` / `code`。
+
+词表只有一份来源：Chaos 消费者契约 `docs/standards/tokencenter-collection-vocabulary-v1.contract.json`（声明提交 `9de086c159179dfca2eaf65099027b1176d8d61b`）。本仓库把同一份 JSON 嵌在 `backend/internal/tokencenter/tokencenter-collection-vocabulary-v1.contract.json`，运行时从该文件投影，不在 Go 里另写 slug 表。提案文件路径沿用契约里的 `proposalFile`。
+
+字典是 Chaos 的 Tag 表。`dictionary` 为 `Tag`，`dimension` 为 `navigation`，稳定身份是 `slug`。`version` 是契约版本 `2026-11-11`。对象级 `revision` 在读到已发布字典修订前与 `version` 相同；读到发布修订后改为该修订。条目级 `revision` 在该 slug 已发布时使用 Tag 的修订（十进制字符串），否则使用契约版本。
+
+`id` 是 Tag.id 的十进制字符串，只在已发布字典按 slug 对上之后出现；契约文件不写数字 ID，未发布时响应省略 `id`。已配置 `TOKENCENTER_SOURCE_FORMAT=chaos` 且设置了 `TOKENCENTER_SOURCE_URL` 时，同步会向同一主机请求 `GET /public/v1/tags?dimension=navigation`（沿用源 Bearer，不跟随重定向，不把目录的 ETag 带过去）。只接受 `dictionary:"Tag"` 且维度为 `navigation` 的文档，身份字段认 `id`，缺省时认 `tagId`。显示名、治理状态和枚举仍以契约为准。草稿行、非 navigation 行、非正整数 ID 不回填。404/410 清空已缓存的数字 ID；其他失败保留上一次成功回填，并且不改变目录快照，也不把字典的 401 当成目录源撤回。
+
+公开投影只包含 `governanceStatus` 为 `active` 或 `legacy` 的条目。`tc-reserved` 及其草稿子项留在契约文件里，作为保留 ID，不进入 `entries`，也不进入 `topNav`。
+
+前端导航和榜内筛选只读这份投影。字段与契约一一对应：
+
+| 响应字段 | 契约含义 |
+| --- | --- |
+| `topNav` | 顶栏 slug 顺序 |
+| `entries[].slug` / `name` / `dimension` | 稳定身份、显示名、固定 `navigation` |
+| `entries[].parentSlug` | 菜单父级，与榜内成员分开 |
+| `entries[].memberSlugs` | 榜内成员 |
+| `entries[].surface` / `boardRule` / `navOrder` | 表面、分榜规则、契约顺序 |
+| `entries[].billingUnit` | 计费单位字段：`traffic`、`ip`、`gpu_hour`；无单位为 null |
+| `entries[].purchaseSurface` | `catalog`、`none` 或 `forbidden` |
+| `entries[].governanceStatus` | `active` 或 `legacy` |
+| `entries[].externalFilterSlugs` | 榜内沿用的既有筛选 slug，不新建成导航标签 |
+
+契约已经确定、本投影原样执行的结构：
+
+- 顶栏顺序：`tc-nav-home`、`tc-nav-models`、`tc-nav-relay`、`tc-nav-official`、`tc-nav-compute`、`tc-nav-hardware`、`tc-nav-vpn`、`tc-nav-guide`。
+- 模型榜成员是 `tc-modality-image`、`tc-modality-video`、`tc-modality-audio`。`text` 与 `multimodal` 只出现在 `externalFilterSlugs`。
+- 算力主榜 `memberSlugs` 只有 `tc-compute-gpu-hour`。`tc-compute-machine-exit` 的显示名是「租机/出口」，父级仍是算力，但是子榜。`tc-compute-machine-plus-account` 与 `tc-compute-account-only` 的 `boardRule` 为 `compute_excluded_from_main`。
+- VPN 叶子：旋转住宅的 `billingUnit` 是 `traffic`；静态 ISP 与静态住宅是 `ip`；`tc-vpn-datacenter` 的 `boardRule` 是 `vpn_datacenter_separate`，`billingUnit` 为 null。
+- `tc-relay-api` 与 `tc-official-api` 的显示名都是 API，调用方用 slug 区分。
+- `purchaseSurface:"forbidden"` 的四条是 `tc-excluded-finished-account`、`tc-excluded-account-opening`、`tc-excluded-sms-farming`、`tc-excluded-social-account`。投影只给出这个状态，不提供购买入口、导购或购买步骤。
+- `billingUnits` 是字段枚举，不是 Tag。
+
+`collectionVocabulary` 不写入 `tokencenter_catalog`。`Normalize` 会丢掉导入体里的同名字段；把公开响应再导入，仍然按嵌入契约重算。本切片不改 `providerKind`，不改模型或站点上已有的 `tags`（含中文 `provider.tags`），也不把导航 slug 写进现有 `tagRefs`。`tagRefs` 继续表示 Chaos `subject_type` 的 `classified_as` 准入引用；把导航 slug 混进同一数组会改变已有消费者的含义，留给后续切片。
+
+本切片不部署、不接支付，也不新增 VPN、硬件或算力采集适配，不补价格或短名单。
+
 管理导入保留原有 8 MiB 请求上限。内部完整 Chaos 同步及数据库重载不按该请求上限截断；分组/时段/缓存阶梯可有多条独立 Offer ID。校验拒绝未知字段、非法数值、重复 ID、无效引用和无效货币/单位；未知来源值保留 null。无效导入不改变数据库。同步的 ETag / Last-Modified 与成功快照一起原子保存；失败不推进条件请求状态。重启后从数据库读取目录和条件请求元数据。
 
 ## 独立启动器环境

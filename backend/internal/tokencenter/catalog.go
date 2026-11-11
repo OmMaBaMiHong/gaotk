@@ -33,6 +33,9 @@ type Catalog struct {
 	Offers                []Offer                `json:"offers"`
 	OfficialSubscriptions []OfficialSubscription `json:"officialSubscriptions,omitempty"`
 	SubscriptionMerchants []MerchantOffer        `json:"subscriptionMerchants,omitempty"`
+	// CollectionVocabulary is the Chaos navigation projection attached on read.
+	// Normalize drops any imported copy so the stored snapshot cannot replace the contract.
+	CollectionVocabulary *CollectionVocabulary `json:"collectionVocabulary,omitempty"`
 }
 type Model struct {
 	SubjectGovernance
@@ -318,6 +321,7 @@ func webURL(s string) bool {
 // Normalize validates facts. Only the legacy catalog derives ranks/coverage;
 // authoritative Chaos publications retain their exact scores, ranks and order.
 func Normalize(c Catalog) (Catalog, error) {
+	c.CollectionVocabulary = nil
 	authoritative := c.RankingAuthority == "chaos"
 	if strings.TrimSpace(c.Version) == "" || strings.TrimSpace(c.Source) == "" || !(authoritative && c.UpdatedAt == "") && !timestamp(c.UpdatedAt) {
 		return c, errors.New("version, source and RFC3339 updatedAt are required")

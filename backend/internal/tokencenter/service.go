@@ -20,13 +20,14 @@ import (
 var demoJSON []byte
 
 type Config struct {
-	RequireAdmission bool
-	SourceURL        string
-	SourceToken      string
-	SourceFormat     string
-	Interval         time.Duration
-	Timeout          time.Duration
-	SeedDemo         bool
+	RequireAdmission        bool
+	SourceURL               string
+	SourceToken             string
+	SourceFormat            string
+	CollectionDictionaryURL string
+	Interval                time.Duration
+	Timeout                 time.Duration
+	SeedDemo                bool
 }
 
 func ConfigFromEnv() (Config, error) {
@@ -51,6 +52,9 @@ func ConfigFromEnv() (Config, error) {
 			return c, errors.New("TOKENCENTER_SEED_DEMO must be boolean")
 		}
 	}
+	if c.SourceFormat == "chaos" && c.SourceURL != "" {
+		c.CollectionDictionaryURL = collectionDictionaryURL(c.SourceURL)
+	}
 	if err := c.validate(); err != nil {
 		return c, err
 	}
@@ -66,6 +70,12 @@ func (c Config) validate() error {
 	if c.SourceToken != "" && (!strings.HasPrefix(c.SourceURL, "https://") || strings.ContainsAny(c.SourceToken, "\r\n")) {
 		return errors.New("TOKENCENTER_SOURCE_TOKEN requires HTTPS and cannot contain line breaks")
 	}
+	if c.CollectionDictionaryURL != "" && !webURL(c.CollectionDictionaryURL) {
+		return errors.New("collection dictionary URL must be an http(s) URL without credentials or fragment")
+	}
+	if c.SourceToken != "" && c.CollectionDictionaryURL != "" && !strings.HasPrefix(c.CollectionDictionaryURL, "https://") {
+		return errors.New("collection dictionary URL requires HTTPS when a source token is set")
+	}
 	if c.Interval <= 0 || c.Timeout <= 0 {
 		return errors.New("sync interval and timeout must be positive")
 	}
@@ -73,13 +83,16 @@ func (c Config) validate() error {
 }
 
 type Service struct {
-	store       Store
-	cfg         Config
-	client      *http.Client
-	mu          sync.Mutex
-	lifecycleMu sync.Mutex
-	cancel      context.CancelFunc
-	done        chan struct{}
+	store             Store
+	cfg               Config
+	client            *http.Client
+	mu                sync.Mutex
+	lifecycleMu       sync.Mutex
+	cancel            context.CancelFunc
+	done              chan struct{}
+	publishedMu       sync.Mutex
+	publishedTags     map[string]publishedTag
+	publishedRevision string
 }
 
 func NewService(store Store, cfg Config) (*Service, error) {
@@ -114,7 +127,10 @@ func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
 	if err == nil && s.cfg.RequireAdmission && (snapshot.SourceURL != s.cfg.SourceURL || !qualifiedContract(snapshot.Catalog.Admission)) {
 		return Catalog{}, ErrAdmissionPending
 	}
-	return snapshot.Catalog, err
+	if err != nil {
+		return snapshot.Catalog, err
+	}
+	return s.present(snapshot.Catalog)
 }
 func (s *Service) Import(ctx context.Context, catalog Catalog) (Catalog, error) {
 	if s.cfg.RequireAdmission {
@@ -128,7 +144,10 @@ func (s *Service) Import(ctx context.Context, catalog Catalog) (Catalog, error) 
 	}
 	// A manual/full import invalidates prior source validators atomically.
 	err = s.store.Save(ctx, Snapshot{Catalog: c}, false)
-	return c, err
+	if err != nil {
+		return c, err
+	}
+	return s.present(c)
 }
 func (s *Service) Sync(ctx context.Context) (Catalog, error) {
 	s.mu.Lock()
@@ -142,8 +161,13 @@ func (s *Service) Sync(ctx context.Context) (Catalog, error) {
 	if err != nil && !errors.Is(err, ErrEmpty) {
 		return Catalog{}, err
 	}
+	s.refreshCollectionDictionary(ctx)
 	if s.cfg.SourceFormat == "chaos" {
-		return s.syncChaos(ctx, previous)
+		catalog, err := s.syncChaos(ctx, previous)
+		if err != nil {
+			return Catalog{}, err
+		}
+		return s.present(catalog)
 	}
 	var validators *Snapshot
 	if previous.SourceURL == s.cfg.SourceURL && previous.Catalog.RankingAuthority != "chaos" {
@@ -158,7 +182,7 @@ func (s *Service) Sync(ctx context.Context) (Catalog, error) {
 		if validators == nil || (previous.ETag == "" && previous.LastModified == "") {
 			return Catalog{}, errors.New("source returned 304 without a successful snapshot")
 		}
-		return previous.Catalog, nil
+		return s.present(previous.Catalog)
 	}
 	if response.StatusCode != http.StatusOK {
 		return Catalog{}, fmt.Errorf("catalog source returned HTTP %d", response.StatusCode)
@@ -171,7 +195,7 @@ func (s *Service) Sync(ctx context.Context) (Catalog, error) {
 	if err = s.store.Save(ctx, snapshot, false); err != nil {
 		return Catalog{}, err
 	}
-	return catalog, nil
+	return s.present(catalog)
 }
 
 func (s *Service) sourceRequest(ctx context.Context, target string, previous *Snapshot) (*http.Response, error) {
