@@ -21,9 +21,9 @@ var collectionVocabularyContractJSON []byte
 
 // The embedded JSON is the Chaos consumer contract, not a second slug list.
 // Declared source: OmMaBaMiHong/chaos docs/standards/tokencenter-collection-vocabulary-v1.contract.json
-// at 9de086c159179dfca2eaf65099027b1176d8d61b.
+// at b68e14d9179096039c4bf825be3f56ec282b7d4f.
 const (
-	collectionVocabularyContractCommit = "9de086c159179dfca2eaf65099027b1176d8d61b"
+	collectionVocabularyContractCommit = "b68e14d9179096039c4bf825be3f56ec282b7d4f"
 	collectionVocabularyContractFile   = "docs/standards/tokencenter-collection-vocabulary-v1.contract.json"
 	collectionDictionaryTimeout        = 3 * time.Second
 	collectionDictionaryMaxBytes       = 1 << 20

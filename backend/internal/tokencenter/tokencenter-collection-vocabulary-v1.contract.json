@@ -1,5 +1,5 @@
 {
-  "version": "2026-11-11",
+  "version": "2026-11-12",
   "dictionary": "Tag",
   "dimension": "navigation",
   "stableIdentity": "slug",
@@ -26,6 +26,7 @@
     "tc-nav-compute",
     "tc-nav-hardware",
     "tc-nav-vpn",
+    "tc-nav-digital",
     "tc-nav-guide"
   ],
   "entries": [
@@ -66,6 +67,8 @@
       "billingUnit": null,
       "purchaseSurface": "catalog",
       "memberSlugs": [
+        "tc-model-ability",
+        "tc-model-price",
         "tc-modality-image",
         "tc-modality-video",
         "tc-modality-audio"
@@ -74,6 +77,36 @@
         "text",
         "multimodal"
       ]
+    },
+    {
+      "slug": "tc-model-ability",
+      "name": "能力榜",
+      "parentSlug": "tc-nav-models",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "model_ability",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-model-ability"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-model-price",
+      "name": "价格榜",
+      "parentSlug": "tc-nav-models",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "model_price",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-model-price"
+      ],
+      "externalFilterSlugs": []
     },
     {
       "slug": "tc-modality-image",
@@ -408,12 +441,106 @@
       "externalFilterSlugs": []
     },
     {
+      "slug": "tc-nav-digital",
+      "name": "账号与数字服务",
+      "parentSlug": "tc-nav",
+      "governanceStatus": "active",
+      "surface": "top_nav",
+      "navOrder": 8,
+      "boardRule": "digital_service_board",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-digital-mailbox",
+        "tc-digital-sms",
+        "tc-digital-number",
+        "tc-digital-esim",
+        "tc-digital-gift-card"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-digital-mailbox",
+      "name": "邮箱账号",
+      "parentSlug": "tc-nav-digital",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "digital_mailbox",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-digital-mailbox"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-digital-sms",
+      "name": "短信接收",
+      "parentSlug": "tc-nav-digital",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "digital_sms",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-digital-sms"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-digital-number",
+      "name": "虚拟号码",
+      "parentSlug": "tc-nav-digital",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "digital_number",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-digital-number"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-digital-esim",
+      "name": "eSIM",
+      "parentSlug": "tc-nav-digital",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "digital_esim",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-digital-esim"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
+      "slug": "tc-digital-gift-card",
+      "name": "礼品卡",
+      "parentSlug": "tc-nav-digital",
+      "governanceStatus": "active",
+      "surface": "internal_split",
+      "navOrder": 0,
+      "boardRule": "digital_gift_card",
+      "billingUnit": null,
+      "purchaseSurface": "catalog",
+      "memberSlugs": [
+        "tc-digital-gift-card"
+      ],
+      "externalFilterSlugs": []
+    },
+    {
       "slug": "tc-nav-guide",
       "name": "指南",
       "parentSlug": "tc-nav",
       "governanceStatus": "active",
       "surface": "top_nav",
-      "navOrder": 8,
+      "navOrder": 9,
       "boardRule": "guide",
       "billingUnit": null,
       "purchaseSurface": "none",

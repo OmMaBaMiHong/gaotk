@@ -283,12 +283,13 @@ func (a *chaosAccumulator) append(page chaosPage) error {
 					}
 				}
 				var material struct {
-					ID                   string          `json:"id"`
-					ModelCatalog         json.RawMessage `json:"modelCatalog"`
-					ModelBenchmark       json.RawMessage `json:"modelBenchmark"`
-					OfficialSubscription json.RawMessage `json:"officialSubscription"`
-					MerchantCatalog      json.RawMessage `json:"merchantCatalog"`
-					ResourceOffer        json.RawMessage `json:"resourceOffer"`
+					ID                    string          `json:"id"`
+					ModelCatalog          json.RawMessage `json:"modelCatalog"`
+					ModelBenchmark        json.RawMessage `json:"modelBenchmark"`
+					OfficialSubscription  json.RawMessage `json:"officialSubscription"`
+					RegionalSubscriptions json.RawMessage `json:"regionalSubscriptions"`
+					MerchantCatalog       json.RawMessage `json:"merchantCatalog"`
+					ResourceOffer         json.RawMessage `json:"resourceOffer"`
 				}
 				if err := json.Unmarshal(raw, &material); err != nil || material.ID == "" {
 					return errors.New("Chaos material identity is missing/invalid")
@@ -321,6 +322,11 @@ func (a *chaosAccumulator) append(page chaosPage) error {
 				}
 				if len(material.OfficialSubscription) > 0 && !bytes.Equal(material.OfficialSubscription, []byte("null")) {
 					if err := a.appendSubscription(material.OfficialSubscription); err != nil {
+						return err
+					}
+				}
+				if len(material.RegionalSubscriptions) > 0 && !bytes.Equal(material.RegionalSubscriptions, []byte("null")) {
+					if err := a.appendRegionalSubscriptions(material.RegionalSubscriptions); err != nil {
 						return err
 					}
 				}

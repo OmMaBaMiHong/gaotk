@@ -20,24 +20,25 @@ var ErrEmpty = errors.New("catalog has not been imported")
 var ErrNoSource = errors.New("TOKENCENTER_SOURCE_URL is not configured")
 
 type Catalog struct {
-	Admission             *AdmissionContract     `json:"admission,omitempty"`
-	Version               string                 `json:"version"`
-	UpdatedAt             string                 `json:"updatedAt"`
-	Source                string                 `json:"source"`
-	Demo                  bool                   `json:"demo"`
-	RankingAuthority      string                 `json:"rankingAuthority,omitempty"`
-	SourceSnapshot        *SourceSnapshot        `json:"sourceSnapshot,omitempty"`
-	DefaultRanking        string                 `json:"defaultRanking,omitempty"`
-	RankingKey            string                 `json:"rankingKey,omitempty"`
-	Rankings              map[string]Ranking     `json:"rankings,omitempty"`
-	Models                []Model                `json:"models"`
-	OfficialModels        []Model                `json:"officialModels,omitempty"`
-	Sites                 []Site                 `json:"sites"`
-	Relays                []Site                 `json:"relays,omitempty"`
-	Resources             []ResourceOffer        `json:"resources,omitempty"`
-	Offers                []Offer                `json:"offers"`
-	OfficialSubscriptions []OfficialSubscription `json:"officialSubscriptions,omitempty"`
-	SubscriptionMerchants []MerchantOffer        `json:"subscriptionMerchants,omitempty"`
+	Admission             *AdmissionContract            `json:"admission,omitempty"`
+	Version               string                        `json:"version"`
+	UpdatedAt             string                        `json:"updatedAt"`
+	Source                string                        `json:"source"`
+	Demo                  bool                          `json:"demo"`
+	RankingAuthority      string                        `json:"rankingAuthority,omitempty"`
+	SourceSnapshot        *SourceSnapshot               `json:"sourceSnapshot,omitempty"`
+	DefaultRanking        string                        `json:"defaultRanking,omitempty"`
+	RankingKey            string                        `json:"rankingKey,omitempty"`
+	Rankings              map[string]Ranking            `json:"rankings,omitempty"`
+	Models                []Model                       `json:"models"`
+	OfficialModels        []Model                       `json:"officialModels,omitempty"`
+	Sites                 []Site                        `json:"sites"`
+	Relays                []Site                        `json:"relays,omitempty"`
+	Resources             []ResourceOffer               `json:"resources,omitempty"`
+	Offers                []Offer                       `json:"offers"`
+	OfficialSubscriptions []OfficialSubscription        `json:"officialSubscriptions,omitempty"`
+	RegionalSubscriptions []RegionalSubscriptionCatalog `json:"regionalSubscriptions,omitempty"`
+	SubscriptionMerchants []MerchantOffer               `json:"subscriptionMerchants,omitempty"`
 	// CollectionVocabulary is the Chaos navigation projection attached on read.
 	// Normalize drops any imported copy so the stored snapshot cannot replace the contract.
 	CollectionVocabulary *CollectionVocabulary `json:"collectionVocabulary,omitempty"`

@@ -26,13 +26,13 @@ func TestCollectionVocabularyProjectsChaosContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if vocab.Dictionary != "Tag" || vocab.Dimension != "navigation" || vocab.StableIdentity != "slug" || vocab.Version != "2026-11-11" || vocab.Revision != contract.Version || vocab.ContractCommit != collectionVocabularyContractCommit || vocab.ContractFile != collectionVocabularyContractFile || vocab.ProposalFile != contract.ProposalFile {
+	if vocab.Dictionary != "Tag" || vocab.Dimension != "navigation" || vocab.StableIdentity != "slug" || vocab.Version != "2026-11-12" || vocab.Revision != contract.Version || vocab.ContractCommit != collectionVocabularyContractCommit || vocab.ContractFile != collectionVocabularyContractFile || vocab.ProposalFile != contract.ProposalFile {
 		t.Fatalf("vocabulary identity drifted: %+v", vocab)
 	}
 	if !slices.Equal(vocab.BillingUnits, []string{"traffic", "ip", "gpu_hour"}) || !slices.Equal(vocab.PurchaseSurfaces, []string{"catalog", "none", "forbidden"}) || !slices.Equal(vocab.ApplicableKinds, []string{"product_surface"}) {
 		t.Fatalf("contract enums drifted: %+v", vocab)
 	}
-	wantNav := []string{"tc-nav-home", "tc-nav-models", "tc-nav-relay", "tc-nav-official", "tc-nav-compute", "tc-nav-hardware", "tc-nav-vpn", "tc-nav-guide"}
+	wantNav := []string{"tc-nav-home", "tc-nav-models", "tc-nav-relay", "tc-nav-official", "tc-nav-compute", "tc-nav-hardware", "tc-nav-vpn", "tc-nav-digital", "tc-nav-guide"}
 	if !slices.Equal(vocab.TopNav, wantNav) || !slices.Equal(vocab.TopNav, contract.TopNav) {
 		t.Fatalf("topNav = %v", vocab.TopNav)
 	}
@@ -80,7 +80,7 @@ func TestCollectionVocabularyProjectsChaosContract(t *testing.T) {
 		}
 	}
 	models := by["tc-nav-models"]
-	if models.Name != "模型榜" || !slices.Equal(models.MemberSlugs, []string{"tc-modality-image", "tc-modality-video", "tc-modality-audio"}) || !slices.Equal(models.ExternalFilterSlugs, []string{"text", "multimodal"}) {
+	if models.Name != "模型榜" || !slices.Equal(models.MemberSlugs, []string{"tc-model-ability", "tc-model-price", "tc-modality-image", "tc-modality-video", "tc-modality-audio"}) || !slices.Equal(models.ExternalFilterSlugs, []string{"text", "multimodal"}) {
 		t.Fatalf("model board filters drifted: %+v", models)
 	}
 	for _, slug := range []string{"tc-modality-image", "tc-modality-video", "tc-modality-audio"} {
@@ -191,7 +191,7 @@ func TestPublishedDictionaryUsesGovernedNamesAndDecimalIDs(t *testing.T) {
 			t.Fatalf("published dictionary renamed or extended the contract: %+v", term)
 		}
 	}
-	if by["tc-nav-home"].ID != "42" || by["tc-nav-home"].Name != "不是首页" || by["tc-nav-home"].Revision != "7" || by["tc-nav-models"].ID != "8" || by["tc-nav-models"].Name != "模型榜被改写" || by["tc-nav-models"].GovernanceStatus != "active" || by["tc-nav-guide"].ID != "15" || by["tc-nav-vpn"].ID != "" || by["tc-nav-relay"].Revision != "2026-11-11" || vocab.Revision != "9" || vocab.Version != "2026-11-11" {
+	if by["tc-nav-home"].ID != "42" || by["tc-nav-home"].Name != "不是首页" || by["tc-nav-home"].Revision != "7" || by["tc-nav-models"].ID != "8" || by["tc-nav-models"].Name != "模型榜被改写" || by["tc-nav-models"].GovernanceStatus != "active" || by["tc-nav-guide"].ID != "15" || by["tc-nav-vpn"].ID != "" || by["tc-nav-relay"].Revision != "2026-11-12" || vocab.Revision != "9" || vocab.Version != "2026-11-12" {
 		t.Fatalf("published name/id overlay mismatch: home=%+v models=%+v guide=%+v vpn=%+v", by["tc-nav-home"], by["tc-nav-models"], by["tc-nav-guide"], by["tc-nav-vpn"])
 	}
 }
@@ -201,7 +201,7 @@ func TestCatalogCarriesVocabularyWhenListingsAreEmpty(t *testing.T) {
 	service := testService(t, store, "")
 	empty := Catalog{Version: "empty-listings", UpdatedAt: "2026-11-11T00:00:00Z", Source: "fixture", Models: []Model{}, Sites: []Site{}, Offers: []Offer{}}
 	got, err := service.Import(context.Background(), empty)
-	if err != nil || len(got.Models) != 0 || len(got.Sites) != 0 || len(got.Offers) != 0 || got.CollectionVocabulary == nil || !slices.Equal(got.CollectionVocabulary.TopNav, []string{"tc-nav-home", "tc-nav-models", "tc-nav-relay", "tc-nav-official", "tc-nav-compute", "tc-nav-hardware", "tc-nav-vpn", "tc-nav-guide"}) {
+	if err != nil || len(got.Models) != 0 || len(got.Sites) != 0 || len(got.Offers) != 0 || got.CollectionVocabulary == nil || !slices.Equal(got.CollectionVocabulary.TopNav, []string{"tc-nav-home", "tc-nav-models", "tc-nav-relay", "tc-nav-official", "tc-nav-compute", "tc-nav-hardware", "tc-nav-vpn", "tc-nav-digital", "tc-nav-guide"}) {
 		t.Fatalf("empty listings dropped the vocabulary: %+v %v", got.CollectionVocabulary, err)
 	}
 	if bytes.Contains(store.data, []byte("collectionVocabulary")) || bytes.Contains(store.data, []byte("tc-nav-home")) {
