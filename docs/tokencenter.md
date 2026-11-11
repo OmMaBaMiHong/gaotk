@@ -23,7 +23,7 @@ Catalog 字段为 `version, updatedAt, source, demo, models[], sites[], offers[]
 
 字典是 Chaos 的 Tag 表。`dictionary` 为 `Tag`，`dimension` 为 `navigation`，稳定身份是 `slug`。`version` 是契约版本 `2026-11-11`。对象级 `revision` 在读到已发布字典修订前与 `version` 相同；读到发布修订后改为该修订。条目级 `revision` 在该 slug 已发布时使用 Tag 的修订（十进制字符串），否则使用契约版本。
 
-`id` 是 Tag.id 的十进制字符串，只在已发布字典按 slug 对上之后出现；契约文件不写数字 ID，未发布时响应省略 `id`。已配置 `TOKENCENTER_SOURCE_FORMAT=chaos` 且设置了 `TOKENCENTER_SOURCE_URL` 时，同步会向同一主机请求 `GET /public/v1/tags?dimension=navigation`（沿用源 Bearer，不跟随重定向，不把目录的 ETag 带过去）。只接受 `dictionary:"Tag"` 且维度为 `navigation` 的文档，身份字段认 `id`，缺省时认 `tagId`。显示名、治理状态和枚举仍以契约为准。草稿行、非 navigation 行、非正整数 ID 不回填。404/410 清空已缓存的数字 ID；其他失败保留上一次成功回填，并且不改变目录快照，也不把字典的 401 当成目录源撤回。
+`id` 是 Tag.id 的十进制字符串，只在已发布字典按 slug 对上之后出现；契约文件不写数字 ID，未发布时响应省略 `id`。已配置 `TOKENCENTER_SOURCE_FORMAT=chaos` 且设置了 `TOKENCENTER_SOURCE_URL` 时，同步会向同一主机请求公开字典 `GET /open/v1/tag-library?dimension=navigation`（Chaos 文档写明该响应只含 active 与 legacy；管理列表 `GET /api/v1/admin/tag-library` 不使用）。请求沿用源 Bearer，不跟随重定向，不把目录的 ETag 带过去。响应形状按当前消费假设：顶层 `dimension` 为 `navigation` 或 `dictionary` 为 `Tag`，列表在 `tags`、`entries` 或 `items`，也可以是裸数组。每行以 `slug` 对齐；数字身份认 `id`，缺省时认 `tagId`；`revision` 可以是正整数或字符串。行上若带 `governanceStatus` 或 `status`，只接受 active 与 legacy；公开接口省略该字段时仍回填。显示名、治理状态和枚举仍以契约为准。草稿行、非 navigation 行、非正整数 ID 不回填。404/410 清空已缓存的数字 ID；其他失败保留上一次成功回填，并且不改变目录快照，也不把字典的 401 当成目录源撤回。
 
 公开投影只包含 `governanceStatus` 为 `active` 或 `legacy` 的条目。`tc-reserved` 及其草稿子项留在契约文件里，作为保留 ID，不进入 `entries`，也不进入 `topNav`。
 

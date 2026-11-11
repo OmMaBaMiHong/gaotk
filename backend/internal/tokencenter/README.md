@@ -2,7 +2,7 @@
 
 复用 Chaos 已发布的契约、原生领域事实和中央榜单。使用 TOKENCENTER_DATABASE_URL 的专属目录库，账号/网关库不迁入此模块。
 
-集合导航词表来自嵌入的 Chaos 契约 `tokencenter-collection-vocabulary-v1.contract.json`（声明提交 `9de086c159179dfca2eaf65099027b1176d8d61b`）。成功的目录响应增加 `collectionVocabulary`：slug、显示名、`navigation` 维度、修订，以及 `topNav`、`memberSlugs`、`parentSlug`、`surface`、`boardRule`、`billingUnit`、`purchaseSurface`、`governanceStatus`、`externalFilterSlugs`。数字 `id` 只在 Chaos 源已配置且同源 `GET /public/v1/tags?dimension=navigation` 发布了 Tag 时回填。公开投影只有 active 与 legacy；`tc-reserved` 草稿留在契约文件中。快照不保存这份投影，也不改 `providerKind` 或已有 `tags` / `tagRefs`。字段对应见 `docs/tokencenter.md`。
+集合导航词表来自嵌入的 Chaos 契约 `tokencenter-collection-vocabulary-v1.contract.json`（声明提交 `9de086c159179dfca2eaf65099027b1176d8d61b`）。成功的目录响应增加 `collectionVocabulary`：slug、显示名、`navigation` 维度、修订，以及 `topNav`、`memberSlugs`、`parentSlug`、`surface`、`boardRule`、`billingUnit`、`purchaseSurface`、`governanceStatus`、`externalFilterSlugs`。数字 `id` 只在 Chaos 源已配置且同源 `GET /open/v1/tag-library?dimension=navigation` 发布了 Tag 时回填。公开投影只有 active 与 legacy；`tc-reserved` 草稿留在契约文件中。快照不保存这份投影，也不改 `providerKind` 或已有 `tags` / `tagRefs`。字段对应见 `docs/tokencenter.md`。
 
 SourceFormat=chaos 的环境配置自动开启 RequireAdmission。同步须遍历全部快照分页，核对产品、版本、契约、总数、重复和每个原生对象资格后原子替换。保留规范 tagRefs、来源、报价条件与测评原值；不依据榜单创建不完整模型/站点，不把中转站名称当模型厂商。
 

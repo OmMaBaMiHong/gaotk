@@ -273,7 +273,7 @@ func TestChaosSyncOverlaysPublishedIDsWithoutRewritingProviderFacts(t *testing.T
 	store := &memoryStore{}
 	var dictionaryRequests int
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/public/v1/tags" {
+		if r.URL.Path == "/open/v1/tag-library" {
 			dictionaryRequests++
 			if r.Header.Get("Authorization") != "Bearer fixture-source-token" || r.Header.Get("If-None-Match") != "" || r.URL.Query().Get("dimension") != "navigation" {
 				t.Errorf("dictionary request lost auth or reused catalog validators: %v %s", r.Header, r.URL.RawQuery)
@@ -297,7 +297,7 @@ func TestChaosSyncOverlaysPublishedIDsWithoutRewritingProviderFacts(t *testing.T
 	}))
 	defer server.Close()
 	service := chaosService(t, store, server)
-	service.cfg.CollectionDictionaryURL = server.URL + "/public/v1/tags?dimension=navigation"
+	service.cfg.CollectionDictionaryURL = server.URL + "/open/v1/tag-library?dimension=navigation"
 	got, err := service.Sync(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -348,7 +348,7 @@ func TestChaosSyncOverlaysPublishedIDsWithoutRewritingProviderFacts(t *testing.T
 func TestDictionaryFailureDoesNotRevokeOrBlockCatalogSync(t *testing.T) {
 	store := &memoryStore{}
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/public/v1/tags" {
+		if r.URL.Path == "/open/v1/tag-library" {
 			http.Error(w, "no dictionary", http.StatusUnauthorized)
 			return
 		}
@@ -360,7 +360,7 @@ func TestDictionaryFailureDoesNotRevokeOrBlockCatalogSync(t *testing.T) {
 	}))
 	defer server.Close()
 	service := chaosService(t, store, server)
-	service.cfg.CollectionDictionaryURL = server.URL + "/public/v1/tags?dimension=navigation"
+	service.cfg.CollectionDictionaryURL = server.URL + "/open/v1/tag-library?dimension=navigation"
 	got, err := service.Sync(context.Background())
 	if err != nil || got.CollectionVocabulary == nil || got.Sites[0].ProviderKind != "aggregator" {
 		t.Fatalf("dictionary 401 blocked catalog sync: %v %+v", err, got.Sites)
@@ -380,7 +380,7 @@ func TestMissingDictionaryClearsPublishedIDsAndKeepsCatalog(t *testing.T) {
 	var dictionaryStatus atomic.Int32
 	dictionaryStatus.Store(http.StatusOK)
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/public/v1/tags" {
+		if r.URL.Path == "/open/v1/tag-library" {
 			if status := int(dictionaryStatus.Load()); status != http.StatusOK {
 				w.WriteHeader(status)
 				return
@@ -396,7 +396,7 @@ func TestMissingDictionaryClearsPublishedIDsAndKeepsCatalog(t *testing.T) {
 	}))
 	defer server.Close()
 	service := chaosService(t, store, server)
-	service.cfg.CollectionDictionaryURL = server.URL + "/public/v1/tags?dimension=navigation"
+	service.cfg.CollectionDictionaryURL = server.URL + "/open/v1/tag-library?dimension=navigation"
 	first, err := service.Sync(context.Background())
 	if err != nil || termBySlug(t, first, "tc-nav-home").ID != "42" {
 		t.Fatalf("published id missing before withdrawal: %v %+v", err, first.CollectionVocabulary)
@@ -427,7 +427,7 @@ func TestChaosSourceConfigDerivesNavigationDictionaryURL(t *testing.T) {
 	t.Setenv("TOKENCENTER_SOURCE_URL", "https://chaos.example/public/v1/products/tokencenter/snapshot?resource=materials&resource=rankings")
 	t.Setenv("TOKENCENTER_SOURCE_TOKEN", "")
 	cfg, err := ConfigFromEnv()
-	if err != nil || cfg.CollectionDictionaryURL != "https://chaos.example/public/v1/tags?dimension=navigation" {
+	if err != nil || cfg.CollectionDictionaryURL != "https://chaos.example/open/v1/tag-library?dimension=navigation" {
 		t.Fatalf("dictionary URL = %q (%v)", cfg.CollectionDictionaryURL, err)
 	}
 	t.Setenv("TOKENCENTER_SOURCE_FORMAT", "catalog")

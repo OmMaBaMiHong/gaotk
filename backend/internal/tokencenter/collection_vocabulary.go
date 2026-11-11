@@ -275,7 +275,9 @@ func collectionDictionaryURL(source string) string {
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil {
 		return ""
 	}
-	parsed.Path = "/public/v1/tags"
+	// Public published dictionary from Chaos docs/project/tokencenter-collection-vocabulary-2026-11-11.md.
+	// Active and legacy only. The admin list /api/v1/admin/tag-library is not used here.
+	parsed.Path = "/open/v1/tag-library"
 	parsed.RawPath = ""
 	parsed.RawQuery = "dimension=navigation"
 	parsed.Fragment = ""
