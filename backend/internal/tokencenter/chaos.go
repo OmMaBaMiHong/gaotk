@@ -80,6 +80,9 @@ type chaosAccumulator struct {
 	materialCount    map[string]int
 }
 
+// Increment when the same source revision needs a new consumer projection.
+const chaosProjectionVersion = 2
+
 func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, error) {
 	var result chaosAccumulator
 	result.requireAdmission = s.cfg.RequireAdmission
@@ -97,7 +100,8 @@ func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, er
 			target.RawQuery = q.Encode()
 		}
 		var validators *Snapshot
-		if cursor == "" && previous.AccessStatus == 0 && (!s.cfg.RequireAdmission || qualifiedContract(previous.Catalog.Admission)) && previous.SourceURL == s.cfg.SourceURL && previous.Catalog.RankingAuthority == "chaos" {
+		if cursor == "" && previous.AccessStatus == 0 && (!s.cfg.RequireAdmission || qualifiedContract(previous.Catalog.Admission)) && previous.SourceURL == s.cfg.SourceURL && previous.Catalog.RankingAuthority == "chaos" &&
+			previous.Catalog.SourceSnapshot != nil && previous.Catalog.SourceSnapshot.ProjectionVersion == chaosProjectionVersion {
 			validators = &previous
 		}
 		response, err := s.sourceRequest(ctx, target.String(), validators)
@@ -222,7 +226,7 @@ func (a *chaosAccumulator) initialize(page chaosPage) error {
 	}
 	a.config = config
 	a.admissionJSON, _ = json.Marshal(page.Admission)
-	a.catalog = Catalog{Version: page.Version, Source: "Chaos", RankingAuthority: "chaos", Models: []Model{}, Sites: []Site{}, Offers: []Offer{}, Rankings: map[string]Ranking{}, SourceSnapshot: &SourceSnapshot{Product: page.Product, Version: page.Version, PublicationRevision: page.PublicationRevision, ConfigRevision: parts[1], Config: page.Config}}
+	a.catalog = Catalog{Version: page.Version, Source: "Chaos", RankingAuthority: "chaos", Models: []Model{}, Sites: []Site{}, Offers: []Offer{}, Rankings: map[string]Ranking{}, SourceSnapshot: &SourceSnapshot{ProjectionVersion: chaosProjectionVersion, Product: page.Product, Version: page.Version, PublicationRevision: page.PublicationRevision, ConfigRevision: parts[1], Config: page.Config}}
 	a.models, a.sites, a.offers = map[string]int{}, map[string]int{}, map[string]bool{}
 	a.catalog.Admission = page.Admission
 	a.boards, a.topics = map[string]*chaosBoard{}, map[string]map[string]string{}
@@ -456,6 +460,7 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 type chaosProvider struct {
 	SubjectGovernance
 	EntityID, Key, Kind, Name, DocumentationURL, APIURL, SourceURL, SourceName, SourceAuthority string
+	LogoURL, LogoSourceURL                                                                      string
 	ObservedAt                                                                                  *string  `json:"observedAt"`
 	Tags                                                                                        []string `json:"tags"`
 }
@@ -498,6 +503,9 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 		website = p.APIURL
 	}
 	site := Site{ID: p.EntityID, EntityID: p.EntityID, ProviderKey: p.Key, ProviderKind: p.Kind, Name: p.Name, Website: website, Models: len(data.Models), Tags: append([]string{}, p.Tags...), SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt}
+	if webURL(p.LogoURL) {
+		site.LogoURL, site.LogoSourceURL = p.LogoURL, p.LogoSourceURL
+	}
 	site.SubjectGovernance = p.SubjectGovernance
 	if index, exists := a.sites[site.ID]; !exists {
 		a.sites[site.ID] = len(a.catalog.Sites)
@@ -614,8 +622,17 @@ func (a *chaosAccumulator) appendEvaluation(raw json.RawMessage) error {
 		a.catalog.Models = append(a.catalog.Models, Model{ID: evaluation.EntityID, EntityID: evaluation.EntityID, CanonicalModelID: evaluation.CanonicalModelID, ModelPermaslug: evaluation.ModelPermaslug, Name: evaluation.ModelName, DeveloperID: developerID, DeveloperName: developerName, Provider: developer, Family: developerID, Tags: []string{}, SourceURL: evaluation.SourceURL, SourceName: evaluation.Source, ObservedAt: evaluation.ObservedAt})
 	}
 	if evaluation.BenchmarkID == "modeldial_five_axis" {
-		a.catalog.Models[index].ModelDial = &evaluation
-		a.catalog.Models[index].Released = evaluation.Released
+		model := &a.catalog.Models[index]
+		model.ModelDial = &evaluation
+		model.Released = evaluation.Released
+		if developer := evaluation.Developer; developer != nil {
+			model.DeveloperID, model.DeveloperName = developer.ID, developer.Name
+			model.DisplayName = developer.ModelName
+			model.Provider, model.Family = developer.Name, developer.ID
+			if webURL(developer.LogoURL) {
+				model.DeveloperLogoURL = developer.LogoURL
+			}
+		}
 	}
 	a.catalog.Models[index].Evaluations = append(a.catalog.Models[index].Evaluations, evaluation)
 	if len(a.catalog.Models[index].TagRefs) == 0 {

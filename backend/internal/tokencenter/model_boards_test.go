@@ -56,3 +56,17 @@ func TestOfficialQuoteProjectionKeepsPairedPricesAndConditions(t *testing.T) {
 		t.Fatal("projection mutated source models")
 	}
 }
+
+func TestModelDialPublishedDeveloperDoesNotReplaceSourceIdentity(t *testing.T) {
+	a := chaosAccumulator{catalog: Catalog{Models: []Model{}}, models: map[string]int{}}
+	raw := json.RawMessage(`{"schemaVersion":1,"entityId":"123","source":"ModelDial","benchmarkId":"modeldial_five_axis","modelPermaslug":"native-model","modelName":"Native name","metric":"overall_score","score":95,"developer":{"id":"lab","name":"Lab","modelName":"Lab Model","canonicalModelId":"lab/model","logoUrl":"https://models.dev/logos/lab.svg","sourceUrl":"https://models.dev/catalog.json"}}`)
+	if err := a.appendEvaluation(raw); err != nil {
+		t.Fatal(err)
+	}
+	m := a.catalog.Models[0]
+	if m.ID != "123" || m.Name != "Native name" || m.ModelPermaslug != "native-model" ||
+		m.CanonicalModelID != "" || m.DisplayName != "Lab Model" || m.DeveloperName != "Lab" ||
+		m.DeveloperLogoURL != "https://models.dev/logos/lab.svg" || *m.ModelDial.Score != 95 {
+		t.Fatalf("unexpected display or source identity: %+v", m)
+	}
+}

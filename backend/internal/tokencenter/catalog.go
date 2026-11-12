@@ -56,6 +56,8 @@ type Model struct {
 	SourceKey        string             `json:"sourceKey,omitempty"`
 	DeveloperID      string             `json:"developerId,omitempty"`
 	DeveloperName    string             `json:"developerName,omitempty"`
+	DeveloperLogoURL string             `json:"developerLogoUrl,omitempty"`
+	DisplayName      string             `json:"displayName,omitempty"`
 	Name             string             `json:"name"`
 	Provider         string             `json:"provider"`
 	Family           string             `json:"family"`
@@ -104,6 +106,8 @@ type Site struct {
 	EntityID        string   `json:"entityId,omitempty"`
 	ProviderKey     string   `json:"providerKey,omitempty"`
 	ProviderKind    string   `json:"providerKind,omitempty"`
+	LogoURL         string   `json:"logoUrl,omitempty"`
+	LogoSourceURL   string   `json:"logoSourceUrl,omitempty"`
 	SourceURL       string   `json:"sourceUrl,omitempty"`
 	SourceName      string   `json:"sourceName,omitempty"`
 	SourceAuthority string   `json:"sourceAuthority,omitempty"`
@@ -132,6 +136,7 @@ type Offer struct {
 }
 
 type SourceSnapshot struct {
+	ProjectionVersion   int             `json:"projectionVersion,omitempty"`
 	Product             string          `json:"product"`
 	Version             string          `json:"version"`
 	PublicationRevision string          `json:"publicationRevision"`
@@ -176,6 +181,16 @@ type ArtificialAnalysis struct {
 	AgenticIndex      *float64 `json:"agenticIndex"`
 }
 
+type ModelDeveloper struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	ModelName        string `json:"modelName"`
+	CanonicalModelID string `json:"canonicalModelId"`
+	LogoURL          string `json:"logoUrl"`
+	SourceURL        string `json:"sourceUrl"`
+	SHA256           string `json:"sha256"`
+}
+
 type Evaluation struct {
 	SubjectGovernance
 	EntityID               string                    `json:"entityId"`
@@ -185,6 +200,7 @@ type Evaluation struct {
 	ModelPermaslug         string                    `json:"modelPermaslug"`
 	ModelName              string                    `json:"modelName"`
 	ProviderName           string                    `json:"providerName"`
+	Developer              *ModelDeveloper           `json:"developer,omitempty"`
 	ConfigurationID        string                    `json:"configurationId,omitempty"`
 	ReasoningEffort        string                    `json:"reasoningEffort,omitempty"`
 	Dimensions             *EvaluationDimensions     `json:"dimensions,omitempty"`
