@@ -15,6 +15,8 @@ func RegisterRoutes(public, admin *gin.RouterGroup, service *Service) {
 	h := &httpHandler{service: service}
 	public.GET("/tokencenter/catalog", h.catalog)
 	public.GET("/tokencenter/models/:id", h.model)
+	public.GET("/tokencenter/usage", h.usage)
+	public.POST("/tokencenter/usage", h.usage)
 	admin.GET("/tokencenter/catalog", h.catalog)
 	admin.POST("/tokencenter/import", h.importCatalog)
 	admin.POST("/tokencenter/sync", h.syncCatalog)

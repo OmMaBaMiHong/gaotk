@@ -298,6 +298,7 @@ func (s *Service) present(catalog Catalog) (Catalog, error) {
 	}
 	catalog.CollectionVocabulary = vocab
 	catalog.Summary = summarizeCatalog(catalog)
+	catalog.Platforms = projectPlatformDirectory(catalog)
 	return catalog, nil
 }
 

@@ -43,8 +43,9 @@ type Catalog struct {
 	// Normalize drops any imported copy so the stored snapshot cannot replace the contract.
 	CollectionVocabulary *CollectionVocabulary `json:"collectionVocabulary,omitempty"`
 	// Summary is a read projection of this admitted snapshot, never imported claims.
-	Summary *CatalogSummary `json:"summary,omitempty"`
-	Home    *HomeProjection `json:"home,omitempty"`
+	Summary   *CatalogSummary    `json:"summary,omitempty"`
+	Home      *HomeProjection    `json:"home,omitempty"`
+	Platforms *PlatformDirectory `json:"platforms,omitempty"`
 }
 type Model struct {
 	SubjectGovernance
@@ -358,6 +359,7 @@ func webURL(s string) bool {
 func Normalize(c Catalog) (Catalog, error) {
 	c.CollectionVocabulary = nil
 	c.Summary = nil
+	c.Platforms = nil
 	c.Home = nil
 	c.Relays = nil
 	c.OfficialModels = nil

@@ -20,3 +20,15 @@ CREATE TABLE IF NOT EXISTS tokencenter_applications (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS tokencenter_applications_status_id ON tokencenter_applications ((state->>'status'), id DESC);
+
+-- Product interaction totals, not unique-user analytics. Independent of catalog
+-- refresh/revocation and application moderation. No personal data is collected.
+CREATE TABLE IF NOT EXISTS tokencenter_service_usage (
+    id SMALLINT PRIMARY KEY CHECK (id = 1),
+    board_clicks BIGINT NOT NULL DEFAULT 0,
+    model_clicks BIGINT NOT NULL DEFAULT 0,
+    platform_clicks BIGINT NOT NULL DEFAULT 0,
+    started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO tokencenter_service_usage (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
