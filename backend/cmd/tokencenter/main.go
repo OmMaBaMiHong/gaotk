@@ -78,8 +78,11 @@ func run() error {
 	router.Use(gin.Recovery())
 	_ = router.SetTrustedProxies(nil)
 	public := router.Group("/api/v1")
-	admin := router.Group("/api/v1/admin", tokencenter.DevTokenAuth(token))
+	accounts := tokencenter.AccountBridgeFromEnv()
+	admin := router.Group("/api/v1/admin", accounts.AdminAuth(token))
 	tokencenter.RegisterRoutes(public, admin, service)
+	accounts.Register(public)
+	tokencenter.RegisterBusinessRoutes(public, admin, router.Group("/api/v1", accounts.MemberAuth()), service)
 	server := &http.Server{Addr: addr, Handler: router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: cfg.Timeout + 5*time.Second, IdleTimeout: 60 * time.Second}
 	failures := make(chan error, 1)
 	go func() { failures <- server.ListenAndServe() }()

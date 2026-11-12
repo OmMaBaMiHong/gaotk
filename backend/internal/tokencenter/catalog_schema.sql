@@ -32,3 +32,69 @@ CREATE TABLE IF NOT EXISTS tokencenter_service_usage (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 INSERT INTO tokencenter_service_usage (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Product-owned relationships. Account identity and catalog facts remain upstream.
+CREATE TABLE IF NOT EXISTS tokencenter_merchants (
+    id BIGSERIAL PRIMARY KEY,
+    account_issuer TEXT NOT NULL,
+    account_user_id BIGINT NOT NULL,
+    account_email TEXT NOT NULL,
+    profile JSONB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    review_note TEXT NOT NULL DEFAULT '',
+    revision BIGINT NOT NULL DEFAULT 1,
+    history JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(account_issuer, account_user_id)
+);
+CREATE INDEX IF NOT EXISTS tokencenter_merchants_status_id ON tokencenter_merchants(status, id DESC);
+CREATE TABLE IF NOT EXISTS tokencenter_platform_claims (
+    id BIGSERIAL PRIMARY KEY,
+    merchant_id BIGINT NOT NULL REFERENCES tokencenter_merchants(id),
+    platform_id TEXT NOT NULL,
+    platform JSONB NOT NULL,
+    evidence JSONB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    review_note TEXT NOT NULL DEFAULT '',
+    revision BIGINT NOT NULL DEFAULT 1,
+    history JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS tokencenter_claim_one_owner ON tokencenter_platform_claims(platform_id) WHERE status='approved';
+CREATE UNIQUE INDEX IF NOT EXISTS tokencenter_claim_pending ON tokencenter_platform_claims(merchant_id, platform_id) WHERE status='pending';
+CREATE INDEX IF NOT EXISTS tokencenter_claim_merchant_id ON tokencenter_platform_claims(merchant_id, id DESC);
+CREATE INDEX IF NOT EXISTS tokencenter_claim_status_id ON tokencenter_platform_claims(status, id DESC);
+CREATE TABLE IF NOT EXISTS tokencenter_ad_slots (
+    id BIGSERIAL PRIMARY KEY,
+    code TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    revision BIGINT NOT NULL DEFAULT 1,
+    history JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+INSERT INTO tokencenter_ad_slots(code,name,description) VALUES('home-sponsor','首页品牌赞助位','首页领域海报下方；图片建议 16:9，支持品牌名称与落地页。') ON CONFLICT(code) DO NOTHING;
+CREATE TABLE IF NOT EXISTS tokencenter_ad_campaigns (
+    id BIGSERIAL PRIMARY KEY,
+    merchant_id BIGINT NOT NULL REFERENCES tokencenter_merchants(id),
+    claim_id BIGINT NOT NULL REFERENCES tokencenter_platform_claims(id),
+    slot_id BIGINT NOT NULL REFERENCES tokencenter_ad_slots(id),
+    creative JSONB NOT NULL,
+    starts_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    review_note TEXT NOT NULL DEFAULT '',
+    revision BIGINT NOT NULL DEFAULT 1,
+    history JSONB NOT NULL DEFAULT '[]',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK(ends_at > starts_at)
+);
+CREATE INDEX IF NOT EXISTS tokencenter_ad_merchant_id ON tokencenter_ad_campaigns(merchant_id,id DESC);
+CREATE INDEX IF NOT EXISTS tokencenter_ad_claim ON tokencenter_ad_campaigns(claim_id);
+CREATE INDEX IF NOT EXISTS tokencenter_ad_status_id ON tokencenter_ad_campaigns(status,id DESC);
+CREATE INDEX IF NOT EXISTS tokencenter_ad_schedule ON tokencenter_ad_campaigns(slot_id,starts_at,ends_at) WHERE status='approved';

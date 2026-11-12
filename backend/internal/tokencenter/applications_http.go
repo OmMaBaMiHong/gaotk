@@ -105,7 +105,7 @@ func (h *httpHandler) reviewApplication(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "请填写处理状态、说明和当前版本"})
 		return
 	}
-	row, err := h.service.ReviewApplication(c.Request.Context(), id, in, "admin")
+	row, err := h.service.ReviewApplication(c.Request.Context(), id, in, businessActor(c))
 	if err != nil {
 		applicationError(c, err)
 		return

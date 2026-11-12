@@ -2,6 +2,19 @@
 
 目录属于 TokenCenter 自己，使用 PostgreSQL `tokencenter_catalog` 单行 JSONB 快照保存，不依赖网关计费数据或 Redis。主服务和独立启动器都通过 `TOKENCENTER_DATABASE_URL` 连接专用 TokenCenter 数据库，模块自行迁移 `internal/tokencenter/catalog_schema.sql`；不使用账号服务的 SQL 连接和迁移。主服务未配置该 URL 时不注册目录路由。独立启动器不初始化账号业务表，不创建数据库或基础设施。
 
+## 商家与广告业务（2026-11-12）
+
+沿相同 TokenCenter 服务和专库新增商家、平台认领、广告位、投放四表，数字主键、单表查询、游标分页与持久处理记录。采集、平台身份和排榜仍由 Chaos 提供；商业审核只建立账号与已发布平台之间的归属，不修改目录事实或自然名次。
+
+- `GET /api/v1/tokencenter/business/auth/start` → 原账号 OAuth 授权页 → TokenCenter 回调。仅申请 `profile`；服务端验证 `/api/v1/auth/me` 的账号 ID 和角色，商家不能通过请求体指定他人账号。
+- `/api/v1/tokencenter/business/auth/{session,refresh,logout}` 管理 HttpOnly 会话；不新增密码/用户表。既有运营令牌保留兼容入口 `POST .../auth/operator`，不能用于商家身份。
+- `/api/v1/tokencenter/business/merchant`：当前商家读取/提交；`claims`：当前商家认领；`campaigns`：素材、档期、草稿/送审/暂停；`slots`：可申请广告位。
+- `/api/v1/admin/tokencenter/business/{merchants,claims,slots,campaigns}`：运营列表、审核/撤销、广告位配置；`applications` 复用原收录申请服务。
+- `GET /api/v1/tokencenter/business/ads/:code`：仅返回已审核、档期内且广告位启用的素材，不返回私有联系信息或审核记录。`home-sponsor` 接入原首页赞助区。
+- 同平台有效认领唯一；已通过广告档期不重叠。修改素材重新审核；商家停用、认领撤销会暂停关联广告。采用统一行锁顺序、版本检查和事务保留并发一致性。收费与计费统计尚未接入。
+
+额外配置：`TOKENCENTER_ACCOUNT_URL`（服务端账号地址）、`TOKENCENTER_ACCOUNT_PUBLIC_URL`（浏览器账号地址）、`TOKENCENTER_WEB_URL`（官网入口）、`TOKENCENTER_OAUTH_CLIENT_ID`、`TOKENCENTER_OAUTH_CLIENT_SECRET`。本地沿用账号服务 `127.0.0.1:8080` / `skoob_accounts` / Redis DB 5，TokenCenter Web 3020、Go 8086，不新建服务端口或改绑原账号库。OAuth 客户端注册回调为 `http://127.0.0.1:3020/api/business/auth/callback`，保留原 Skoob 客户端；公网部署必须另按实际 HTTPS 域名配置，不直接沿用本机回调。
+
 ## 路由
 
 - `GET /api/v1/tokencenter/catalog`：公开完整目录，直接返回 Catalog，无 `data` 包裹。

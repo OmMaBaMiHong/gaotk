@@ -112,6 +112,11 @@ func registerTokenCenterRoutes(
 	public.Use(panelRateLimiter.Global())
 	admin := r.Group("/api/v1/admin", gin.HandlerFunc(adminAuth), panelRateLimiter.Global(), gin.HandlerFunc(auditLog), middleware2.AdminComplianceGuard(settingService))
 	tokencenter.RegisterRoutes(public, admin, tokenCatalog)
+	accounts := tokencenter.AccountBridgeFromEnv()
+	accounts.Register(public)
+	businessAdmin := r.Group("/api/v1/admin", accounts.AdminAuth(""))
+	member := r.Group("/api/v1", accounts.MemberAuth())
+	tokencenter.RegisterBusinessRoutes(public, businessAdmin, member, tokenCatalog)
 }
 
 func configureTrustedProxies(r *gin.Engine, cfg config.ServerConfig) {
