@@ -41,3 +41,30 @@ func TestSQLStoreAtomicSnapshotAndRestartRead(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestSQLBrowsePassesBoardSelectionAndKeepsRelayProjectionFromSameRead(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	c := fixture(t)
+	rank, score := 7, 81.0
+	c.Sites[0].ProviderKind = "relay"
+	count, included := 1, false
+	c.Rankings = map[string]Ranking{"relays": {Entries: []RankedEntry{}, EntryCount: &count, DetailsIncluded: &included}}
+	data, _ := json.Marshal(c)
+	relayEntries, _ := json.Marshal([]RankedEntry{{EntityID: c.Sites[0].ID, Rank: &rank, Score: &score}})
+	mock.ExpectQuery(`SELECT jsonb_set\(jsonb_set\(catalog,.*rankings.*jsonb_object_agg.*FROM tokencenter_catalog WHERE id = 1`).WithArgs("", "value-general-balanced").WillReturnRows(sqlmock.NewRows([]string{"catalog", "source_url", "etag", "last_modified", "access_status", "relay_entries"}).AddRow(data, "https://source.example/snapshot", "publication-etag", "", 0, relayEntries))
+	snapshot, err := NewSQLStore(db).LoadBrowseForRanking(context.Background(), "value-general-balanced")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := projectBrowseModelBoard(snapshot.Catalog, "value-general-balanced", "")
+	if len(projected.Relays) != 1 || projected.Relays[0].Rank == nil || *projected.Relays[0].Rank != rank || *projected.Relays[0].Score != score || snapshot.ETag != "publication-etag" || len(projected.Rankings["relays"].Entries) != 0 {
+		t.Fatalf("same-snapshot relay ranks lost or leaked into board overview: %+v", projected)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}
