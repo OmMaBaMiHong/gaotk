@@ -348,7 +348,7 @@ func TestValueReferenceRequiresFrozenQuoteVersionAndCompletePrices(t *testing.T)
 	}
 }
 
-func TestBrowseModelBoardReturnsOnlyParticipatingRows(t *testing.T) {
+func TestBrowseModelBoardKeepsUnrankedAndUnpricedDirectoryRows(t *testing.T) {
 	rank, score, input, output := 1, 91.0, 1.0, 4.0
 	catalog := Catalog{
 		Models: []Model{
@@ -369,20 +369,18 @@ func TestBrowseModelBoardReturnsOnlyParticipatingRows(t *testing.T) {
 		},
 	}
 
-	ability := projectBrowseModelBoard(catalog, "ability", "ability")
-	if len(ability.Models) != 1 || ability.Models[0].ID != "ranked" || len(ability.Offers) != 2 {
-		t.Fatalf("ability view included directory-only rows or lost quote aliases: %+v", ability)
-	}
-	value := projectBrowseModelBoard(catalog, "ability", "value")
-	if len(value.Models) != 1 || value.Models[0].ID != "ranked" {
-		t.Fatalf("value view changed the published rank membership: %+v", value)
-	}
-	priceRows := projectBrowseModels([]Model{
-		{ID: "priced", CatalogOffer: &Offer{Input: &input, Output: &output}},
-		{ID: "incomplete", CatalogOffer: &Offer{Input: &input}},
-		{ID: "unpriced"},
-	}, "price")
-	if len(priceRows) != 1 || priceRows[0].ID != "priced" {
-		t.Fatalf("price view included rows without a complete paired quote: %+v", priceRows)
+	for _, view := range []string{"ability", "value", "price"} {
+		result := projectBrowseModelBoard(catalog, "ability", view)
+		if len(result.Models) != 4 || result.Models[0].ID != "ranked" || len(result.Offers) != 3 {
+			t.Fatalf("%s hid directory data or lost exact quote relations: %+v", view, result)
+		}
+		if result.Models[0].Rank == nil || *result.Models[0].Score != score {
+			t.Fatal("published ranking changed")
+		}
+		for _, model := range result.Models[1:] {
+			if model.Rank != nil || model.Score != nil {
+				t.Fatal("unranked directory model acquired a fake score")
+			}
+		}
 	}
 }

@@ -550,14 +550,22 @@ func (a *chaosAccumulator) appendProviderMaterial(sourceMaterialID string, raw j
 		a.sites[site.ID] = len(a.catalog.Sites)
 		a.catalog.Sites = append(a.catalog.Sites, site)
 	} else if !site.identityOnly && (a.catalog.Sites[index].identityOnly || preferSource(a.catalog.Sites[index].SourceAuthority, site.SourceAuthority)) {
+		if a.catalog.Sites[index].identityOnly && site.SourceAuthority != "first_party" {
+			site = withManufacturerIdentity(site, a.catalog.Sites[index])
+		}
 		if governedLogoPath(a.catalog.Sites[index].LogoURL) && !governedLogoPath(site.LogoURL) && (site.LogoURL == "" || site.SourceAuthority != "first_party") {
 			site.LogoURL, site.LogoSourceURL = a.catalog.Sites[index].LogoURL, a.catalog.Sites[index].LogoSourceURL
 		}
 		a.catalog.Sites[index] = site
-	} else if governedLogoPath(site.LogoURL) && (a.catalog.Sites[index].LogoURL == "" || a.catalog.Sites[index].SourceAuthority != "first_party" && !governedLogoPath(a.catalog.Sites[index].LogoURL)) {
-		// An identity-only material can supply the published asset reference for
-		// this exact entity without replacing its existing model inventory.
-		a.catalog.Sites[index].LogoURL, a.catalog.Sites[index].LogoSourceURL = site.LogoURL, site.LogoSourceURL
+	} else {
+		if site.identityOnly && a.catalog.Sites[index].SourceAuthority != "first_party" {
+			a.catalog.Sites[index] = withManufacturerIdentity(a.catalog.Sites[index], site)
+		}
+		if governedLogoPath(site.LogoURL) && (a.catalog.Sites[index].LogoURL == "" || a.catalog.Sites[index].SourceAuthority != "first_party" && !governedLogoPath(a.catalog.Sites[index].LogoURL)) {
+			// An identity-only material can supply the published asset reference for
+			// this exact entity without replacing its existing model inventory.
+			a.catalog.Sites[index].LogoURL, a.catalog.Sites[index].LogoSourceURL = site.LogoURL, site.LogoSourceURL
+		}
 	}
 	a.observeOptional(p.ObservedAt)
 	for _, source := range data.Models {
@@ -621,6 +629,15 @@ func (a *chaosAccumulator) appendProviderMaterial(sourceMaterialID string, raw j
 		}
 	}
 	return nil
+}
+
+// Apply the explicit central registry identity to this exact published entity.
+// Inventory, channel pricing and their source evidence retain their own fields.
+func withManufacturerIdentity(site, identity Site) Site {
+	site.Name, site.ProviderKey, site.ProviderKind = identity.Name, identity.ProviderKey, identity.ProviderKind
+	site.Website, site.WebsiteURL = identity.Website, identity.WebsiteURL
+	site.Tags, site.SubjectGovernance = identity.Tags, identity.SubjectGovernance
+	return site
 }
 
 func (a *chaosAccumulator) appendOffer(offer Offer, p chaosProvider, model chaosSourceModel, plan string) error {

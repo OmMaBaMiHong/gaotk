@@ -59,15 +59,11 @@ func projectModelBoard(c Catalog, key string) Catalog {
 	return c
 }
 
-// Browse retains each board's publication overview while placing the selected
-// board's per-model evidence in Models only. Full catalog/detail reads keep the
-// original entry and exclusion payloads. The board view narrows directory rows
-// to the records that can participate in that view; a published method with no
-// comparable rows stays visibly empty instead of presenting directory records
-// as unranked entries.
+// Browse retains the admitted directory independently of rank/price coverage.
+// Published scores annotate these records; missing measurements never hide a
+// model's existing identity, specification or purchasing information.
 func projectBrowseModelBoard(c Catalog, key, boardView string) Catalog {
 	c = projectModelBoard(c, key)
-	c.Models = projectBrowseModels(c.Models, boardView)
 	modelIDs := map[string]bool{}
 	for _, model := range c.Models {
 		modelIDs[model.ID] = true
@@ -96,29 +92,6 @@ func projectBrowseModelBoard(c Catalog, key, boardView string) Catalog {
 	}
 	c.Rankings = boards
 	return c
-}
-
-func projectBrowseModels(models []Model, boardView string) []Model {
-	switch boardView {
-	case "ability", "value":
-		rows := make([]Model, 0, len(models))
-		for _, model := range models {
-			if model.Rank != nil {
-				rows = append(rows, model)
-			}
-		}
-		return rows
-	case "price":
-		rows := make([]Model, 0, len(models))
-		for _, model := range models {
-			if model.CatalogOffer != nil && model.CatalogOffer.Input != nil && model.CatalogOffer.Output != nil {
-				rows = append(rows, model)
-			}
-		}
-		return rows
-	default:
-		return models
-	}
 }
 
 func selectedModelBoardKey(c Catalog, key string) string {
