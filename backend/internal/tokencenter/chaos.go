@@ -181,6 +181,7 @@ func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, er
 	if err != nil {
 		return Catalog{}, err
 	}
+	applyManufacturerRegistryLogos(&catalog)
 	resolveCatalogLogoURLs(&catalog, s.cfg.SourceURL)
 	if err = s.store.Save(ctx, Snapshot{Catalog: catalog, SourceURL: s.cfg.SourceURL, ETag: etag, LastModified: modified}, false); err != nil {
 		return Catalog{}, err

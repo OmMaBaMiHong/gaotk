@@ -42,6 +42,30 @@ func rankedModelID(entry RankedEntry) string {
 	return entry.EntityID
 }
 
+// applyManufacturerRegistryLogos makes the registered manufacturer brand asset
+// the product-wide default developer mark. A model row's developer logo is the
+// same fact as the manufacturer's registry logo, so every model published under
+// a registered developer (providerKey) reuses that governed asset instead of
+// keeping a source-specific directory icon or no logo at all. Models without a
+// registered developer keep whatever the sources published. Run before
+// resolveCatalogLogoURLs so governed relative paths still resolve.
+func applyManufacturerRegistryLogos(c *Catalog) {
+	registry := map[string]string{}
+	for _, site := range c.Sites {
+		if site.ProviderKind == "manufacturer" && site.ProviderKey != "" && governedLogoPath(site.LogoURL) {
+			registry[site.ProviderKey] = site.LogoURL
+		}
+	}
+	if len(registry) == 0 {
+		return
+	}
+	for i := range c.Models {
+		if logo, ok := registry[c.Models[i].DeveloperID]; ok {
+			c.Models[i].DeveloperLogoURL = logo
+		}
+	}
+}
+
 func resolveCatalogLogoURLs(c *Catalog, source string) {
 	base, err := url.Parse(source)
 	if err != nil {

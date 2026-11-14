@@ -28,3 +28,32 @@ func TestManufacturerAssetDoesNotReplaceExistingInventory(t *testing.T) {
 		}
 	}
 }
+
+func TestModelRowsReuseManufacturerRegistryLogo(t *testing.T) {
+	catalog := Catalog{
+		Sites: []Site{
+			{ID: "10", Name: "Anthropic", ProviderKey: "anthropic", ProviderKind: "manufacturer", LogoURL: "/public/v1/products/test/domains/models/materials/42/logo?v=brand"},
+			{ID: "20", Name: "Some Relay", ProviderKey: "somerelay", ProviderKind: "unverified", LogoURL: "https://relay.test/icon.png"},
+		},
+		Models: []Model{
+			{ID: "1", Name: "Mono from directory", DeveloperID: "anthropic", DeveloperName: "Anthropic", DeveloperLogoURL: "https://models.dev/logos/anthropic.svg"},
+			{ID: "2", Name: "No logo at all", DeveloperID: "anthropic", DeveloperName: "Anthropic"},
+			{ID: "3", Name: "Unknown developer", DeveloperID: "mystery", DeveloperName: "Mystery", DeveloperLogoURL: "https://models.dev/logos/mystery.svg"},
+		},
+	}
+	applyManufacturerRegistryLogos(&catalog)
+	if catalog.Models[0].DeveloperLogoURL != "/public/v1/products/test/domains/models/materials/42/logo?v=brand" {
+		t.Fatal("directory icon was not replaced by the registry asset", catalog.Models[0].DeveloperLogoURL)
+	}
+	if catalog.Models[1].DeveloperLogoURL != "/public/v1/products/test/domains/models/materials/42/logo?v=brand" {
+		t.Fatal("model without a logo did not inherit the registry asset", catalog.Models[1].DeveloperLogoURL)
+	}
+	if catalog.Models[2].DeveloperLogoURL != "https://models.dev/logos/mystery.svg" {
+		t.Fatal("model without a registered developer must keep its published logo", catalog.Models[2].DeveloperLogoURL)
+	}
+	// Relative governed paths must still resolve against the source afterwards.
+	resolveCatalogLogoURLs(&catalog, "https://chaos.test/public/v1/products/test/snapshot")
+	if catalog.Models[1].DeveloperLogoURL != "https://chaos.test/public/v1/products/test/domains/models/materials/42/logo?v=brand" {
+		t.Fatal("registry asset did not resolve to the governed absolute URL", catalog.Models[1].DeveloperLogoURL)
+	}
+}
