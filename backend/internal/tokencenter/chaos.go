@@ -59,10 +59,11 @@ type chaosPortal struct {
 }
 
 type chaosBoard struct {
-	ranking   Ranking
-	signature []byte
-	total     *int
-	seen      map[string]bool
+	ranking       Ranking
+	signature     []byte
+	total         *int
+	excludedTotal *int
+	seen          map[string]bool
 }
 
 type chaosAccumulator struct {
@@ -81,7 +82,7 @@ type chaosAccumulator struct {
 }
 
 // Increment when the same source revision needs a new consumer projection.
-const chaosProjectionVersion = 2
+const chaosProjectionVersion = 5
 
 func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, error) {
 	var result chaosAccumulator
@@ -288,6 +289,7 @@ func (a *chaosAccumulator) append(page chaosPage) error {
 				}
 				var material struct {
 					ID                    string          `json:"id"`
+					ContentHash           string          `json:"contentHash"`
 					ModelCatalog          json.RawMessage `json:"modelCatalog"`
 					ModelBenchmark        json.RawMessage `json:"modelBenchmark"`
 					OfficialSubscription  json.RawMessage `json:"officialSubscription"`
@@ -315,7 +317,7 @@ func (a *chaosAccumulator) append(page chaosPage) error {
 					}
 				}
 				if len(material.ModelCatalog) > 0 && !bytes.Equal(material.ModelCatalog, []byte("null")) {
-					if err := a.appendProvider(material.ModelCatalog); err != nil {
+					if err := a.appendProviderMaterial(material.ID, material.ModelCatalog, material.ContentHash); err != nil {
 						return err
 					}
 				}
@@ -381,7 +383,9 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 			ContractVersion string `json:"contractVersion"`
 			Eligible        int    `json:"eligible"`
 		} `json:"admission"`
-		Items []json.RawMessage `json:"items"`
+		Items         []json.RawMessage `json:"items"`
+		Excluded      []json.RawMessage `json:"excluded"`
+		ExcludedCount *int              `json:"excludedCount"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
 		return fmt.Errorf("invalid Chaos ranking: %w", err)
@@ -422,11 +426,22 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 		return err
 	}
 	delete(metadata, "items")
+	delete(metadata, "excluded")
+	// The public payload has publication metadata inside metadata. Expose its
+	// fields at the consumer metadata level while retaining the source envelope.
+	var publishedMetadata map[string]json.RawMessage
+	if err := json.Unmarshal(metadata["metadata"], &publishedMetadata); err == nil {
+		for key, value := range publishedMetadata {
+			if _, exists := metadata[key]; !exists {
+				metadata[key] = value
+			}
+		}
+	}
 	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
 		return err
 	}
-	signature, err := json.Marshal([]any{body.SchemaVersion, body.List, version, asOf, body.Source, unit, body.Total})
+	signature, err := json.Marshal([]any{body.SchemaVersion, body.List, version, asOf, body.Source, unit, body.Total, body.ExcludedCount})
 	if err != nil {
 		return err
 	}
@@ -436,22 +451,31 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 	}
 	board := a.boards[key]
 	if board == nil {
-		board = &chaosBoard{ranking: Ranking{Domain: domain, Topic: topic, View: view, Title: body.List.Title, Slug: body.List.Slug, Version: version, AsOf: asOf, Source: body.Source, Unit: unit, Entries: []RankedEntry{}, Metadata: metadataJSON}, total: body.Total, signature: signature, seen: map[string]bool{}}
+		board = &chaosBoard{ranking: Ranking{Domain: domain, Topic: topic, View: view, Title: body.List.Title, Slug: body.List.Slug, Version: version, AsOf: asOf, Source: body.Source, Unit: unit, Entries: []RankedEntry{}, Excluded: []RankedEntry{}, Metadata: metadataJSON}, total: body.Total, excludedTotal: body.ExcludedCount, signature: signature, seen: map[string]bool{}}
 		a.boards[key] = board
 	} else if board.ranking.Domain != domain || !bytes.Equal(board.signature, signature) {
 		return errors.New("Chaos ranking publication changed during pagination")
 	}
-	for _, item := range body.Items {
-		var entry RankedEntry
-		if err := json.Unmarshal(item, &entry); err != nil || entry.EntityID == "" || !finiteScore(entry.Score, true) {
-			return errors.New("Chaos ranking entry is missing/invalid")
+	appendEntries := func(items []json.RawMessage, entries *[]RankedEntry) error {
+		for _, item := range items {
+			var entry RankedEntry
+			if err := json.Unmarshal(item, &entry); err != nil || entry.EntityID == "" || !finiteScore(entry.Score, true) {
+				return errors.New("Chaos ranking entry is missing/invalid")
+			}
+			if board.seen[entry.EntityID] {
+				return errors.New("Chaos ranking entry repeated during pagination")
+			}
+			board.seen[entry.EntityID] = true
+			entry.Metadata = append(json.RawMessage(nil), item...)
+			*entries = append(*entries, entry)
 		}
-		if board.seen[entry.EntityID] {
-			return errors.New("Chaos ranking entry repeated during pagination")
-		}
-		board.seen[entry.EntityID] = true
-		entry.Metadata = append(json.RawMessage(nil), item...)
-		board.ranking.Entries = append(board.ranking.Entries, entry)
+		return nil
+	}
+	if err := appendEntries(body.Items, &board.ranking.Entries); err != nil {
+		return err
+	}
+	if err := appendEntries(body.Excluded, &board.ranking.Excluded); err != nil {
+		return err
 	}
 	a.observe(asOf)
 	return nil
@@ -461,6 +485,7 @@ type chaosProvider struct {
 	SubjectGovernance
 	EntityID, Key, Kind, Name, DocumentationURL, APIURL, SourceURL, SourceName, SourceAuthority string
 	LogoURL, LogoSourceURL                                                                      string
+	WebsiteURL, PricingURL, PurchaseURL                                                         string
 	ObservedAt                                                                                  *string  `json:"observedAt"`
 	Tags                                                                                        []string `json:"tags"`
 }
@@ -468,7 +493,9 @@ type chaosProvider struct {
 type chaosSourceModel struct {
 	SubjectGovernance
 	EntityID, Key, ID, SourceKey, CanonicalModelID, Name, Description, Family, ReleaseDate, DeveloperID, DeveloperName, Status, LastUpdated string
+	DisplayName, DeveloperLogoURL, LogoURL, ConfigurationKey, WebsiteURL, PricingURL, PurchaseURL                                           string
 	Billing                                                                                                                                 json.RawMessage    `json:"billing"`
+	SourceMetadata                                                                                                                          json.RawMessage    `json:"sourceMetadata"`
 	MaxInputTokens                                                                                                                          *float64           `json:"maxInputTokens"`
 	MaxOutputTokens                                                                                                                         *float64           `json:"maxOutputTokens"`
 	Modalities                                                                                                                              *ModelModalities   `json:"modalities"`
@@ -486,6 +513,10 @@ type chaosSourceModel struct {
 }
 
 func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
+	return a.appendProviderMaterial("", raw, "")
+}
+
+func (a *chaosAccumulator) appendProviderMaterial(sourceMaterialID string, raw json.RawMessage, sourceContentHash string) error {
 	var data struct {
 		SchemaVersion int                `json:"schemaVersion"`
 		Provider      chaosProvider      `json:"provider"`
@@ -498,11 +529,15 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 	if p.ObservedAt != nil && !timestamp(*p.ObservedAt) {
 		return errors.New("Chaos provider observation timestamp is invalid")
 	}
-	website := p.DocumentationURL
+	website := p.WebsiteURL
+	if website == "" {
+		website = p.DocumentationURL
+	}
 	if website == "" {
 		website = p.APIURL
 	}
 	site := Site{ID: p.EntityID, EntityID: p.EntityID, ProviderKey: p.Key, ProviderKind: p.Kind, Name: p.Name, Website: website, Models: len(data.Models), Tags: append([]string{}, p.Tags...), SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt}
+	site.WebsiteURL, site.PricingURL, site.PurchaseURL = p.WebsiteURL, p.PricingURL, p.PurchaseURL
 	if webURL(p.LogoURL) {
 		site.LogoURL, site.LogoSourceURL = p.LogoURL, p.LogoSourceURL
 	}
@@ -518,13 +553,20 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 		if source.EntityID == "" || source.ID == "" || source.Key == "" || source.Name == "" {
 			return errors.New("Chaos source model identity is missing")
 		}
-		developerID, developerName, developer := publishedModelDeveloper(p, source)
+		developerID, developerName, developer := publishedModelDeveloper(source)
 		family := source.Family
 		if family == "" {
 			family = developerID
 		}
 		model := Model{ID: source.EntityID, EntityID: source.EntityID, CanonicalModelID: source.CanonicalModelID, SourceModelID: source.ID, SourceKey: source.SourceKey, DeveloperID: developerID, DeveloperName: developerName, Name: source.Name, Provider: developer, Family: family, Description: source.Description, Context: source.ContextWindow, MaxInputTokens: source.MaxInputTokens, MaxOutputTokens: source.MaxOutputTokens, Modalities: source.Modalities, Status: source.Status, LastUpdated: nonempty(source.LastUpdated), Input: source.Cost.Input, Output: source.Cost.Output, Tags: []string{}, Released: nonempty(source.ReleaseDate), SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt, Benchmarks: source.Benchmarks}
 		model.Billing = source.Billing
+		model.DisplayName = source.DisplayName
+		if webURL(source.DeveloperLogoURL) {
+			model.DeveloperLogoURL = source.DeveloperLogoURL
+		}
+		if webURL(source.LogoURL) {
+			model.LogoURL = source.LogoURL
+		}
 		model.SubjectGovernance = source.SubjectGovernance
 		model.Capabilities = source.Capabilities
 		if index, exists := a.models[model.ID]; !exists {
@@ -533,10 +575,25 @@ func (a *chaosAccumulator) appendProvider(raw json.RawMessage) error {
 		} else if preferSource(a.catalog.Models[index].SourceAuthority, model.SourceAuthority) || a.catalog.Models[index].SourceModelID == "" {
 			model.Evaluations = a.catalog.Models[index].Evaluations
 			model.ModelPermaslug = a.catalog.Models[index].ModelPermaslug
+			if evaluation := a.catalog.Models[index].ModelDial; evaluation != nil {
+				applyPublishedModelDial(&model, evaluation)
+			}
 			a.catalog.Models[index] = model
 		}
 		base := Offer{ModelID: model.ID, SiteID: site.ID, SourceModelID: source.ID, Input: source.Cost.Input, Output: source.Cost.Output, CacheRead: source.Cost.CacheRead, CacheWrite: source.Cost.CacheWrite, Currency: "USD", Unit: "1M tokens", UpdatedAt: p.ObservedAt, Source: p.SourceName, SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority}
 		base.Billing = source.Billing
+		base.SourceMetadata, base.SourceContentHash = source.SourceMetadata, sourceContentHash
+		base.WebsiteURL, base.PricingURL, base.PurchaseURL = p.WebsiteURL, p.PricingURL, p.PurchaseURL
+		if source.WebsiteURL != "" {
+			base.WebsiteURL = source.WebsiteURL
+		}
+		if source.PricingURL != "" {
+			base.PricingURL = source.PricingURL
+		}
+		if source.PurchaseURL != "" {
+			base.PurchaseURL = source.PurchaseURL
+		}
+		base.ReferenceIdentity = &ReferenceOfferIdentity{SourceMaterialID: sourceMaterialID, ProviderKey: p.Key, SourceModelID: source.ID, SourceKey: source.SourceKey, CanonicalModelID: source.CanonicalModelID, ConfigurationKey: source.ConfigurationKey, SourceURL: p.SourceURL}
 		base.SubjectGovernance = SubjectGovernance{Admission: source.Admission}
 		if err := a.appendOffer(base, p, source, "base"); err != nil {
 			return err
@@ -557,6 +614,11 @@ func (a *chaosAccumulator) appendOffer(offer Offer, p chaosProvider, model chaos
 	identity, _ := json.Marshal([]string{p.EntityID, p.SourceURL, model.Key, model.ID, model.SourceKey, plan})
 	digest := sha256.Sum256(identity)
 	offer.ID = "chaos-offer:" + hex.EncodeToString(digest[:])
+	if offer.ReferenceIdentity != nil {
+		identity := *offer.ReferenceIdentity
+		identity.QuotePlanKey = plan
+		offer.ReferenceIdentity = &identity
+	}
 	if a.offers[offer.ID] {
 		return errors.New("Chaos catalog repeats the same source offering")
 	}
@@ -569,20 +631,8 @@ func preferSource(current, incoming string) bool {
 	return current != "first_party" && incoming == "first_party"
 }
 
-func publishedModelDeveloper(provider chaosProvider, model chaosSourceModel) (id, name, display string) {
+func publishedModelDeveloper(model chaosSourceModel) (id, name, display string) {
 	id, name = model.DeveloperID, model.DeveloperName
-	// Earlier official projections retained the exact native names and immutable
-	// IDs before developer fields were added. Use only those published values.
-	if name == "" && provider.Key == "openrouter" {
-		if prefix, rest, ok := strings.Cut(model.Name, ": "); ok && prefix != "" && rest != "" {
-			name = prefix
-		}
-	}
-	if id == "" {
-		if prefix, rest, ok := strings.Cut(model.CanonicalModelID, "/"); ok && prefix != "" && rest != "" {
-			id = prefix
-		}
-	}
 	display = name
 	if display == "" {
 		display = id
@@ -613,26 +663,14 @@ func (a *chaosAccumulator) appendEvaluation(raw json.RawMessage) error {
 		if evaluation.ModelName == "" {
 			return errors.New("Chaos benchmark-only model has no source name")
 		}
-		developerID, developerName, developer := publishedModelDeveloper(chaosProvider{Key: evaluation.Source}, chaosSourceModel{CanonicalModelID: evaluation.ModelPermaslug, Name: evaluation.ModelName})
-		if evaluation.BenchmarkID == "modeldial_five_axis" {
-			developerID, developerName, developer = "", "", ""
-		}
 		index = len(a.catalog.Models)
 		a.models[evaluation.EntityID] = index
-		a.catalog.Models = append(a.catalog.Models, Model{ID: evaluation.EntityID, EntityID: evaluation.EntityID, CanonicalModelID: evaluation.CanonicalModelID, ModelPermaslug: evaluation.ModelPermaslug, Name: evaluation.ModelName, DeveloperID: developerID, DeveloperName: developerName, Provider: developer, Family: developerID, Tags: []string{}, SourceURL: evaluation.SourceURL, SourceName: evaluation.Source, ObservedAt: evaluation.ObservedAt})
+		model := Model{ID: evaluation.EntityID, EntityID: evaluation.EntityID, CanonicalModelID: evaluation.CanonicalModelID, ModelPermaslug: evaluation.ModelPermaslug, Name: evaluation.ModelName, Tags: []string{}, SourceURL: evaluation.SourceURL, SourceName: evaluation.Source, ObservedAt: evaluation.ObservedAt}
+		applyPublishedDeveloper(&model, evaluation.Developer)
+		a.catalog.Models = append(a.catalog.Models, model)
 	}
 	if evaluation.BenchmarkID == "modeldial_five_axis" {
-		model := &a.catalog.Models[index]
-		model.ModelDial = &evaluation
-		model.Released = evaluation.Released
-		if developer := evaluation.Developer; developer != nil {
-			model.DeveloperID, model.DeveloperName = developer.ID, developer.Name
-			model.DisplayName = developer.ModelName
-			model.Provider, model.Family = developer.Name, developer.ID
-			if webURL(developer.LogoURL) {
-				model.DeveloperLogoURL = developer.LogoURL
-			}
-		}
+		applyPublishedModelDial(&a.catalog.Models[index], &evaluation)
 	}
 	a.catalog.Models[index].Evaluations = append(a.catalog.Models[index].Evaluations, evaluation)
 	if len(a.catalog.Models[index].TagRefs) == 0 {
@@ -644,6 +682,25 @@ func (a *chaosAccumulator) appendEvaluation(raw json.RawMessage) error {
 	a.observeOptional(evaluation.ObservedAt)
 	a.observeOptional(evaluation.MeasuredAt)
 	return nil
+}
+
+func applyPublishedDeveloper(model *Model, developer *ModelDeveloper) {
+	if developer == nil {
+		return
+	}
+	model.DeveloperID, model.DeveloperName, model.Provider = publishedModelDeveloper(chaosSourceModel{DeveloperID: developer.ID, DeveloperName: developer.Name})
+	model.DisplayName, model.Family = developer.ModelName, developer.ID
+	if webURL(developer.LogoURL) {
+		model.DeveloperLogoURL = developer.LogoURL
+	}
+}
+
+func applyPublishedModelDial(model *Model, evaluation *Evaluation) {
+	model.ModelDial = evaluation
+	model.Released = evaluation.Released
+	model.QuoteModelIDs = append([]string(nil), evaluation.QuoteModelIDs...)
+	model.QuoteIdentityEvidence = evaluation.QuoteIdentityEvidence
+	applyPublishedDeveloper(model, evaluation.Developer)
 }
 
 func (a *chaosAccumulator) appendSubscription(raw json.RawMessage) error {
@@ -689,6 +746,9 @@ func (a *chaosAccumulator) finish() (Catalog, error) {
 	for key, board := range a.boards {
 		if board.total != nil && *board.total != len(board.ranking.Entries) {
 			return Catalog{}, errors.New("Chaos ranking pagination is incomplete")
+		}
+		if board.excludedTotal != nil && *board.excludedTotal != len(board.ranking.Excluded) {
+			return Catalog{}, errors.New("Chaos excluded ranking pagination is incomplete")
 		}
 		a.catalog.Rankings[key] = board.ranking
 	}

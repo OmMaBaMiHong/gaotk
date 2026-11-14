@@ -46,47 +46,57 @@ type Catalog struct {
 	Summary   *CatalogSummary    `json:"summary,omitempty"`
 	Home      *HomeProjection    `json:"home,omitempty"`
 	Platforms *PlatformDirectory `json:"platforms,omitempty"`
+	// Browse reads retain the relay ranks from the same stored snapshot for the
+	// existing site/home projection without returning another board's details.
+	browseRelayEntries []RankedEntry
 }
 type Model struct {
 	SubjectGovernance
-	ID               string             `json:"id"`
-	EntityID         string             `json:"entityId,omitempty"`
-	CanonicalModelID string             `json:"canonicalModelId,omitempty"`
-	ModelPermaslug   string             `json:"modelPermaslug,omitempty"`
-	SourceModelID    string             `json:"sourceModelId,omitempty"`
-	SourceKey        string             `json:"sourceKey,omitempty"`
-	DeveloperID      string             `json:"developerId,omitempty"`
-	DeveloperName    string             `json:"developerName,omitempty"`
-	DeveloperLogoURL string             `json:"developerLogoUrl,omitempty"`
-	DisplayName      string             `json:"displayName,omitempty"`
-	Name             string             `json:"name"`
-	Provider         string             `json:"provider"`
-	Family           string             `json:"family"`
-	Description      string             `json:"description"`
-	Context          *float64           `json:"context"`
-	MaxInputTokens   *float64           `json:"maxInputTokens"`
-	MaxOutputTokens  *float64           `json:"maxOutputTokens"`
-	Modalities       *ModelModalities   `json:"modalities"`
-	Capabilities     *ModelCapabilities `json:"capabilities,omitempty"`
-	Status           string             `json:"status,omitempty"`
-	LastUpdated      *string            `json:"lastUpdated"`
-	Input            *float64           `json:"input"`
-	Output           *float64           `json:"output"`
-	Tags             []string           `json:"tags"`
-	Released         *string            `json:"released"`
-	Rank             *int               `json:"rank"`
-	Score            *float64           `json:"score"`
-	SourceURL        string             `json:"sourceUrl,omitempty"`
-	SourceName       string             `json:"sourceName,omitempty"`
-	SourceAuthority  string             `json:"sourceAuthority,omitempty"`
-	ObservedAt       *string            `json:"observedAt"`
-	Benchmarks       *ModelBenchmarks   `json:"benchmarks,omitempty"`
-	Billing          json.RawMessage    `json:"billing,omitempty"`
-	ModelDial        *Evaluation        `json:"modelDial,omitempty"`
-	Evaluations      []Evaluation       `json:"evaluations,omitempty"`
-	QuoteID          string             `json:"quoteId,omitempty"`
-	QuotePeriod      string             `json:"quotePeriod,omitempty"`
-	QuoteTimeZone    string             `json:"quoteTimeZone,omitempty"`
+	ID                    string                 `json:"id"`
+	EntityID              string                 `json:"entityId,omitempty"`
+	CanonicalModelID      string                 `json:"canonicalModelId,omitempty"`
+	ModelPermaslug        string                 `json:"modelPermaslug,omitempty"`
+	SourceModelID         string                 `json:"sourceModelId,omitempty"`
+	SourceKey             string                 `json:"sourceKey,omitempty"`
+	DeveloperID           string                 `json:"developerId,omitempty"`
+	DeveloperName         string                 `json:"developerName,omitempty"`
+	DeveloperLogoURL      string                 `json:"developerLogoUrl,omitempty"`
+	LogoURL               string                 `json:"logoUrl,omitempty"`
+	DisplayName           string                 `json:"displayName,omitempty"`
+	Name                  string                 `json:"name"`
+	Provider              string                 `json:"provider"`
+	Family                string                 `json:"family"`
+	Description           string                 `json:"description"`
+	Context               *float64               `json:"context"`
+	MaxInputTokens        *float64               `json:"maxInputTokens"`
+	MaxOutputTokens       *float64               `json:"maxOutputTokens"`
+	Modalities            *ModelModalities       `json:"modalities"`
+	Capabilities          *ModelCapabilities     `json:"capabilities,omitempty"`
+	Status                string                 `json:"status,omitempty"`
+	LastUpdated           *string                `json:"lastUpdated"`
+	Input                 *float64               `json:"input"`
+	Output                *float64               `json:"output"`
+	Tags                  []string               `json:"tags"`
+	Released              *string                `json:"released"`
+	Rank                  *int                   `json:"rank"`
+	Score                 *float64               `json:"score"`
+	SourceURL             string                 `json:"sourceUrl,omitempty"`
+	SourceName            string                 `json:"sourceName,omitempty"`
+	SourceAuthority       string                 `json:"sourceAuthority,omitempty"`
+	ObservedAt            *string                `json:"observedAt"`
+	Benchmarks            *ModelBenchmarks       `json:"benchmarks,omitempty"`
+	Billing               json.RawMessage        `json:"billing,omitempty"`
+	ModelDial             *Evaluation            `json:"modelDial,omitempty"`
+	Evaluations           []Evaluation           `json:"evaluations,omitempty"`
+	QuoteModelIDs         []string               `json:"quoteModelIds,omitempty"`
+	QuoteIdentityEvidence *QuoteIdentityEvidence `json:"quoteIdentityEvidence,omitempty"`
+	ValueScore            json.RawMessage        `json:"valueScore,omitempty"`
+	ReferenceOfferID      string                 `json:"referenceOfferId,omitempty"`
+	ReferenceOffer        *Offer                 `json:"referenceOffer,omitempty"`
+	CatalogOffer          *Offer                 `json:"catalogOffer,omitempty"`
+	QuoteID               string                 `json:"quoteId,omitempty"`
+	QuotePeriod           string                 `json:"quotePeriod,omitempty"`
+	QuoteTimeZone         string                 `json:"quoteTimeZone,omitempty"`
 }
 type Site struct {
 	SubjectGovernance
@@ -102,6 +112,9 @@ type Site struct {
 	Tags            []string `json:"tags"`
 	Region          string   `json:"region"`
 	Website         string   `json:"website"`
+	WebsiteURL      string   `json:"websiteUrl,omitempty"`
+	PricingURL      string   `json:"pricingUrl,omitempty"`
+	PurchaseURL     string   `json:"purchaseUrl,omitempty"`
 	Rank            *int     `json:"rank"`
 	Score           *float64 `json:"score"`
 	EntityID        string   `json:"entityId,omitempty"`
@@ -116,24 +129,62 @@ type Site struct {
 }
 type Offer struct {
 	SubjectGovernance
-	ID              string          `json:"id"`
-	ModelID         string          `json:"modelId"`
-	SiteID          string          `json:"siteId"`
-	Input           *float64        `json:"input"`
-	Output          *float64        `json:"output"`
-	Currency        string          `json:"currency"`
-	Unit            string          `json:"unit"`
-	UpdatedAt       *string         `json:"updatedAt"`
-	Source          string          `json:"source"`
-	SourceModelID   string          `json:"sourceModelId,omitempty"`
-	SourceURL       string          `json:"sourceUrl,omitempty"`
-	SourceName      string          `json:"sourceName,omitempty"`
-	SourceAuthority string          `json:"sourceAuthority,omitempty"`
-	CacheRead       *float64        `json:"cacheRead"`
-	CacheWrite      *float64        `json:"cacheWrite"`
-	Condition       json.RawMessage `json:"condition,omitempty"`
-	SourceMetadata  json.RawMessage `json:"sourceMetadata,omitempty"`
-	Billing         json.RawMessage `json:"billing,omitempty"`
+	ID                string                  `json:"id"`
+	ModelID           string                  `json:"modelId"`
+	SiteID            string                  `json:"siteId"`
+	Input             *float64                `json:"input"`
+	Output            *float64                `json:"output"`
+	Currency          string                  `json:"currency"`
+	Unit              string                  `json:"unit"`
+	UpdatedAt         *string                 `json:"updatedAt"`
+	Source            string                  `json:"source"`
+	SourceModelID     string                  `json:"sourceModelId,omitempty"`
+	SourceURL         string                  `json:"sourceUrl,omitempty"`
+	SourceName        string                  `json:"sourceName,omitempty"`
+	SourceAuthority   string                  `json:"sourceAuthority,omitempty"`
+	SourceContentHash string                  `json:"sourceContentHash,omitempty"`
+	WebsiteURL        string                  `json:"websiteUrl,omitempty"`
+	PricingURL        string                  `json:"pricingUrl,omitempty"`
+	PurchaseURL       string                  `json:"purchaseUrl,omitempty"`
+	ReferenceIdentity *ReferenceOfferIdentity `json:"referenceIdentity,omitempty"`
+	CacheRead         *float64                `json:"cacheRead"`
+	CacheWrite        *float64                `json:"cacheWrite"`
+	Condition         json.RawMessage         `json:"condition,omitempty"`
+	SourceMetadata    json.RawMessage         `json:"sourceMetadata,omitempty"`
+	Billing           json.RawMessage         `json:"billing,omitempty"`
+}
+
+// ReferenceOfferIdentity is the published source quote identity. Execution
+// configuration and billing tier are separate facts; neither is inferred here.
+type ReferenceOfferIdentity struct {
+	SourceMaterialID string `json:"sourceMaterialId"`
+	ProviderKey      string `json:"providerKey"`
+	SourceModelID    string `json:"sourceModelId"`
+	SourceKey        string `json:"sourceKey"`
+	CanonicalModelID string `json:"canonicalModelId"`
+	QuotePlanKey     string `json:"quotePlanKey"`
+	ConfigurationKey string `json:"configurationKey"`
+	SourceURL        string `json:"sourceUrl"`
+}
+
+// ReferenceOfferSnapshot is the quote frozen by the central ranking publisher.
+// Nullable price and condition fields remain explicit parts of that snapshot.
+type ReferenceOfferSnapshot struct {
+	SchemaVersion     int                     `json:"schemaVersion"`
+	ID                string                  `json:"id"`
+	Identity          *ReferenceOfferIdentity `json:"identity"`
+	Input             *float64                `json:"input"`
+	Output            *float64                `json:"output"`
+	CacheRead         *float64                `json:"cacheRead"`
+	CacheWrite        *float64                `json:"cacheWrite"`
+	Currency          string                  `json:"currency"`
+	Unit              string                  `json:"unit"`
+	Condition         json.RawMessage         `json:"condition"`
+	SourceMetadata    json.RawMessage         `json:"sourceMetadata"`
+	Billing           json.RawMessage         `json:"billing"`
+	ObservedAt        *string                 `json:"observedAt"`
+	SourceContentHash string                  `json:"sourceContentHash"`
+	QuoteContentHash  string                  `json:"quoteContentHash"`
 }
 
 type SourceSnapshot struct {
@@ -146,17 +197,21 @@ type SourceSnapshot struct {
 }
 
 type Ranking struct {
-	Domain   string          `json:"domain"`
-	Topic    string          `json:"topic"`
-	View     string          `json:"view,omitempty"`
-	Title    string          `json:"title"`
-	Slug     string          `json:"slug"`
-	Version  string          `json:"version"`
-	AsOf     string          `json:"asOf"`
-	Source   string          `json:"source"`
-	Unit     string          `json:"unit"`
-	Entries  []RankedEntry   `json:"entries"`
-	Metadata json.RawMessage `json:"metadata"`
+	Domain          string          `json:"domain"`
+	Topic           string          `json:"topic"`
+	View            string          `json:"view,omitempty"`
+	Title           string          `json:"title"`
+	Slug            string          `json:"slug"`
+	Version         string          `json:"version"`
+	AsOf            string          `json:"asOf"`
+	Source          string          `json:"source"`
+	Unit            string          `json:"unit"`
+	Entries         []RankedEntry   `json:"entries"`
+	Excluded        []RankedEntry   `json:"excluded,omitempty"`
+	EntryCount      *int            `json:"entryCount,omitempty"`
+	ExcludedCount   *int            `json:"excludedCount,omitempty"`
+	DetailsIncluded *bool           `json:"detailsIncluded,omitempty"`
+	Metadata        json.RawMessage `json:"metadata"`
 }
 
 type RankedEntry struct {
@@ -192,6 +247,15 @@ type ModelDeveloper struct {
 	SHA256           string `json:"sha256"`
 }
 
+// QuoteIdentityEvidence links an explicitly published model identity to captured
+// quotes. It does not establish execution-configuration compatibility for ranking.
+type QuoteIdentityEvidence struct {
+	CanonicalModelID     string `json:"canonicalModelId"`
+	SourceURL            string `json:"sourceUrl"`
+	SHA256               string `json:"sha256"`
+	ConfigurationMatched *bool  `json:"configurationMatched"`
+}
+
 type Evaluation struct {
 	SubjectGovernance
 	EntityID               string                    `json:"entityId"`
@@ -202,6 +266,8 @@ type Evaluation struct {
 	ModelName              string                    `json:"modelName"`
 	ProviderName           string                    `json:"providerName"`
 	Developer              *ModelDeveloper           `json:"developer,omitempty"`
+	QuoteModelIDs          []string                  `json:"quoteModelIds,omitempty"`
+	QuoteIdentityEvidence  *QuoteIdentityEvidence    `json:"quoteIdentityEvidence,omitempty"`
 	ConfigurationID        string                    `json:"configurationId,omitempty"`
 	ReasoningEffort        string                    `json:"reasoningEffort,omitempty"`
 	Dimensions             *EvaluationDimensions     `json:"dimensions,omitempty"`
@@ -375,6 +441,7 @@ func Normalize(c Catalog) (Catalog, error) {
 	for i := range c.Models {
 		m := &c.Models[i]
 		m.QuoteID, m.QuotePeriod, m.QuoteTimeZone = "", "", ""
+		m.ValueScore, m.ReferenceOfferID, m.ReferenceOffer, m.CatalogOffer = nil, "", nil, nil
 		if !identifier(m.ID) || models[m.ID] || strings.TrimSpace(m.Name) == "" || !authoritative && strings.TrimSpace(m.Provider) == "" {
 			return c, fmt.Errorf("invalid/duplicate model %q", m.ID)
 		}

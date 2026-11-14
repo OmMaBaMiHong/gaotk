@@ -40,7 +40,7 @@ func chaosFixturePage(t *testing.T, page int) map[string]any {
 	root := map[string]any{"schemaVersion": 1, "product": "tokencenter", "version": "51:config-abc", "publicationRevision": "51", "config": config, "domains": []any{domain}, "nextCursor": nil}
 	if page == 1 {
 		root["nextCursor"] = "opaque-page-2"
-		domain["materials"] = map[string]any{"schemaVersion": 6, "total": 4, "nextCursor": "material-2", "items": []any{map[string]any{"id": "100", "modelCatalog": map[string]any{"schemaVersion": 1, "provider": provider("10", "first_party"), "models": []any{
+		domain["materials"] = map[string]any{"schemaVersion": 6, "total": 4, "nextCursor": "material-2", "items": []any{map[string]any{"id": "100", "contentHash": "material-100-hash", "modelCatalog": map[string]any{"schemaVersion": 1, "provider": provider("10", "first_party"), "models": []any{
 			model("20", "vendor/shared", "canonical:vendor/version-20", map[string]any{"input": 0.0}),
 			model("20", "vendor/shared-long", "canonical:vendor/version-20", map[string]any{"input": 2.0, "output": 4.0}),
 			model("21", "vendor/second", "canonical:vendor/version-21", map[string]any{}),
@@ -51,7 +51,7 @@ func chaosFixturePage(t *testing.T, page int) map[string]any {
 			return map[string]any{"schemaVersion": 1, "entityId": "20", "source": "openrouter", "benchmarkId": "gpqa_diamond", "canonicalModelId": "vendor/current-alias", "modelPermaslug": "vendor/version-20", "modelName": "Measured model", "providerName": provider, "metric": "accuracy", "score": 0.875, "scoreUnit": "fraction", "scoreStdDev": nil, "runCount": 2, "totalTasks": 396, "measuredAt": "2026-11-02T21:00:00Z", "observedAt": "2026-11-03T01:00:00Z", "sourceUrl": "https://openrouter.ai/benchmarks/gpqa-diamond", "publication": map[string]any{"snapshotDate": "2026-11-03", "dataset": "benchmark-leaderboard", "dataUrl": "https://source.example/2026-11-03.json", "sha256": strings.Repeat("a", 64), "license": map[string]any{"name": "CC BY 4.0", "url": "https://creativecommons.org/licenses/by/4.0/"}, "attribution": "Source OpenRouter", "methodology": "Task-weighted provider result"}}
 		}
 		community := model("20", "reseller/shared", "canonical:vendor/version-20", map[string]any{"input": 2.0, "output": 3.0, "tiers": []any{map[string]any{"input": 4.0, "output": 5.0, "condition": map[string]any{"context": "over 200k"}, "sourceMetadata": map[string]any{"input": 4, "output": 5, "context": "over 200k"}}}})
-		domain["materials"] = map[string]any{"schemaVersion": 6, "total": 4, "nextCursor": nil, "items": []any{map[string]any{"id": "101", "modelBenchmark": evaluation("auto-routing")}, map[string]any{"id": "102", "modelBenchmark": evaluation("Provider B")}, map[string]any{"id": "103", "modelCatalog": map[string]any{"schemaVersion": 1, "provider": provider("11", "secondary"), "models": []any{community}}}}}
+		domain["materials"] = map[string]any{"schemaVersion": 6, "total": 4, "nextCursor": nil, "items": []any{map[string]any{"id": "101", "modelBenchmark": evaluation("auto-routing")}, map[string]any{"id": "102", "modelBenchmark": evaluation("Provider B")}, map[string]any{"id": "103", "contentHash": "material-103-hash", "modelCatalog": map[string]any{"schemaVersion": 1, "provider": provider("11", "secondary"), "models": []any{community}}}}}
 		domain["rankings"] = map[string]any{"intelligence": ranking("intelligence", []any{row("20", 11, 99)}, 2), "gpqa": ranking("gpqa", []any{row("20", 2, 87.5)}, 1)}
 	}
 	return root
@@ -114,8 +114,14 @@ func TestChaosSyncConsumesEveryPageAndPreservesAuthoritativeBoards(t *testing.T)
 	if c.Sites[0].ID != "10" || c.Sites[0].Rank == nil || *c.Sites[0].Rank != 4 || c.Sites[1].Rank != nil || c.Sites[1].Score != nil || c.Sites[1].Ratio != nil || c.Sites[0].ProviderKey != "provider-10" || c.Sites[0].ProviderKind != "aggregator" || c.Sites[1].ProviderKind != "unverified" {
 		t.Fatalf("unknown provider metrics/rank fabricated: %+v", c.Sites)
 	}
+	if c.Sites[0].WebsiteURL != "" || c.Sites[0].PricingURL != "" || c.Sites[0].PurchaseURL != "" {
+		t.Fatal("documentation or evidence URL relabeled as an unpublished commercial destination")
+	}
 	var plan, tier bool
 	for _, o := range c.Offers {
+		if o.WebsiteURL != "" || o.PricingURL != "" || o.PurchaseURL != "" || o.ReferenceIdentity == nil || o.ReferenceIdentity.SourceMaterialID == "" || o.SourceContentHash == "" {
+			t.Fatalf("source quote identity lost or commercial destination invented: %+v", o)
+		}
 		if o.SourceModelID == "vendor/shared-long" {
 			plan = true
 		}
@@ -240,8 +246,8 @@ func TestChaosBenchmarkBeforeCatalogKeepsExactVersionAndEntityIdentity(t *testin
 	if len(accumulator.catalog.Models) != 3 || accumulator.catalog.Models[accumulator.models["22"]].Input != nil {
 		t.Fatal("benchmark-only central entity was fuzzy-merged or given a price")
 	}
-	if model := accumulator.catalog.Models[accumulator.models["22"]]; model.DeveloperID != "openai" || model.DeveloperName != "OpenAI" || model.Provider != "OpenAI" || model.Family != "openai" {
-		t.Fatalf("benchmark-only source developer was lost from brand filters: %+v", model)
+	if model := accumulator.catalog.Models[accumulator.models["22"]]; model.DeveloperID != "" || model.DeveloperName != "" || model.Provider != "" || model.Family != "" {
+		t.Fatalf("benchmark-only developer was inferred from a name or canonical namespace: %+v", model)
 	}
 }
 
@@ -357,12 +363,13 @@ func TestChaosConditionalValidatorsAreReusableOnlyAfterCompleteSuccess(t *testin
 	}
 }
 
-func TestChaosDeveloperFallbackUsesOnlyPublishedNameOrCanonicalNamespace(t *testing.T) {
+func TestChaosDeveloperUsesOnlyPublishedIdentityFields(t *testing.T) {
 	for _, tc := range []struct{ providerKey, name, canonical, developerID, developerName, wantID, wantName, wantProvider string }{
-		{"openrouter", "OpenAI: Legacy model", "openai/version-1", "", "", "openai", "OpenAI", "OpenAI"},
-		{"openrouter", "Plain source model", "anthropic/version-1", "", "", "anthropic", "", "anthropic"},
+		{"openrouter", "OpenAI: Legacy model", "openai/version-1", "", "", "", "", ""},
+		{"openrouter", "Plain source model", "anthropic/version-1", "", "", "", "", ""},
 		{"reseller", "Unrelated label: Source model", "", "", "", "", "", ""},
 		{"openrouter", "Different prefix: Model", "openai/version-1", "declared-id", "Declared developer", "declared-id", "Declared developer", "Declared developer"},
+		{"openrouter", "Different prefix: Model", "openai/version-1", "declared-id", "", "declared-id", "", "declared-id"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := chaosFixturePage(t, 1)
@@ -441,5 +448,117 @@ func TestChaosSourceFormatConfigurationIsExplicit(t *testing.T) {
 	t.Setenv("TOKENCENTER_SOURCE_FORMAT", "unknown-source-format")
 	if _, err = ConfigFromEnv(); err == nil {
 		t.Fatal("unknown format silently fell back to legacy catalog")
+	}
+}
+
+func TestChaosEmptyValueBoardKeepsPolicyAndEveryExcludedPage(t *testing.T) {
+	const topic = "value-general-balanced"
+	requests := 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		pageNumber := 1
+		if r.URL.Query().Get("cursor") != "" {
+			pageNumber = 2
+		}
+		page := chaosFixturePage(t, pageNumber)
+		config := page["config"].(map[string]any)
+		domainConfig := config["domains"].([]any)[0].(map[string]any)
+		domainConfig["topics"] = append(domainConfig["topics"].([]any), map[string]any{"key": topic, "unit": "points"})
+		domain := page["domains"].([]any)[0].(map[string]any)
+		entityID := []string{"20", "21"}[pageNumber-1]
+		domain["rankings"].(map[string]any)[topic] = map[string]any{
+			"schemaVersion": 2, "source": "published", "computedAt": "2026-11-12T01:00:00Z", "snapshot": map[string]any{"id": "value-snapshot", "generatedAt": "2026-11-12T01:00:00Z"},
+			"list": map[string]any{"title": "综合性价比", "slug": topic}, "total": 0, "items": []any{}, "excludedCount": 2,
+			"metadata": map[string]any{"valuePolicy": map[string]any{"methodologyVersion": "value-v1", "scenarioKey": "general", "preferenceKey": "balanced", "abilityWeight": 0.6, "priceWeight": 0.4, "referenceWorkload": map[string]any{"inputTokens": 1000000, "outputTokens": 1000000, "currency": "USD", "unit": "reference workload"}, "coverage": map[string]any{"eligible": 0, "total": 2}, "status": "insufficient_evidence"}, "futurePublicationField": "preserved"},
+			"excluded": []any{map[string]any{"entityId": entityID, "name": "Published model", "rank": nil, "score": nil, "metadata": map[string]any{"valueScore": map[string]any{"unrankedReason": "missing_reference_quote", "missingEvidence": []string{"referenceOffer"}, "evaluationRefs": []string{"source-evaluation-" + entityID}}}}},
+		}
+		json.NewEncoder(w).Encode(page)
+	}))
+	defer server.Close()
+	c, err := chaosService(t, &memoryStore{}, server).Sync(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	board, ok := c.Rankings[topic]
+	var metadata map[string]json.RawMessage
+	if err := json.Unmarshal(board.Metadata, &metadata); err != nil {
+		t.Fatal(err)
+	}
+	if requests != 2 || !ok || len(board.Entries) != 0 || len(board.Excluded) != 2 || !strings.Contains(string(metadata["valuePolicy"]), `"abilityWeight":0.6`) || string(metadata["futurePublicationField"]) != `"preserved"` || len(metadata["metadata"]) == 0 {
+		t.Fatalf("empty board, excluded pages or policy metadata lost: %+v", board)
+	}
+	projection := projectModelBoard(c, topic)
+	if projection.RankingKey != topic || len(projection.Models) != 2 || len(c.Rankings["intelligence"].Entries) != 2 || c.SourceSnapshot.ProjectionVersion != chaosProjectionVersion {
+		t.Fatalf("published boards or projection revision lost: %+v", projection)
+	}
+	for _, model := range projection.Models {
+		if model.Rank != nil || model.Score != nil || model.ReferenceOffer != nil || !strings.Contains(string(model.ValueScore), "missing_reference_quote") || !strings.Contains(string(model.ValueScore), "source-evaluation-"+model.ID) {
+			t.Fatalf("missing central evidence was dropped or changed into a score: %+v", model)
+		}
+	}
+}
+
+func TestChaosPublishedDisplayIdentityAndURLsRetainTheirSourceMeaning(t *testing.T) {
+	var accumulator chaosAccumulator
+	encoded, _ := json.Marshal(chaosFixturePage(t, 1))
+	page, err := decodeChaosPage(encoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := accumulator.initialize(page); err != nil {
+		t.Fatal(err)
+	}
+	raw := json.RawMessage(`{"schemaVersion":1,"provider":{"entityId":"10","key":"supplier","kind":"aggregator","name":"Source supplier","documentationUrl":"https://supplier.example/docs","apiUrl":"https://supplier.example/v1","websiteUrl":"https://supplier.example","pricingUrl":"https://supplier.example/pricing","purchaseUrl":"https://supplier.example/checkout","sourceUrl":"https://evidence.example/provider.json","sourceName":"Published catalog","sourceAuthority":"first_party"},"models":[{"entityId":"20","key":"native:lab/model","id":"native-id","sourceKey":"native-source-key","canonicalModelId":"lab/model","name":"Native: Model label","displayName":"Published Model","developerId":"lab","developerName":"Published Lab","developerLogoUrl":"https://evidence.example/lab.svg","logoUrl":"https://evidence.example/model.svg","configurationKey":"reasoning:high","pricingUrl":"https://supplier.example/pricing/model","sourceMetadata":{"native":"base metadata"},"cost":{"input":1,"output":4,"tiers":[{"input":2,"output":7,"condition":{"context":"over 200k"}}]}},{"entityId":"21","key":"unknown","id":"unknown","name":"Unknown","cost":{}}]}`)
+	if err := accumulator.appendProviderMaterial("source-material", raw, "published-content-hash"); err != nil {
+		t.Fatal(err)
+	}
+	c, err := accumulator.finish()
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, site := c.Models[0], c.Sites[0]
+	if m.Name != "Native: Model label" || m.DisplayName != "Published Model" || m.DeveloperID != "lab" || m.DeveloperName != "Published Lab" || m.DeveloperLogoURL != "https://evidence.example/lab.svg" || m.LogoURL != "https://evidence.example/model.svg" || m.SourceURL != "https://evidence.example/provider.json" {
+		t.Fatalf("display fields replaced source identity: %+v", m)
+	}
+	if site.Website != "https://supplier.example" || site.WebsiteURL != site.Website || site.PricingURL != "https://supplier.example/pricing" || site.PurchaseURL != "https://supplier.example/checkout" || site.SourceURL != "https://evidence.example/provider.json" {
+		t.Fatalf("source URL mistaken for commercial URL: %+v", site)
+	}
+	base, tier := c.Offers[0], c.Offers[1]
+	if base.WebsiteURL != site.WebsiteURL || base.PricingURL != "https://supplier.example/pricing/model" || base.PurchaseURL != site.PurchaseURL || base.SourceURL != site.SourceURL || base.ReferenceIdentity == nil || tier.ReferenceIdentity == nil || base.ReferenceIdentity.SourceMaterialID != "source-material" || base.ReferenceIdentity.ConfigurationKey != "reasoning:high" || base.ReferenceIdentity.QuotePlanKey != "base" || tier.ReferenceIdentity.QuotePlanKey != "tier:0" || base.ReferenceIdentity == tier.ReferenceIdentity || base.SourceContentHash != "published-content-hash" || tier.SourceContentHash != "published-content-hash" || string(base.SourceMetadata) != `{"native":"base metadata"}` || len(tier.SourceMetadata) != 0 {
+		t.Fatalf("commercial URLs or exact quote identity lost: base=%+v tier=%+v", base, tier)
+	}
+	if c.Models[1].DisplayName != "" || c.Models[1].DeveloperLogoURL != "" || c.Models[1].LogoURL != "" {
+		t.Fatal("unknown model display identity was fabricated")
+	}
+	stored, _ := json.Marshal(c)
+	reloaded, err := DecodeStored(strings.NewReader(string(stored)))
+	if err != nil || reloaded.Offers[1].ReferenceIdentity.QuotePlanKey != "tier:0" || reloaded.Models[0].DisplayName != m.DisplayName || reloaded.Sites[0].PricingURL != site.PricingURL {
+		t.Fatalf("published fields did not survive persistence: %v", err)
+	}
+}
+
+func TestChaosProjectionUpgradeFetchesPublicationWithoutOldValidators(t *testing.T) {
+	store := &memoryStore{}
+	requests := 0
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if r.Header.Get("If-None-Match") != "" || r.Header.Get("If-Modified-Since") != "" {
+			t.Error("old projection validators skipped the new consumer fields")
+		}
+		page := 1
+		if r.URL.Query().Get("cursor") != "" {
+			page = 2
+		}
+		json.NewEncoder(w).Encode(chaosFixturePage(t, page))
+	}))
+	defer server.Close()
+	service := chaosService(t, store, server)
+	previous := Catalog{RankingAuthority: "chaos", SourceSnapshot: &SourceSnapshot{ProjectionVersion: chaosProjectionVersion - 1}}
+	if err := store.Save(context.Background(), Snapshot{Catalog: previous, SourceURL: service.cfg.SourceURL, ETag: `"same-publication"`, LastModified: "Tue, 03 Nov 2026 02:00:00 GMT"}, false); err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := service.Sync(context.Background())
+	if err != nil || requests != 2 || catalog.SourceSnapshot == nil || catalog.SourceSnapshot.ProjectionVersion != chaosProjectionVersion {
+		t.Fatalf("consumer projection upgrade did not refetch the complete publication: requests=%d err=%v", requests, err)
 	}
 }
