@@ -117,24 +117,32 @@ func (s *Service) Seed(ctx context.Context) error {
 	return s.store.Save(ctx, Snapshot{Catalog: c}, true)
 }
 func (s *Service) Catalog(ctx context.Context) (Catalog, error) {
-	return s.catalog(ctx, false, "")
+	return s.catalog(ctx, false, "", "")
 }
 
 func (s *Service) BrowseCatalog(ctx context.Context) (Catalog, error) {
-	return s.catalog(ctx, true, "")
+	return s.BrowseCatalogForRanking(ctx, "")
+}
+
+func (s *Service) BrowseCatalogForRanking(ctx context.Context, rankingKey string) (Catalog, error) {
+	return s.catalog(ctx, true, "", rankingKey)
 }
 
 func (s *Service) ModelCatalog(ctx context.Context, modelID string) (Catalog, error) {
-	return s.catalog(ctx, true, modelID)
+	return s.catalog(ctx, true, modelID, "")
 }
 
-func (s *Service) catalog(ctx context.Context, browse bool, modelID string) (Catalog, error) {
+func (s *Service) catalog(ctx context.Context, browse bool, modelID, rankingKey string) (Catalog, error) {
 	var snapshot Snapshot
 	var err error
 	if store, ok := s.store.(interface {
 		LoadForModel(context.Context, string) (Snapshot, error)
 	}); modelID != "" && ok {
 		snapshot, err = store.LoadForModel(ctx, modelID)
+	} else if store, ok := s.store.(interface {
+		LoadBrowseForRanking(context.Context, string) (Snapshot, error)
+	}); browse && modelID == "" && ok {
+		snapshot, err = store.LoadBrowseForRanking(ctx, rankingKey)
 	} else if store, ok := s.store.(interface {
 		LoadBrowse(context.Context) (Snapshot, error)
 	}); browse && modelID == "" && ok {
@@ -164,6 +172,9 @@ func (s *Service) catalog(ctx context.Context, browse bool, modelID string) (Cat
 	}
 	if err != nil {
 		return snapshot.Catalog, err
+	}
+	if browse && modelID == "" {
+		snapshot.Catalog = selectBrowseRankings(snapshot.Catalog, rankingKey)
 	}
 	return s.present(snapshot.Catalog)
 }

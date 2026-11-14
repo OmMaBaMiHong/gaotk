@@ -98,3 +98,26 @@ CREATE INDEX IF NOT EXISTS tokencenter_ad_merchant_id ON tokencenter_ad_campaign
 CREATE INDEX IF NOT EXISTS tokencenter_ad_claim ON tokencenter_ad_campaigns(claim_id);
 CREATE INDEX IF NOT EXISTS tokencenter_ad_status_id ON tokencenter_ad_campaigns(status,id DESC);
 CREATE INDEX IF NOT EXISTS tokencenter_ad_schedule ON tokencenter_ad_campaigns(slot_id,starts_at,ends_at) WHERE status='approved';
+
+-- User star reviews for catalog objects (relay sites, relay groups, merchants,
+-- products). Post-style per product decision 2026-11-13: published by default,
+-- no manual moderation; status reserves blocked/revoked for machine keyword
+-- filtering and post-hoc takedown, pending for future anti-brigading. Contact
+-- is private (dedupe key: one vote per contact per object, latest wins) and is
+-- never served by the public API.
+CREATE TABLE IF NOT EXISTS tokencenter_reviews (
+    id BIGSERIAL PRIMARY KEY,
+    object_type TEXT NOT NULL,
+    object_id TEXT NOT NULL,
+    stars INT NOT NULL CHECK (stars BETWEEN 1 AND 5),
+    dimensions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    body TEXT NOT NULL DEFAULT '',
+    contact TEXT NOT NULL,
+    evidence TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'published',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (contact, object_type, object_id)
+);
+CREATE INDEX IF NOT EXISTS tokencenter_reviews_object_published
+    ON tokencenter_reviews (object_type, object_id, id DESC) WHERE status = 'published';

@@ -22,18 +22,26 @@ func RegisterRoutes(public, admin *gin.RouterGroup, service *Service) {
 	admin.POST("/tokencenter/sync", h.syncCatalog)
 	public.POST("/tokencenter/applications", h.submitApplication)
 	public.POST("/tokencenter/applications/status", h.applicationStatus)
+	public.GET("/tokencenter/reviews", h.objectReviews)
+	public.POST("/tokencenter/reviews", h.submitReview)
 	admin.GET("/tokencenter/applications", h.listApplications)
 	admin.POST("/tokencenter/applications/:id/review", h.reviewApplication)
+	admin.POST("/tokencenter/reviews/:id/status", h.setReviewStatus)
 }
 
 type httpHandler struct{ service *Service }
 
 func (h *httpHandler) catalog(c *gin.Context) {
-	catalog, ok := h.readCatalog(c, c.Query("view") == "browse")
+	browse := c.Query("view") == "browse"
+	catalog, ok := h.readCatalog(c, browse)
 	if !ok {
 		return
 	}
-	c.JSON(http.StatusOK, projectModelBoard(catalog, c.Query("ranking")))
+	if browse {
+		c.JSON(http.StatusOK, projectBrowseModelBoard(catalog, c.Query("ranking"), c.Query("board")))
+	} else {
+		c.JSON(http.StatusOK, projectModelBoard(catalog, c.Query("ranking")))
+	}
 }
 
 func (h *httpHandler) model(c *gin.Context) {
@@ -56,7 +64,7 @@ func (h *httpHandler) readCatalog(c *gin.Context, browse bool) (Catalog, bool) {
 	if id := c.Param("id"); id != "" {
 		catalog, err = h.service.ModelCatalog(c.Request.Context(), id)
 	} else if browse {
-		catalog, err = h.service.BrowseCatalog(c.Request.Context())
+		catalog, err = h.service.BrowseCatalogForRanking(c.Request.Context(), c.Query("ranking"))
 	} else {
 		catalog, err = h.service.Catalog(c.Request.Context())
 	}
