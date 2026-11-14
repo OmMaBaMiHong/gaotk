@@ -82,7 +82,7 @@ type chaosAccumulator struct {
 }
 
 // Increment when the same source revision needs a new consumer projection.
-const chaosProjectionVersion = 5
+const chaosProjectionVersion = 6
 
 func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, error) {
 	var result chaosAccumulator
@@ -181,6 +181,7 @@ func (s *Service) syncChaos(ctx context.Context, previous Snapshot) (Catalog, er
 	if err != nil {
 		return Catalog{}, err
 	}
+	resolveCatalogLogoURLs(&catalog, s.cfg.SourceURL)
 	if err = s.store.Save(ctx, Snapshot{Catalog: catalog, SourceURL: s.cfg.SourceURL, ETag: etag, LastModified: modified}, false); err != nil {
 		return Catalog{}, err
 	}
@@ -491,6 +492,7 @@ type chaosProvider struct {
 }
 
 type chaosSourceModel struct {
+	OfficialModel *OfficialModel `json:"officialModel,omitempty"`
 	SubjectGovernance
 	EntityID, Key, ID, SourceKey, CanonicalModelID, Name, Description, Family, ReleaseDate, DeveloperID, DeveloperName, Status, LastUpdated string
 	DisplayName, DeveloperLogoURL, LogoURL, ConfigurationKey, WebsiteURL, PricingURL, PurchaseURL                                           string
@@ -569,6 +571,7 @@ func (a *chaosAccumulator) appendProviderMaterial(sourceMaterialID string, raw j
 		}
 		model.SubjectGovernance = source.SubjectGovernance
 		model.Capabilities = source.Capabilities
+		applyOfficialModel(&model, source.OfficialModel)
 		if index, exists := a.models[model.ID]; !exists {
 			a.models[model.ID] = len(a.catalog.Models)
 			a.catalog.Models = append(a.catalog.Models, model)
@@ -580,6 +583,7 @@ func (a *chaosAccumulator) appendProviderMaterial(sourceMaterialID string, raw j
 			}
 			a.catalog.Models[index] = model
 		}
+		a.models[source.EntityID] = a.models[model.ID]
 		base := Offer{ModelID: model.ID, SiteID: site.ID, SourceModelID: source.ID, Input: source.Cost.Input, Output: source.Cost.Output, CacheRead: source.Cost.CacheRead, CacheWrite: source.Cost.CacheWrite, Currency: "USD", Unit: "1M tokens", UpdatedAt: p.ObservedAt, Source: p.SourceName, SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority}
 		base.Billing = source.Billing
 		base.SourceMetadata, base.SourceContentHash = source.SourceMetadata, sourceContentHash
@@ -658,17 +662,23 @@ func (a *chaosAccumulator) appendEvaluation(raw json.RawMessage) error {
 	if evaluation.ObservedAt != nil && !timestamp(*evaluation.ObservedAt) || evaluation.MeasuredAt != nil && !timestamp(*evaluation.MeasuredAt) {
 		return errors.New("Chaos model benchmark timestamp is invalid")
 	}
-	index, exists := a.models[evaluation.EntityID]
+	modelID := evaluation.EntityID
+	if evaluation.OfficialModel != nil {
+		modelID = evaluation.OfficialModel.EntityID
+	}
+	index, exists := a.models[modelID]
 	if !exists {
 		if evaluation.ModelName == "" {
 			return errors.New("Chaos benchmark-only model has no source name")
 		}
 		index = len(a.catalog.Models)
-		a.models[evaluation.EntityID] = index
+		a.models[modelID] = index
 		model := Model{ID: evaluation.EntityID, EntityID: evaluation.EntityID, CanonicalModelID: evaluation.CanonicalModelID, ModelPermaslug: evaluation.ModelPermaslug, Name: evaluation.ModelName, Tags: []string{}, SourceURL: evaluation.SourceURL, SourceName: evaluation.Source, ObservedAt: evaluation.ObservedAt}
 		applyPublishedDeveloper(&model, evaluation.Developer)
+		applyOfficialModel(&model, evaluation.OfficialModel)
 		a.catalog.Models = append(a.catalog.Models, model)
 	}
+	a.models[evaluation.EntityID] = index
 	if evaluation.BenchmarkID == "modeldial_five_axis" {
 		applyPublishedModelDial(&a.catalog.Models[index], &evaluation)
 	}
@@ -701,6 +711,7 @@ func applyPublishedModelDial(model *Model, evaluation *Evaluation) {
 	model.QuoteModelIDs = append([]string(nil), evaluation.QuoteModelIDs...)
 	model.QuoteIdentityEvidence = evaluation.QuoteIdentityEvidence
 	applyPublishedDeveloper(model, evaluation.Developer)
+	applyOfficialModel(model, evaluation.OfficialModel)
 }
 
 func (a *chaosAccumulator) appendSubscription(raw json.RawMessage) error {
@@ -749,6 +760,18 @@ func (a *chaosAccumulator) finish() (Catalog, error) {
 		}
 		if board.excludedTotal != nil && *board.excludedTotal != len(board.ranking.Excluded) {
 			return Catalog{}, errors.New("Chaos excluded ranking pagination is incomplete")
+		}
+		for i := range board.ranking.Entries {
+			entry := &board.ranking.Entries[i]
+			if index, ok := a.models[entry.EntityID]; ok {
+				entry.ModelID = a.catalog.Models[index].ID
+			}
+		}
+		for i := range board.ranking.Excluded {
+			entry := &board.ranking.Excluded[i]
+			if index, ok := a.models[entry.EntityID]; ok {
+				entry.ModelID = a.catalog.Models[index].ID
+			}
 		}
 		a.catalog.Rankings[key] = board.ranking
 	}

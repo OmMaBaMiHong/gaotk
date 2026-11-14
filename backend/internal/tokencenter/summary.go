@@ -13,7 +13,11 @@ type CatalogSummary struct {
 func summarizeCatalog(c Catalog) *CatalogSummary {
 	s := &CatalogSummary{ModelRecords: len(c.Models), APISites: len(c.Sites), APIQuotes: len(c.Offers)}
 	for _, board := range c.Rankings {
-		if len(board.Entries) > 0 {
+		count := len(board.Entries)
+		if board.EntryCount != nil {
+			count = *board.EntryCount
+		}
+		if count > 0 {
 			s.PublishedBoards++
 		}
 	}

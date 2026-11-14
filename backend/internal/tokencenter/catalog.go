@@ -49,8 +49,10 @@ type Catalog struct {
 	// Browse reads retain the relay ranks from the same stored snapshot for the
 	// existing site/home projection without returning another board's details.
 	browseRelayEntries []RankedEntry
+	boardProjection    string
 }
 type Model struct {
+	OfficialModel *OfficialModel `json:"officialModel,omitempty"`
 	SubjectGovernance
 	ID                    string                 `json:"id"`
 	EntityID              string                 `json:"entityId,omitempty"`
@@ -215,6 +217,7 @@ type Ranking struct {
 }
 
 type RankedEntry struct {
+	ModelID  string          `json:"modelId,omitempty"`
 	EntityID string          `json:"entityId"`
 	Name     string          `json:"name"`
 	Rank     *int            `json:"rank"`
@@ -257,6 +260,7 @@ type QuoteIdentityEvidence struct {
 }
 
 type Evaluation struct {
+	OfficialModel *OfficialModel `json:"officialModel,omitempty"`
 	SubjectGovernance
 	EntityID               string                    `json:"entityId"`
 	Source                 string                    `json:"source"`

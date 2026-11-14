@@ -121,3 +121,6 @@ CREATE TABLE IF NOT EXISTS tokencenter_reviews (
 );
 CREATE INDEX IF NOT EXISTS tokencenter_reviews_object_published
     ON tokencenter_reviews (object_type, object_id, id DESC) WHERE status = 'published';
+
+-- Derived board views share the catalog revision and access revocation row.
+ALTER TABLE tokencenter_catalog ADD COLUMN IF NOT EXISTS board_views JSONB NOT NULL DEFAULT '{}'::jsonb;

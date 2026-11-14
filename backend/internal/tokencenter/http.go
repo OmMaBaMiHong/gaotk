@@ -37,8 +37,10 @@ func (h *httpHandler) catalog(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if browse {
+	if browse && catalog.boardProjection == "" {
 		c.JSON(http.StatusOK, projectBrowseModelBoard(catalog, c.Query("ranking"), c.Query("board")))
+	} else if catalog.boardProjection != "" {
+		c.JSON(http.StatusOK, catalog)
 	} else {
 		c.JSON(http.StatusOK, projectModelBoard(catalog, c.Query("ranking")))
 	}
@@ -64,7 +66,7 @@ func (h *httpHandler) readCatalog(c *gin.Context, browse bool) (Catalog, bool) {
 	if id := c.Param("id"); id != "" {
 		catalog, err = h.service.ModelCatalog(c.Request.Context(), id)
 	} else if browse {
-		catalog, err = h.service.BrowseCatalogForRanking(c.Request.Context(), c.Query("ranking"))
+		catalog, err = h.service.catalog(c.Request.Context(), true, "", c.Query("ranking"), c.Query("board"))
 	} else {
 		catalog, err = h.service.Catalog(c.Request.Context())
 	}

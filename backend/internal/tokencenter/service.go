@@ -132,10 +132,17 @@ func (s *Service) ModelCatalog(ctx context.Context, modelID string) (Catalog, er
 	return s.catalog(ctx, true, modelID, "")
 }
 
-func (s *Service) catalog(ctx context.Context, browse bool, modelID, rankingKey string) (Catalog, error) {
+func (s *Service) catalog(ctx context.Context, browse bool, modelID, rankingKey string, boardView ...string) (Catalog, error) {
 	var snapshot Snapshot
 	var err error
 	if store, ok := s.store.(interface {
+		LoadBoard(context.Context, string, string) (Snapshot, error)
+	}); browse && len(boardView) > 0 && boardView[0] != "" && ok {
+		snapshot, err = store.LoadBoard(ctx, rankingKey, boardView[0])
+		if errors.Is(err, errBoardProjectionMissing) {
+			return s.catalog(ctx, browse, modelID, rankingKey)
+		}
+	} else if store, ok := s.store.(interface {
 		LoadForModel(context.Context, string) (Snapshot, error)
 	}); modelID != "" && ok {
 		snapshot, err = store.LoadForModel(ctx, modelID)
@@ -176,7 +183,11 @@ func (s *Service) catalog(ctx context.Context, browse bool, modelID, rankingKey 
 	if browse && modelID == "" {
 		snapshot.Catalog = selectBrowseRankings(snapshot.Catalog, rankingKey)
 	}
-	return s.present(snapshot.Catalog)
+	result, err := s.present(snapshot.Catalog)
+	if snapshot.Catalog.boardProjection != "" {
+		result.Summary = snapshot.Catalog.Summary
+	}
+	return result, err
 }
 func (s *Service) Import(ctx context.Context, catalog Catalog) (Catalog, error) {
 	if s.cfg.RequireAdmission {

@@ -31,7 +31,7 @@ func projectModelBoard(c Catalog, key string) Catalog {
 	rows := []Model{}
 	seen := map[string]bool{}
 	for _, entry := range ranking.Entries {
-		m, ok := lookup[entry.EntityID]
+		m, ok := lookup[rankedModelID(entry)]
 		if !ok {
 			continue
 		}
@@ -41,7 +41,7 @@ func projectModelBoard(c Catalog, key string) Catalog {
 		seen[m.ID] = true
 	}
 	for _, entry := range ranking.Excluded {
-		if m, ok := lookup[entry.EntityID]; ok {
+		if m, ok := lookup[rankedModelID(entry)]; ok {
 			lookup[m.ID] = projectValueScore(m, entry.Metadata, offers)
 		}
 	}

@@ -18,7 +18,7 @@ func TestSQLStoreAtomicSnapshotAndRestartRead(t *testing.T) {
 	c := fixture(t)
 	data, _ := json.Marshal(c)
 	snap := Snapshot{Catalog: c, SourceURL: "https://catalog.example.com/data", ETag: `"v1"`, LastModified: "Mon, 19 Oct 2026 00:00:00 GMT"}
-	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO tokencenter_catalog (id, catalog, source_url, etag, last_modified) VALUES (1, $1::jsonb, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET catalog = EXCLUDED.catalog, source_url = EXCLUDED.source_url, etag = EXCLUDED.etag, last_modified = EXCLUDED.last_modified, access_status = 0, saved_at = NOW()`)).WithArgs(string(data), snap.SourceURL, snap.ETag, snap.LastModified).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(regexp.QuoteMeta(`INSERT INTO tokencenter_catalog (id, catalog, source_url, etag, last_modified,board_views) VALUES (1, $1::jsonb, $2, $3, $4,$5::jsonb) ON CONFLICT (id) DO UPDATE SET catalog = EXCLUDED.catalog, board_views=EXCLUDED.board_views, source_url = EXCLUDED.source_url, etag = EXCLUDED.etag, last_modified = EXCLUDED.last_modified, access_status = 0, saved_at = NOW()`)).WithArgs(string(data), snap.SourceURL, snap.ETag, snap.LastModified, sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
 	if err := NewSQLStore(db).Save(context.Background(), snap, false); err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ func TestSQLStoreAtomicSnapshotAndRestartRead(t *testing.T) {
 	if err != nil || got.Version != c.Version || len(got.Offers) != 5 {
 		t.Fatalf("restart read failed: %v", err)
 	}
-	mock.ExpectExec(`ON CONFLICT \(id\) DO NOTHING`).WithArgs(string(data), "", "", "").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectExec(`ON CONFLICT \(id\) DO NOTHING`).WithArgs(string(data), "", "", "", sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 0))
 	if err := NewSQLStore(db).Save(context.Background(), Snapshot{Catalog: c}, true); err != nil {
 		t.Fatal(err)
 	}

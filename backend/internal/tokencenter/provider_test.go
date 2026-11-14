@@ -55,7 +55,7 @@ func TestProvideServiceMigratesAndOwnsDedicatedDatabase(t *testing.T) {
 	defer db.Close()
 	mock.ExpectPing()
 	mock.ExpectExec(regexp.QuoteMeta(catalogSchema)).WillReturnResult(sqlmock.NewResult(0, 0))
-	mock.ExpectExec(`ON CONFLICT \(id\) DO NOTHING`).WithArgs(sqlmock.AnyArg(), "", "", "").WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec(`ON CONFLICT \(id\) DO NOTHING`).WithArgs(sqlmock.AnyArg(), "", "", "", sqlmock.AnyArg()).WillReturnResult(sqlmock.NewResult(0, 1))
 	service, cleanup, err := provideService(func(driver, dsn string) (*sql.DB, error) {
 		if driver != "postgres" || dsn != databaseURL {
 			t.Fatal("provider did not open the explicit dedicated PostgreSQL URL")

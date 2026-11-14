@@ -110,13 +110,17 @@ func (s *SQLStore) Save(ctx context.Context, snapshot Snapshot, seedOnly bool) e
 	if err != nil {
 		return err
 	}
-	query := `INSERT INTO tokencenter_catalog (id, catalog, source_url, etag, last_modified) VALUES (1, $1::jsonb, $2, $3, $4) ON CONFLICT (id) `
+	views, err := materializedBoardViews(c)
+	if err != nil {
+		return err
+	}
+	query := `INSERT INTO tokencenter_catalog (id, catalog, source_url, etag, last_modified,board_views) VALUES (1, $1::jsonb, $2, $3, $4,$5::jsonb) ON CONFLICT (id) `
 	if seedOnly {
 		query += `DO NOTHING`
 	} else {
-		query += `DO UPDATE SET catalog = EXCLUDED.catalog, source_url = EXCLUDED.source_url, etag = EXCLUDED.etag, last_modified = EXCLUDED.last_modified, access_status = 0, saved_at = NOW()`
+		query += `DO UPDATE SET catalog = EXCLUDED.catalog, board_views=EXCLUDED.board_views, source_url = EXCLUDED.source_url, etag = EXCLUDED.etag, last_modified = EXCLUDED.last_modified, access_status = 0, saved_at = NOW()`
 	}
-	_, err = s.db.ExecContext(ctx, query, string(data), snapshot.SourceURL, snapshot.ETag, snapshot.LastModified)
+	_, err = s.db.ExecContext(ctx, query, string(data), snapshot.SourceURL, snapshot.ETag, snapshot.LastModified, string(views))
 	return err
 }
 

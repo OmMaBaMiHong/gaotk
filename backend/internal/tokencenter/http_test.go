@@ -101,6 +101,67 @@ func TestBrowseKeepsRecordsAndLoadsFullModelOnDemand(t *testing.T) {
 		}
 	}
 }
+
+func TestBrowseSelectsOneBoardAndPreservesOverviewsRelayRanksAndFullDetails(t *testing.T) {
+	store := &memoryStore{}
+	rank, relayRank, score := 1, 7, 84.0
+	c := Catalog{Version: "published", Source: "Chaos", RankingAuthority: "chaos", DefaultRanking: "value-general-balanced", Models: []Model{
+		{ID: "one", Name: "One", Evaluations: []Evaluation{{BenchmarkID: "full-history"}}},
+		{ID: "two", Name: "Two", Evaluations: []Evaluation{{BenchmarkID: "full-history"}}},
+		{ID: "three", Name: "Three"},
+	}, Sites: []Site{{ID: "relay", Name: "Relay", ProviderKind: "relay"}}, Offers: []Offer{}, Rankings: map[string]Ranking{
+		"value-general-balanced": {Topic: "value-general-balanced", Title: "General value", Source: "published-source", Metadata: json.RawMessage(`{"list":{"entityType":"ai_model"},"valuePolicy":{"abilityWeight":0.6,"priceWeight":0.4}}`), Entries: []RankedEntry{{EntityID: "one", Rank: &rank, Score: &score, Metadata: json.RawMessage(`{"metadata":{"valueScore":{"abilityScore":88,"referenceCost":2}}}`)}}, Excluded: []RankedEntry{{EntityID: "two", Metadata: json.RawMessage(`{"metadata":{"valueScore":{"unrankedReason":"missing_reference_quote","missingEvidence":["quote"]}}}`)}}},
+		"value-coding-balanced":  {Topic: "value-coding-balanced", Title: "Coding value", Source: "other-source", Metadata: json.RawMessage(`{"list":{"entityType":"ai_model"},"valuePolicy":{"abilityWeight":0.7,"priceWeight":0.3}}`), Entries: []RankedEntry{{EntityID: "three", Rank: &rank, Score: &score, Metadata: json.RawMessage(`{"metadata":{"valueScore":{"abilityScore":91}}}`)}}, Excluded: []RankedEntry{{EntityID: "one", Metadata: json.RawMessage(`{"metadata":{"valueScore":{"unrankedReason":"coding_evidence_missing"}}}`)}}},
+		"empty":                  {Topic: "empty", Title: "Empty published board", Entries: []RankedEntry{}, Metadata: json.RawMessage(`{"list":{"entityType":"ai_model"}}`)},
+		"relays":                 {Topic: "relays", Title: "Relay board", Entries: []RankedEntry{{EntityID: "relay", Rank: &relayRank, Score: &score}}},
+	}}
+	if err := store.Save(context.Background(), Snapshot{Catalog: c}, false); err != nil {
+		t.Fatal(err)
+	}
+	router := gin.New()
+	RegisterRoutes(router.Group("/api/v1"), router.Group("/api/v1/admin"), testService(t, store, ""))
+	read := func(path string, target any) {
+		t.Helper()
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, httptest.NewRequest("GET", path, nil))
+		if response.Code != 200 || json.Unmarshal(response.Body.Bytes(), target) != nil {
+			t.Fatalf("invalid response: %d %s", response.Code, response.Body.String())
+		}
+	}
+	var browse Catalog
+	read("/api/v1/tokencenter/catalog?view=browse", &browse)
+	if browse.RankingKey != c.DefaultRanking || len(browse.Models) != 3 || len(browse.Rankings) != 4 || browse.Summary == nil || browse.Summary.PublishedBoards != 3 {
+		t.Fatalf("browse lost records, default board or board counts: %+v", browse)
+	}
+	for key, board := range browse.Rankings {
+		if board.EntryCount == nil || *board.EntryCount != len(c.Rankings[key].Entries) || board.ExcludedCount == nil || *board.ExcludedCount != len(c.Rankings[key].Excluded) || board.DetailsIncluded == nil || *board.DetailsIncluded != (key == browse.RankingKey) || len(board.Excluded) != 0 {
+			t.Fatalf("wrong board overview: %s %+v", key, board)
+		}
+		if key != browse.RankingKey && len(board.Entries) != 0 || key == browse.RankingKey && (len(board.Entries) != 1 || len(board.Entries[0].Metadata) > 0 && string(board.Entries[0].Metadata) != "null") {
+			t.Fatalf("browse duplicated per-model evidence or returned another board's entries: %+v", board)
+		}
+	}
+	if browse.Rankings["value-coding-balanced"].Title != "Coding value" || browse.Rankings["value-coding-balanced"].Source != "other-source" || !bytes.Contains(browse.Rankings["value-coding-balanced"].Metadata, []byte(`"abilityWeight":0.7`)) || !bytes.Contains(browse.Models[0].ValueScore, []byte(`"abilityScore":88`)) || !bytes.Contains(browse.Models[1].ValueScore, []byte("missing_reference_quote")) {
+		t.Fatal("board overview policy or selected model evidence was dropped")
+	}
+	if len(browse.Relays) != 1 || browse.Relays[0].Rank == nil || *browse.Relays[0].Rank != relayRank || browse.Home == nil || len(browse.Home.Relays) != 1 || *browse.Home.Relays[0].Rank != relayRank {
+		t.Fatal("summary-only relay board removed the existing homepage/relay ranks")
+	}
+	read("/api/v1/tokencenter/catalog?view=browse&ranking=value-coding-balanced", &browse)
+	if browse.RankingKey != "value-coding-balanced" || browse.Models[0].ID != "three" || !bytes.Contains(browse.Models[0].ValueScore, []byte(`"abilityScore":91`)) {
+		t.Fatal("changing the selected board did not load its own evidence")
+	}
+	var full Catalog
+	read("/api/v1/tokencenter/catalog?ranking=value-general-balanced", &full)
+	if len(full.Rankings["value-coding-balanced"].Entries) != 1 || len(full.Rankings["value-coding-balanced"].Excluded) != 1 || len(full.Models[0].Evaluations) != 1 {
+		t.Fatal("browse projection changed the full catalog publication")
+	}
+	var detail Model
+	read("/api/v1/tokencenter/models/two?ranking=value-general-balanced", &detail)
+	if len(detail.Evaluations) != 1 || !bytes.Contains(detail.ValueScore, []byte("missing_reference_quote")) {
+		t.Fatal("model detail lost full evidence")
+	}
+}
 func TestSyncConditionalMetadataOnlyAfterSuccess(t *testing.T) {
 	var mode atomic.Int32
 	var conditional atomic.Bool
