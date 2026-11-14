@@ -102,6 +102,7 @@ type Model struct {
 }
 type Site struct {
 	SubjectGovernance
+	identityOnly    bool     // transient projection state, never a catalog inventory
 	ID              string   `json:"id"`
 	Name            string   `json:"name"`
 	Initials        string   `json:"initials"`

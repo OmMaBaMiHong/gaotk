@@ -1,6 +1,14 @@
 package tokencenter
 
-import "net/url"
+import (
+	"net/url"
+	"strings"
+)
+
+func governedLogoPath(value string) bool {
+	u, err := url.Parse(value)
+	return err == nil && !u.IsAbs() && u.Host == "" && strings.HasPrefix(u.Path, "/public/v1/products/") && strings.HasSuffix(u.Path, "/logo")
+}
 
 // A published relation, never inferred from a source name by this consumer.
 type OfficialModel struct {

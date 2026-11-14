@@ -484,6 +484,7 @@ func (a *chaosAccumulator) appendRanking(domain, topic, view, configuredUnit str
 
 type chaosProvider struct {
 	SubjectGovernance
+	RecordKind                                                                                  string `json:"recordKind"`
 	EntityID, Key, Kind, Name, DocumentationURL, APIURL, SourceURL, SourceName, SourceAuthority string
 	LogoURL, LogoSourceURL                                                                      string
 	WebsiteURL, PricingURL, PurchaseURL                                                         string
@@ -539,16 +540,24 @@ func (a *chaosAccumulator) appendProviderMaterial(sourceMaterialID string, raw j
 		website = p.APIURL
 	}
 	site := Site{ID: p.EntityID, EntityID: p.EntityID, ProviderKey: p.Key, ProviderKind: p.Kind, Name: p.Name, Website: website, Models: len(data.Models), Tags: append([]string{}, p.Tags...), SourceURL: p.SourceURL, SourceName: p.SourceName, SourceAuthority: p.SourceAuthority, ObservedAt: p.ObservedAt}
+	site.identityOnly = p.RecordKind == "manufacturer_registry"
 	site.WebsiteURL, site.PricingURL, site.PurchaseURL = p.WebsiteURL, p.PricingURL, p.PurchaseURL
-	if webURL(p.LogoURL) {
+	if webURL(p.LogoURL) || governedLogoPath(p.LogoURL) {
 		site.LogoURL, site.LogoSourceURL = p.LogoURL, p.LogoSourceURL
 	}
 	site.SubjectGovernance = p.SubjectGovernance
 	if index, exists := a.sites[site.ID]; !exists {
 		a.sites[site.ID] = len(a.catalog.Sites)
 		a.catalog.Sites = append(a.catalog.Sites, site)
-	} else if preferSource(a.catalog.Sites[index].SourceAuthority, site.SourceAuthority) {
+	} else if !site.identityOnly && (a.catalog.Sites[index].identityOnly || preferSource(a.catalog.Sites[index].SourceAuthority, site.SourceAuthority)) {
+		if governedLogoPath(a.catalog.Sites[index].LogoURL) && !governedLogoPath(site.LogoURL) && (site.LogoURL == "" || site.SourceAuthority != "first_party") {
+			site.LogoURL, site.LogoSourceURL = a.catalog.Sites[index].LogoURL, a.catalog.Sites[index].LogoSourceURL
+		}
 		a.catalog.Sites[index] = site
+	} else if governedLogoPath(site.LogoURL) && (a.catalog.Sites[index].LogoURL == "" || a.catalog.Sites[index].SourceAuthority != "first_party" && !governedLogoPath(a.catalog.Sites[index].LogoURL)) {
+		// An identity-only material can supply the published asset reference for
+		// this exact entity without replacing its existing model inventory.
+		a.catalog.Sites[index].LogoURL, a.catalog.Sites[index].LogoSourceURL = site.LogoURL, site.LogoSourceURL
 	}
 	a.observeOptional(p.ObservedAt)
 	for _, source := range data.Models {
